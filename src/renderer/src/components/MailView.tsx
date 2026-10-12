@@ -203,7 +203,7 @@ function AppDock(): ReactNode {
         onChange={(w) => setLayout({ dockWidth: w })}
         onCommit={() => void saveLayout()}
       />
-      <section className="flex shrink-0 flex-col border-l border-line" style={{ width: layout.dockWidth }}>
+      <section className="flex min-w-0 shrink-0 flex-col overflow-hidden border-l border-line" style={{ width: layout.dockWidth }}>
         <div className="flex items-center gap-2 border-b border-line px-3 py-2">
           <select
             value={layout.dockAppId ?? ''}
@@ -226,7 +226,7 @@ function AppDock(): ReactNode {
             <IconClose className="h-4 w-4" />
           </button>
         </div>
-        <div ref={hostRef} className="min-h-0 flex-1" />
+        <div ref={hostRef} className="min-h-0 min-w-0 flex-1 overflow-hidden" />
       </section>
     </>
   )

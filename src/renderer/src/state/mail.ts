@@ -81,6 +81,8 @@ function patchMessage(list: MessageSummary[], id: string, patch: Partial<Message
   return list.map((m) => (m.id === id ? { ...m, ...patch } : m))
 }
 
+let readTimer: ReturnType<typeof setTimeout> | null = null
+
 export const useMail = create<MailState>((set, get) => {
   async function reloadFolder(): Promise<void> {
     const folderId = get().activeFolderId
@@ -181,12 +183,35 @@ export const useMail = create<MailState>((set, get) => {
     },
 
     selectMessage: async (id) => {
+      if (readTimer) {
+        clearTimeout(readTimer)
+        readTimer = null
+      }
       set({ selectedMessageId: id, detail: null })
       const detail = await window.clover.mail.getMessage(id)
       set({ detail })
+
+      // Mark read shortly after opening (like most clients), if still viewing it.
       if (detail && !detail.isRead) {
-        await reloadFolder()
-        await reloadFolders()
+        readTimer = setTimeout(() => {
+          readTimer = null
+          if (get().selectedMessageId !== id) return
+          void (async () => {
+            await window.clover.mail.setFlags(id, { seen: true })
+            set({
+              messages: patchMessage(get().messages, id, { isRead: true }),
+              searchResults: get().searchResults
+                ? patchMessage(get().searchResults as MessageSummary[], id, { isRead: true })
+                : null,
+              detail:
+                get().detail?.id === id
+                  ? { ...(get().detail as MessageDetail), isRead: true }
+                  : get().detail
+            })
+            await reloadFolder()
+            await reloadFolders()
+          })()
+        }, 1500)
       }
     },
 

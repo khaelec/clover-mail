@@ -114,7 +114,7 @@ async function fetchAndStoreBody(messageId: string): Promise<void> {
     }
 
     db.update(messages)
-      .set({ snippet, hasAttachments, isRead: true })
+      .set({ snippet, hasAttachments })
       .where(eq(messages.id, messageId))
       .run()
 

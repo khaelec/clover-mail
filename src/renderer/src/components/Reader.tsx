@@ -157,7 +157,7 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
 
   if (!detail) {
     return (
-      <div className="flex h-full items-center justify-center text-[13px] text-muted">
+      <div className="flex h-full min-w-0 flex-1 items-center justify-center text-[13px] text-muted">
         Select a message to read
       </div>
     )
