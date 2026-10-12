@@ -21,5 +21,6 @@ export const SETTINGS_KEYS = {
   blockRemoteImages: 'privacy.blockRemoteImages',
   trustedSenders: 'privacy.trustedSenders',
   threadedView: 'mail.threaded',
-  calendarReminderMinutes: 'calendar.reminderMinutes'
+  calendarReminderMinutes: 'calendar.reminderMinutes',
+  dictationEnabled: 'compose.dictation'
 } as const

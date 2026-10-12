@@ -157,6 +157,7 @@ export function SettingsView(): ReactNode {
   }
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [blockRemote, setBlockRemote] = useState(true)
+  const [dictationEnabled, setDictationEnabled] = useState(false)
   const [ai, setAi] = useState<AiSettings | null>(null)
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null)
   const [apiKey, setApiKey] = useState('')
@@ -210,6 +211,7 @@ export function SettingsView(): ReactNode {
     void window.clover.appInfo().then(setInfo)
     void window.clover.settings.getAll().then((settings) => {
       setBlockRemote(settings[SETTINGS_KEYS.blockRemoteImages] === true)
+      setDictationEnabled(settings[SETTINGS_KEYS.dictationEnabled] === true)
     })
     void window.clover.ai.getSettings().then(setAi)
     void window.clover.ai.status().then(setAiStatus)
@@ -481,6 +483,39 @@ export function SettingsView(): ReactNode {
 
           {tab === 'mail' && (
           <>
+          <Card title="Dictation">
+            <button
+              type="button"
+              onClick={() => {
+                const next = !dictationEnabled
+                setDictationEnabled(next)
+                void window.clover.settings.set(SETTINGS_KEYS.dictationEnabled, next)
+              }}
+              className="flex w-full items-center justify-between gap-4 text-left"
+            >
+              <span>
+                <span className="block text-[13px] text-ink">Dictate replies by voice</span>
+                <span className="mt-0.5 block text-[12px] text-muted">
+                  Adds a Dictate button to the compose window that turns speech into text using the
+                  Windows offline speech engine. Audio never leaves your computer. Off by default.
+                </span>
+              </span>
+              <span
+                className={
+                  'relative h-6 w-11 shrink-0 rounded-full transition-colors ' +
+                  (dictationEnabled ? 'bg-accent' : 'bg-line')
+                }
+              >
+                <span
+                  className={
+                    'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ' +
+                    (dictationEnabled ? 'left-[22px]' : 'left-0.5')
+                  }
+                />
+              </span>
+            </button>
+          </Card>
+
           <Card title="Import mail">
             <p className="text-[12px] text-muted">
               Import messages from an .mbox file (Thunderbird, Apple Mail, Gmail Takeout, …) into a

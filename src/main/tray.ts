@@ -1,11 +1,16 @@
 import { app, Menu, nativeImage, Tray, type BrowserWindow } from 'electron'
+import { TRAY_ICON_PNG_BASE64 } from './trayIcon'
 
 let tray: Tray | null = null
 
+function trayImage(): Electron.NativeImage {
+  const image = nativeImage.createFromBuffer(Buffer.from(TRAY_ICON_PNG_BASE64, 'base64'))
+  return image.isEmpty() ? nativeImage.createEmpty() : image
+}
+
 export function createTray(getWindow: () => BrowserWindow | null, onQuit: () => void): void {
   if (tray) return
-  const icon = nativeImage.createFromPath(process.execPath)
-  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
+  tray = new Tray(trayImage())
   tray.setToolTip('Clover Mail')
   tray.setContextMenu(
     Menu.buildFromTemplate([

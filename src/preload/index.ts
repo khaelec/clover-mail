@@ -68,7 +68,7 @@ const api: CloverApi = {
   update: {
     check: () => ipcRenderer.invoke(IpcChannels.update.check),
     download: () => ipcRenderer.invoke(IpcChannels.update.download),
-    install: () => ipcRenderer.send(IpcChannels.update.install),
+    install: () => ipcRenderer.invoke(IpcChannels.update.install),
     onEvent: (cb) => {
       const listener = (_e: unknown, event: unknown): void => cb(event as never)
       ipcRenderer.on(IpcChannels.update.event, listener)

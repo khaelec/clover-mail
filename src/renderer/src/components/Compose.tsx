@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Lint, LocalLinter, Suggestion } from 'harper.js'
 import type { ComposeInput, DraftData, Snippet } from '@shared/mail'
+import { SETTINGS_KEYS } from '@shared/theme'
 import { useMail } from '../state/mail'
 import { IconCheck, IconClose, IconHighlight, IconMic, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
 
@@ -113,6 +114,7 @@ export function Compose({
   const [partial, setPartial] = useState('')
   const [dictationError, setDictationError] = useState<string | null>(null)
   const [micSupported, setMicSupported] = useState(false)
+  const [dictationOn, setDictationOn] = useState(false)
   const [laterOpen, setLaterOpen] = useState(false)
 
   useEffect(() => {
@@ -328,6 +330,9 @@ export function Compose({
 
   useEffect(() => {
     void window.clover.dictation.supported().then(setMicSupported)
+    void window.clover.settings
+      .get(SETTINGS_KEYS.dictationEnabled)
+      .then((value) => setDictationOn(value === true))
   }, [])
 
   useEffect(() => {
@@ -681,7 +686,7 @@ export function Compose({
             <IconPaperclip className="h-4 w-4" />
             Attach
           </button>
-          {micSupported && (
+          {micSupported && dictationOn && (
             <button
               type="button"
               onClick={() => void toggleDictation()}
