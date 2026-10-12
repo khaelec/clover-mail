@@ -1,6 +1,7 @@
 appId: com.clovermail.app
 productName: Clover Mail
 copyright: Copyright © 2026 Clover Mail
+artifactName: CloverMail-${version}-setup.${ext}
 directories:
   output: release
   buildResources: build
