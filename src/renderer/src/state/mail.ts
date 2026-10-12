@@ -258,7 +258,10 @@ export const useMail = create<MailState>((set, get) => {
         return
       }
       set({ searchQuery: query })
-      const accountId = get().activeAccountId ?? undefined
+      const accountId =
+        get().activeFolderId === UNIFIED_FOLDER_ID
+          ? undefined
+          : (get().activeAccountId ?? undefined)
       const searchResults = await window.clover.mail.search(trimmed, accountId)
       set({ searchResults })
     },

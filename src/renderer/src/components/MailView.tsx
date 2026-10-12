@@ -381,7 +381,20 @@ export function MailView(): ReactNode {
     attachments?: { name: string; path: string }[]
   }>({ open: false })
   const [query, setQuery] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        searchRef.current?.focus()
+        searchRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const activeAccount = useMemo(
     () => accounts.find((a) => a.id === activeAccountId) ?? null,
@@ -683,9 +696,10 @@ export function MailView(): ReactNode {
         <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
           <IconSearch className="h-4 w-4 text-muted" />
           <input
+            ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search mail"
+            placeholder="Search mail (Ctrl+F)"
             className="w-full bg-transparent text-[13px] text-ink placeholder:text-muted focus:outline-none"
           />
           <button
@@ -905,7 +919,18 @@ export function MailView(): ReactNode {
               })
             ))}
 
-          {!showingThreads && visibleList.length === 0 && (
+          {searchQuery && selectedIds.length === 0 ? (
+          <div className="flex items-center gap-2 border-b border-line bg-accent/8 px-3 py-1.5 text-[12px] text-accent">
+            <span>
+              {searchResults ? searchResults.length : 0} result{(searchResults?.length ?? 0) === 1 ? '' : 's'} for “{searchQuery}”
+            </span>
+            <button type="button" onClick={clearSearch} className="ml-auto text-muted hover:text-ink">
+              Clear
+            </button>
+          </div>
+        ) : null}
+
+        {!showingThreads && visibleList.length === 0 && (
             <div className="px-4 py-10 text-center text-[12px] text-muted">
               {searchQuery
                 ? 'No results.'
