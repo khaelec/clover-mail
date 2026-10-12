@@ -14,7 +14,9 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "dist": "electron-vite build && electron-builder --win",
+    "dist:dir": "electron-vite build && electron-builder --win --dir"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -35,7 +37,6 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.2.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/better-sqlite3": "^9.6.0",
     "@types/mailparser": "^3.9.0",
@@ -46,6 +47,7 @@
     "@vitejs/plugin-react": "^5.2.0",
     "drizzle-kit": "^0.31.11",
     "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",

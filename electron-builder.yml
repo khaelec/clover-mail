@@ -1,0 +1,22 @@
+appId: com.clovermail.app
+productName: Clover Mail
+copyright: Copyright © 2026 Clover Mail
+directories:
+  output: release
+  buildResources: build
+# better-sqlite3 ships N-API prebuilds that work as-is; do not rebuild for Electron.
+npmRebuild: false
+asarUnpack:
+  - '**/*.node'
+  - node_modules/better-sqlite3/**
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
