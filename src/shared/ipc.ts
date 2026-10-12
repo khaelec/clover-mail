@@ -169,6 +169,7 @@ export interface UpdateApi {
 export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
+  setUnread: (count: number) => void
   apps: AppsApi
   calendar: CalendarApi
   ai: AiApi

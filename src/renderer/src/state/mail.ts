@@ -129,6 +129,8 @@ export const useMail = create<MailState>((set, get) => {
       window.clover.mail.importantCount(accountId)
     ])
     set({ folders, spamCount, importantCount })
+    const totalUnread = folders.reduce((sum, folder) => sum + folder.unreadCount, 0)
+    window.clover.setUnread(totalUnread)
   }
 
   return {

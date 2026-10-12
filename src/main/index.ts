@@ -10,8 +10,10 @@ import { setStorageRoot } from '@main/mail/storage'
 import { setAppsRoot } from '@main/apps'
 import { stopAllIdle } from '@main/mail/idle'
 import { initUpdater } from '@main/updater'
+import { createTray } from '@main/tray'
 
 let mainWindow: BrowserWindow | null = null
+let isQuitting = false
 
 const isWebUrl = (url: string): boolean => /^https?:\/\//i.test(url) || url.startsWith('mailto:')
 const isNavigable = (url: string): boolean =>
@@ -110,6 +112,14 @@ function createWindow(): void {
     mainWindow = null
   })
 
+  // Close to tray instead of quitting.
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault()
+      mainWindow?.hide()
+    }
+  })
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url) || url.startsWith('mailto:')) void shell.openExternal(url)
     return { action: 'deny' }
@@ -190,6 +200,13 @@ app.whenReady().then(async () => {
   registerIpc(() => mainWindow)
   createWindow()
   void initUpdater()
+  createTray(
+    () => mainWindow,
+    () => {
+      isQuitting = true
+      app.quit()
+    }
+  )
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -201,6 +218,10 @@ app.on('window-all-closed', () => {
     closeDatabase()
     app.quit()
   }
+})
+
+app.on('before-quit', () => {
+  isQuitting = true
 })
 
 app.on('will-quit', () => {

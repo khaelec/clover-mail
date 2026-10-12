@@ -8,6 +8,7 @@ import { registerCalendarIpc } from './calendar'
 import { registerAiIpc } from './ai'
 import { registerWallpaperIpc } from './wallpaper'
 import { registerUpdateIpc } from './update'
+import { setTrayUnread } from '@main/tray'
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.appInfo, (): AppInfo => {
@@ -42,6 +43,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     else win.maximize()
   })
   ipcMain.on(IpcChannels.windowClose, () => getWindow()?.close())
+  ipcMain.on(IpcChannels.appSetUnread, (_event, count: number) => setTrayUnread(count))
 
   registerMailIpc(getWindow)
   registerAppsIpc()

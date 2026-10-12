@@ -162,6 +162,8 @@ export interface MailEvent {
   folderName?: string
   fetched?: number
   error?: string
+  title?: string
+  body?: string
 }
 
 export interface CreateFolderInput {

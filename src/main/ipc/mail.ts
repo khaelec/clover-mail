@@ -1,4 +1,4 @@
-import { ipcMain, type BrowserWindow } from 'electron'
+import { ipcMain, Notification, type BrowserWindow } from 'electron'
 import { IpcChannels } from '@shared/channels'
 import type {
   AccountInput,
@@ -38,7 +38,25 @@ import { startAllIdle, startIdle, stopIdle } from '@main/mail/idle'
 import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
 
 export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
-  const emit: Emit = (event) => getWindow()?.webContents.send(IpcChannels.mail.events, event)
+  const emit: Emit = (event) => {
+    getWindow()?.webContents.send(IpcChannels.mail.events, event)
+    if (event.type === 'mail:new') {
+      try {
+        const notification = new Notification({
+          title: event.title ? `New mail from ${event.title}` : 'New mail',
+          body: event.body ?? ''
+        })
+        notification.on('click', () => {
+          const win = getWindow()
+          win?.show()
+          win?.focus()
+        })
+        notification.show()
+      } catch {
+        // notifications may be unavailable
+      }
+    }
+  }
 
   ipcMain.handle(IpcChannels.mail.listAccounts, () => accountService.listAccounts())
   ipcMain.handle(IpcChannels.mail.createAccount, (_e, input: CreateAccountInput) => {

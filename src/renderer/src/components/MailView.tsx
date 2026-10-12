@@ -387,14 +387,39 @@ export function MailView(): ReactNode {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      const target = e.target as HTMLElement | null
+      const typing =
+        !!target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault()
         searchRef.current?.focus()
         searchRef.current?.select()
+        return
+      }
+      if (typing || e.ctrlKey || e.metaKey || e.altKey) return
+      const store = useMail.getState()
+      if (e.key === 'c') {
+        e.preventDefault()
+        setComposeState({ open: true })
+      } else if (e.key === '/') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      } else if (e.key === 'j' || e.key === 'k') {
+        const list = store.searchResults ?? store.messages
+        if (list.length === 0) return
+        const idx = list.findIndex((m) => m.id === store.selectedMessageId)
+        const next = e.key === 'j' ? Math.min(list.length - 1, idx + 1) : Math.max(0, idx - 1)
+        if (list[next]) void store.selectMessage(list[next].id)
+      } else if (e.key === 'r') {
+        if (store.detail) openReply()
+      } else if (e.key === 'a') {
+        if (store.detail) void store.bulkIds([store.detail.id], 'archive')
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const activeAccount = useMemo(

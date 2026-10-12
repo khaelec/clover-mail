@@ -1,7 +1,7 @@
 import type { ImapFlow } from 'imapflow'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, desc } from 'drizzle-orm'
 import { getDb } from '../db'
-import { folders } from '../db/schema'
+import { folders, messages } from '../db/schema'
 import { getAccountById, listAccounts } from './accounts'
 import { buildAccountClient } from './auth'
 import { syncFolder } from './sync'
@@ -56,7 +56,19 @@ async function onNewMail(handle: Handle, emit: Emit): Promise<void> {
       // ignore; next event or manual sync will reconcile
     }
   }
-  emit({ type: 'mail:new', accountId: handle.accountId })
+  const newest = getDb()
+    .select()
+    .from(messages)
+    .where(eq(messages.accountId, handle.accountId))
+    .orderBy(desc(messages.dateUtc))
+    .limit(1)
+    .get()
+  emit({
+    type: 'mail:new',
+    accountId: handle.accountId,
+    title: newest?.fromName || newest?.fromEmail || 'New mail',
+    body: newest?.subject ?? ''
+  })
 }
 
 function reconnect(handle: Handle, emit: Emit): void {
