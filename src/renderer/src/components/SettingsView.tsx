@@ -187,6 +187,8 @@ export function SettingsView(): ReactNode {
   const updatePercent = useUpdate((s) => s.percent)
   const updateError = useUpdate((s) => s.error)
   const checkUpdates = useUpdate((s) => s.check)
+  const downloadUpdate = useUpdate((s) => s.download)
+  const installUpdate = useUpdate((s) => s.install)
   const updateText =
     updateStatus === 'checking'
       ? 'Checking…'
@@ -195,7 +197,7 @@ export function SettingsView(): ReactNode {
         : updateStatus === 'downloading'
           ? `Downloading ${updatePercent ?? 0}%`
           : updateStatus === 'ready'
-            ? 'Ready to install — see the banner'
+            ? `Update ${updateVersion ? `v${updateVersion} ` : ''}downloaded`
             : updateStatus === 'none'
               ? 'Up to date'
               : updateStatus === 'dev'
@@ -916,7 +918,7 @@ export function SettingsView(): ReactNode {
               <dt className="text-muted">Update feed</dt>
               <dd className="text-ink">github: khaelec/clover-mail</dd>
             </dl>
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => void checkUpdates()}
@@ -924,8 +926,32 @@ export function SettingsView(): ReactNode {
               >
                 Check for updates
               </button>
+              {updateStatus === 'available' && (
+                <button
+                  type="button"
+                  onClick={() => void downloadUpdate()}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink"
+                >
+                  Download {updateVersion ? `v${updateVersion}` : 'update'}
+                </button>
+              )}
+              {updateStatus === 'ready' && (
+                <button
+                  type="button"
+                  onClick={() => installUpdate()}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink"
+                >
+                  Restart &amp; install
+                </button>
+              )}
               {updateText && <span className="text-[12px] text-muted">{updateText}</span>}
             </div>
+            {updateStatus === 'ready' && (
+              <p className="mt-2 text-[12px] text-muted">
+                If the app doesn&apos;t restart by itself, quit Clover Mail from the tray and run the
+                downloaded installer once.
+              </p>
+            )}
           </Card>
             </>
           )}

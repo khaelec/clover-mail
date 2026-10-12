@@ -11,7 +11,10 @@ import { registerUpdateIpc } from './update'
 import { registerBackupIpc } from './backup'
 import { setTrayUnread } from '@main/tray'
 
-export function registerIpc(getWindow: () => BrowserWindow | null): void {
+export function registerIpc(
+  getWindow: () => BrowserWindow | null,
+  forceQuit: () => void
+): void {
   ipcMain.handle(IpcChannels.appInfo, (): AppInfo => {
     return AppInfoSchema.parse({
       name: app.getName(),
@@ -51,6 +54,6 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   registerCalendarIpc()
   registerAiIpc(getWindow)
   registerWallpaperIpc()
-  registerUpdateIpc(getWindow)
+  registerUpdateIpc(getWindow, forceQuit)
   registerBackupIpc(getWindow)
 }

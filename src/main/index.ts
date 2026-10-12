@@ -201,7 +201,12 @@ app.whenReady().then(async () => {
   initDatabase(app.getPath('userData'))
   setStorageRoot(app.getPath('userData'))
   setAppsRoot(app.getPath('userData'))
-  registerIpc(() => mainWindow)
+  registerIpc(
+    () => mainWindow,
+    () => {
+      isQuitting = true
+    }
+  )
   createWindow()
   void initUpdater()
   createTray(
