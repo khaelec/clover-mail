@@ -1117,6 +1117,8 @@ export function SettingsView(): ReactNode {
                   ? 'None'
                   : `${customApps.length} — ${customApps.map((a) => a.name).join(', ')} (run in background)`}
               </dd>
+              <dt className="text-muted">License</dt>
+              <dd className="text-ink">MIT (open source)</dd>
             </dl>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
@@ -1145,6 +1147,19 @@ export function SettingsView(): ReactNode {
                 </button>
               )}
               {updateText && <span className="text-[12px] text-muted">{updateText}</span>}
+              <button
+                type="button"
+                onClick={() =>
+                  void window.clover.openLicenses().then((result) => {
+                    if (!result.opened && result.path) {
+                      void window.navigator.clipboard.writeText(result.path)
+                    }
+                  })
+                }
+                className="text-[12px] text-muted underline hover:text-ink"
+              >
+                Open source licenses
+              </button>
             </div>
             {updateStatus === 'ready' && (
               <p className="mt-2 text-[12px] text-muted">

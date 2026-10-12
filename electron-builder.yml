@@ -12,6 +12,9 @@ files:
 asarUnpack:
   - '**/*.node'
   - node_modules/better-sqlite3/**
+extraResources:
+  - from: THIRD-PARTY-NOTICES.txt
+    to: THIRD-PARTY-NOTICES.txt
 win:
   icon: build/icon.ico
   target:

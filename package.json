@@ -2,9 +2,17 @@
   "name": "clover-mail",
   "version": "0.4.6",
   "description": "Clover Mail - a fast, good-looking email client with live wallpapers, custom apps, calendar/ICS, and AI copilot.",
-  "author": "Clover Mail",
-  "license": "UNLICENSED",
+  "author": "khaelec",
+  "license": "MIT",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/khaelec/clover-mail.git"
+  },
+  "homepage": "https://github.com/khaelec/clover-mail",
+  "bugs": {
+    "url": "https://github.com/khaelec/clover-mail/issues"
+  },
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -15,6 +23,7 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "db:generate": "drizzle-kit generate",
+    "licenses": "node scripts/generate-licenses.cjs",
     "dist": "electron-vite build && electron-builder --win",
     "dist:dir": "electron-vite build && electron-builder --win --dir",
     "dist:personal": "electron-vite build && electron-builder --win --config electron-builder.personal.yml --publish never"

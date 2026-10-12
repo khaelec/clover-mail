@@ -59,4 +59,12 @@ Requires **Node 20+** on Windows. `better-sqlite3` ships N-API prebuilds, so no 
 
 ## License
 
-Private/personal project by the author. Contact before reuse.
+[MIT](LICENSE) © 2026 khaelec. Third-party components and their licenses are listed in
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) — regenerated with `npm run licenses`, shipped
+with the installer, and viewable in-app from **Settings → Updates & About → Open source licenses**.
+
+## Branding
+
+The app icon (`build/icon.ico`) and the Clover mark are the author's own artwork — replace them
+before redistributing a fork. "Clover Mail" is the project name; don't imply endorsement, and check
+for trademark conflicts in your region before publishing a derivative.

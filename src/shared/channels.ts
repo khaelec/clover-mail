@@ -11,6 +11,7 @@ export const IpcChannels = {
   windowMaximizedChanged: 'window:maximized-changed',
   appSetUnread: 'app:set-unread',
   appNavigate: 'app:navigate',
+  appOpenLicenses: 'app:open-licenses',
   mail: {
     listAccounts: 'mail:list-accounts',
     createAccount: 'mail:create-account',

@@ -1,4 +1,6 @@
-import { app, ipcMain, type BrowserWindow } from 'electron'
+import { app, ipcMain, shell, type BrowserWindow } from 'electron'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { IpcChannels } from '@shared/channels'
 import { AppInfoSchema, type AppInfo } from '@shared/ipc'
 import { getAllSettings, getSetting, setSetting, deleteSetting } from '@main/settings'
@@ -49,6 +51,19 @@ export function registerIpc(
   })
   ipcMain.on(IpcChannels.windowClose, () => getWindow()?.close())
   ipcMain.on(IpcChannels.appSetUnread, (_event, count: number) => setTrayUnread(count))
+
+  ipcMain.handle(IpcChannels.appOpenLicenses, async () => {
+    const candidates = app.isPackaged
+      ? [join(process.resourcesPath, 'THIRD-PARTY-NOTICES.txt')]
+      : [
+          join(app.getAppPath(), 'THIRD-PARTY-NOTICES.txt'),
+          join(process.cwd(), 'THIRD-PARTY-NOTICES.txt')
+        ]
+    const file = candidates.find((candidate) => existsSync(candidate))
+    if (!file) return { opened: false, path: '' }
+    const error = await shell.openPath(file)
+    return { opened: !error, path: file }
+  })
 
   registerMailIpc(getWindow)
   registerAppsIpc()

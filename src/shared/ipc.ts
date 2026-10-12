@@ -225,6 +225,7 @@ export interface CloverApi {
   getFilePath: (file: unknown) => string
   setUnread: (count: number) => void
   onNavigate: (cb: (target: string) => void) => () => void
+  openLicenses: () => Promise<{ opened: boolean; path: string }>
   apps: AppsApi
   calendar: CalendarApi
   ai: AiApi
