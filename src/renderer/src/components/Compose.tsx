@@ -192,15 +192,20 @@ export function Compose({
   }, [pending, send, onClose])
 
   useEffect(() => {
-    void window.clover.mail.listAliases(accountId).then((list) => {
-      setFromOptions([
-        { name: null, email: accountEmail ?? '' },
-        ...list.map((a) => ({ name: a.name, email: a.email }))
+    void (async () => {
+      const [list, defaultFrom] = await Promise.all([
+        window.clover.mail.listAliases(accountId),
+        window.clover.mail.getDefaultFrom(accountId)
       ])
-    })
-    void window.clover.mail.getDefaultFrom(accountId).then((email) => {
-      setFromEmail(email || accountEmail || '')
-    })
+      const options = [
+        { name: null as string | null, email: accountEmail ?? '' },
+        ...list.map((a) => ({ name: a.name, email: a.email }))
+      ]
+      setFromOptions(options)
+      // Only use the saved default if the address still exists on this account.
+      const valid = defaultFrom && options.some((o) => o.email === defaultFrom)
+      setFromEmail(valid && defaultFrom ? defaultFrom : accountEmail ?? '')
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, accountEmail])
 
