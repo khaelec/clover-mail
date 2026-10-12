@@ -7,6 +7,30 @@ import { useMail } from '../state/mail'
 import { useAi } from '../state/ai'
 import { IconClose, IconDownload, IconFlag, IconForward, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
 
+const AI_ACTIONS: { label: string; prompt: string }[] = [
+  {
+    label: 'Summarize',
+    prompt:
+      'Summarize this email in a few bullets, then list any action items, deadlines, or dates.'
+  },
+  {
+    label: 'Action items',
+    prompt: 'List only the action items, deadlines, and dates mentioned in this email.'
+  },
+  {
+    label: 'Draft a reply',
+    prompt: 'Draft a concise, friendly reply to this email. Output only the reply text, no subject line.'
+  },
+  {
+    label: 'Reply professionally',
+    prompt: 'Draft a professional, concise reply to this email. Output only the reply text.'
+  },
+  {
+    label: 'Explain simply',
+    prompt: 'Explain what this email is about in plain, simple terms.'
+  }
+]
+
 function formatDate(value: number | null): string {
   if (!value) return ''
   try {
@@ -75,6 +99,7 @@ export function Reader({
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const effective = useTheme((s) => s.effective)
   const [menu, setMenu] = useState<{ x: number; y: number; mode: 'main' | 'move' } | null>(null)
+  const [aiOpen, setAiOpen] = useState(false)
   const [preview, setPreview] = useState<{
     id: string
     name: string
@@ -259,14 +284,47 @@ export function Reader({
           >
             <IconTrash />
           </button>
-          <button
-            type="button"
-            title="Ask copilot to summarize"
-            onClick={() => askCopilot('Summarize this email in a few bullets, then list any action items, deadlines, or dates.')}
-            className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted hover:text-accent"
-          >
-            <IconSparkles />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              title="AI actions"
+              onClick={() => setAiOpen((v) => !v)}
+              className={
+                'grid h-8 w-8 place-items-center rounded-lg border border-line ' +
+                (aiOpen ? 'text-accent' : 'text-muted hover:text-accent')
+              }
+            >
+              <IconSparkles />
+            </button>
+            {aiOpen && (
+              <div className="absolute right-0 top-9 z-50 w-56 overflow-hidden rounded-xl border border-line bg-surface py-1 text-ink shadow-2xl">
+                {AI_ACTIONS.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => {
+                      setAiOpen(false)
+                      askCopilot(action.prompt)
+                    }}
+                    className="block w-full px-3 py-1.5 text-left text-[12.5px] hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    {action.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiOpen(false)
+                    const lang = window.prompt('Translate into which language?', 'Spanish')
+                    if (lang) askCopilot(`Translate this email into ${lang}. Output only the translation.`)
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-[12.5px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  Translate…
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={onReply}
