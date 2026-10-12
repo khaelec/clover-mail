@@ -42,6 +42,16 @@ app.whenReady().then(async () => {
       const search = await api.search('nonexistent-term-xyz')
       const junk = await api.listJunk(created.id)
       const spam = await api.spamCount(created.id)
+      const rule = await api.createRule(created.id, {
+        name: 'Test rule',
+        isEnabled: true,
+        matchAll: true,
+        stopProcessing: false,
+        conditions: [{ field: 'subject', op: 'contains', value: 'x' }],
+        actions: [{ action: 'markRead' }]
+      })
+      const rules = await api.listRules(created.id)
+      await api.deleteRule(rule.id)
       await api.deleteAccount(created.id)
       const after = await api.listAccounts()
       return JSON.stringify({
@@ -54,6 +64,8 @@ app.whenReady().then(async () => {
         searchHits: search.length,
         junk: junk.length,
         spamCount: spam,
+        rulesCreated: rules.length,
+        ruleConditions: rules[0] ? rules[0].conditions.length : 0,
         accountsAfterDelete: after.length
       })
     })()`)

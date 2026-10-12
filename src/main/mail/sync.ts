@@ -7,13 +7,14 @@ import { getAccountById, getAccountPassword } from './accounts'
 import { buildImapClient } from './imap'
 import { indexMessage } from './search'
 import { applyAssessment } from './spam'
+import { applyRules } from './rules'
 import type { MailEvent, SyncResult } from '@shared/mail'
 
 const INITIAL_FETCH = 60
 
 export type Emit = (event: MailEvent) => void
 
-interface MailboxRecord {
+export interface MailboxRecord {
   path: string
   name?: string
   delimiter?: string
@@ -59,7 +60,7 @@ const ORDER: Record<string, number> = {
   trash: 5
 }
 
-function upsertFolders(accountId: string, list: MailboxRecord[]): string[] {
+export function upsertFolders(accountId: string, list: MailboxRecord[]): string[] {
   const db = getDb()
   const ids: string[] = []
 
@@ -253,11 +254,13 @@ export async function syncAccount(accountId: string, emit: Emit): Promise<SyncRe
   const client = buildImapClient(account.incoming, password)
   await client.connect()
 
+  const db = getDb()
+  let folderIds: string[] = []
+  let fetched = 0
+
   try {
     const list = (await client.list()) as unknown as MailboxRecord[]
-    const folderIds = upsertFolders(accountId, list)
-    const db = getDb()
-    let fetched = 0
+    folderIds = upsertFolders(accountId, list)
 
     for (const folderId of folderIds) {
       const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
@@ -289,11 +292,35 @@ export async function syncAccount(accountId: string, emit: Emit): Promise<SyncRe
       }
     }
 
-    emit({ type: 'sync:done', accountId, fetched })
-    return { folders: folderIds.length, fetched }
   } finally {
     await client.logout().catch(() => undefined)
   }
+
+  let targetFolderIds: string[] = []
+  try {
+    const result = await applyRules(accountId)
+    targetFolderIds = result.targetFolderIds
+  } catch {
+    // Rule failures must not fail the sync itself.
+  }
+
+  if (targetFolderIds.length > 0) {
+    const resyncClient = buildImapClient(account.incoming, password)
+    await resyncClient.connect()
+    try {
+      for (const id of targetFolderIds) {
+        const target = getDb().select().from(folders).where(eq(folders.id, id)).get()
+        if (target) await syncOneMailbox(resyncClient, accountId, id, target.remotePath)
+      }
+    } catch {
+      // Best-effort; the next sync will reconcile.
+    } finally {
+      await resyncClient.logout().catch(() => undefined)
+    }
+  }
+
+  emit({ type: 'sync:done', accountId, fetched })
+  return { folders: folderIds.length, fetched }
 }
 
 export async function syncFolder(folderId: string, emit: Emit): Promise<SyncResult> {

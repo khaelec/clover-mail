@@ -5,8 +5,11 @@ import type { FolderSummary, MessageSummary } from '@shared/mail'
 import { Reader } from './Reader'
 import { Compose } from './Compose'
 import { AccountSetup } from './AccountSetup'
+import { RulesModal } from './RulesModal'
 import {
   IconCompose,
+  IconFilter,
+  IconFolderPlus,
   IconInbox,
   IconPaperclip,
   IconPlus,
@@ -82,8 +85,12 @@ export function MailView(): ReactNode {
   const search = useMail((s) => s.search)
   const clearSearch = useMail((s) => s.clearSearch)
   const toggleFlag = useMail((s) => s.toggleFlag)
+  const createFolder = useMail((s) => s.createFolder)
 
   const [showAdd, setShowAdd] = useState(false)
+  const [showRules, setShowRules] = useState(false)
+  const [showNewFolder, setShowNewFolder] = useState(false)
+  const [folderName, setFolderName] = useState('')
   const [composeState, setComposeState] = useState<{ open: boolean; to?: string; subject?: string; body?: string }>({
     open: false
   })
@@ -164,6 +171,47 @@ export function MailView(): ReactNode {
           Compose
         </button>
 
+        <div className="flex items-center justify-between px-3.5 pb-1 pt-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Folders</span>
+          <button
+            type="button"
+            title="New folder"
+            onClick={() => setShowNewFolder((v) => !v)}
+            className="text-muted hover:text-accent"
+          >
+            <IconFolderPlus className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {showNewFolder && (
+          <div className="flex items-center gap-1 px-2.5 pb-1.5">
+            <input
+              autoFocus
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && folderName.trim()) {
+                  void createFolder(folderName)
+                  setFolderName('')
+                  setShowNewFolder(false)
+                }
+              }}
+              placeholder="Folder name"
+              className="flex-1 rounded-lg border border-line bg-canvas/60 px-2.5 py-1.5 text-[12px] text-ink outline-none focus:border-accent"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                void createFolder(folderName)
+                setFolderName('')
+                setShowNewFolder(false)
+              }}
+              className="rounded-lg bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink"
+            >
+              Add
+            </button>
+          </div>
+        )}
+
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
           {folders.map((folder) => {
             const active = folder.id === activeFolderId
@@ -231,6 +279,14 @@ export function MailView(): ReactNode {
             placeholder="Search mail"
             className="w-full bg-transparent text-[13px] text-ink placeholder:text-muted focus:outline-none"
           />
+          <button
+            type="button"
+            title="Rules & workflow"
+            onClick={() => setShowRules(true)}
+            className="grid h-7 w-7 place-items-center rounded-md text-muted hover:text-accent"
+          >
+            <IconFilter className="h-4 w-4" />
+          </button>
           <button
             type="button"
             title="Sync now"
@@ -305,6 +361,7 @@ export function MailView(): ReactNode {
         />
       )}
       {showAdd && <AccountSetup onClose={() => setShowAdd(false)} />}
+      {showRules && <RulesModal onClose={() => setShowRules(false)} />}
     </div>
   )
 }

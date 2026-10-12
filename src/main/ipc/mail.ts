@@ -4,7 +4,9 @@ import type {
   AccountInput,
   ComposeInput,
   ConnectionTestResult,
-  CreateAccountInput
+  CreateAccountInput,
+  CreateFolderInput,
+  RuleInput
 } from '@shared/mail'
 import * as accountService from '@main/mail/accounts'
 import { testImap } from '@main/mail/imap'
@@ -15,6 +17,8 @@ import { deleteMessage, downloadAttachment, getMessageDetail, moveMessage, setFl
 import { sendMessage } from '@main/mail/send'
 import { searchMessages } from '@main/mail/search'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
+import { createFolder } from '@main/mail/folders'
+import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
 
 export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   const emit: Emit = (event) => getWindow()?.webContents.send(IpcChannels.mail.events, event)
@@ -72,6 +76,19 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.allowSender, (_e, accountId: string, email: string) =>
     setSenderKind(accountId, email, 'allow')
   )
+
+  ipcMain.handle(IpcChannels.mail.createFolder, (_e, input: CreateFolderInput) =>
+    createFolder(input.accountId, input.name, input.parentRemotePath)
+  )
+  ipcMain.handle(IpcChannels.mail.listRules, (_e, accountId: string) => listRules(accountId))
+  ipcMain.handle(IpcChannels.mail.createRule, (_e, accountId: string, input: RuleInput) =>
+    createRule(accountId, input)
+  )
+  ipcMain.handle(IpcChannels.mail.updateRule, (_e, ruleId: string, input: RuleInput) =>
+    updateRule(ruleId, input)
+  )
+  ipcMain.handle(IpcChannels.mail.deleteRule, (_e, ruleId: string) => deleteRule(ruleId))
+  ipcMain.handle(IpcChannels.mail.applyRules, (_e, accountId: string) => applyRules(accountId))
   ipcMain.handle(IpcChannels.mail.getMessage, (_e, messageId: string) =>
     getMessageDetail(messageId)
   )

@@ -205,6 +205,25 @@ export const IconShield = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconFolder = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+  </Base>
+)
+
+export const IconFolderPlus = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <path d="M12 11v6M9 14h6" />
+  </Base>
+)
+
+export const IconFilter = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M3 5h18l-7 8v6l-4-2v-4z" />
+  </Base>
+)
+
 export function CloverMark({ className }: { className?: string }): ReactNode {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" className={className} aria-hidden="true">

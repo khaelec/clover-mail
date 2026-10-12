@@ -147,6 +147,48 @@ export const spamTokens = sqliteTable('spam_tokens', {
   hamCount: integer('ham_count').notNull().default(0)
 })
 
+export const rules = sqliteTable(
+  'rules',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id').notNull(),
+    name: text('name').notNull(),
+    isEnabled: integer('is_enabled', { mode: 'boolean' }).notNull().default(true),
+    matchAll: integer('match_all', { mode: 'boolean' }).notNull().default(true),
+    stopProcessing: integer('stop_processing', { mode: 'boolean' }).notNull().default(false),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: integer('created_at').notNull()
+  },
+  (table) => [index('ix_rules_account').on(table.accountId)]
+)
+
+export const ruleConditions = sqliteTable(
+  'rule_conditions',
+  {
+    id: text('id').primaryKey(),
+    ruleId: text('rule_id')
+      .notNull()
+      .references(() => rules.id, { onDelete: 'cascade' }),
+    field: text('field').notNull(),
+    op: text('op').notNull(),
+    value: text('value').notNull()
+  },
+  (table) => [index('ix_rule_conditions_rule').on(table.ruleId)]
+)
+
+export const ruleActions = sqliteTable(
+  'rule_actions',
+  {
+    id: text('id').primaryKey(),
+    ruleId: text('rule_id')
+      .notNull()
+      .references(() => rules.id, { onDelete: 'cascade' }),
+    action: text('action').notNull(),
+    value: text('value')
+  },
+  (table) => [index('ix_rule_actions_rule').on(table.ruleId)]
+)
+
 export const schema = {
   appSettings,
   migrationsTable,
@@ -158,5 +200,8 @@ export const schema = {
   messageBodies,
   attachments,
   spamSenders,
-  spamTokens
+  spamTokens,
+  rules,
+  ruleConditions,
+  ruleActions
 }

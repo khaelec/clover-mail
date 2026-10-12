@@ -2,11 +2,14 @@ import { create } from 'zustand'
 import { JUNK_FOLDER_ID } from '@shared/mail'
 import type {
   AccountSummary,
+  ApplyRulesResult,
   ComposeInput,
   CreateAccountInput,
   FolderSummary,
   MessageDetail,
-  MessageSummary
+  MessageSummary,
+  Rule,
+  RuleInput
 } from '@shared/mail'
 
 interface MailState {
@@ -24,6 +27,7 @@ interface MailState {
   status: string | null
   error: string | null
   spamCount: number
+  rules: Rule[]
 
   init: () => Promise<void>
   refreshAccounts: () => Promise<void>
@@ -44,6 +48,11 @@ interface MailState {
   markNotSpam: (messageId: string) => Promise<void>
   blockSender: (email: string) => Promise<void>
   allowSender: (email: string) => Promise<void>
+  createFolder: (name: string) => Promise<void>
+  loadRules: () => Promise<void>
+  saveRule: (input: RuleInput, ruleId?: string) => Promise<void>
+  removeRule: (ruleId: string) => Promise<void>
+  applyRulesNow: () => Promise<ApplyRulesResult>
 }
 
 function patchMessage(list: MessageSummary[], id: string, patch: Partial<MessageSummary>): MessageSummary[] {
@@ -88,6 +97,7 @@ export const useMail = create<MailState>((set, get) => {
     status: null,
     error: null,
     spamCount: 0,
+    rules: [],
 
     init: async () => {
       window.clover.mail.onEvent((event) => {
@@ -249,6 +259,42 @@ export const useMail = create<MailState>((set, get) => {
       await window.clover.mail.allowSender(accountId, email)
       await reloadFolders()
       await reloadFolder()
+    },
+
+    createFolder: async (name) => {
+      const accountId = get().activeAccountId
+      if (!accountId || !name.trim()) return
+      await window.clover.mail.createFolder({ accountId, name: name.trim() })
+      await reloadFolders()
+    },
+
+    loadRules: async () => {
+      const accountId = get().activeAccountId
+      if (!accountId) return
+      const rules = await window.clover.mail.listRules(accountId)
+      set({ rules })
+    },
+
+    saveRule: async (input, ruleId) => {
+      const accountId = get().activeAccountId
+      if (!accountId) return
+      if (ruleId) await window.clover.mail.updateRule(ruleId, input)
+      else await window.clover.mail.createRule(accountId, input)
+      await get().loadRules()
+    },
+
+    removeRule: async (ruleId) => {
+      await window.clover.mail.deleteRule(ruleId)
+      await get().loadRules()
+    },
+
+    applyRulesNow: async () => {
+      const accountId = get().activeAccountId
+      if (!accountId) return { matched: 0, moved: 0 }
+      const result = await window.clover.mail.applyRules(accountId)
+      await reloadFolders()
+      await reloadFolder()
+      return result
     },
 
     deleteAccount: async (id) => {

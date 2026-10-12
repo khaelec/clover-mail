@@ -158,5 +158,38 @@ export const migrations: Migration[] = [
         ham_count INTEGER NOT NULL DEFAULT 0
       );
     `
+  },
+  {
+    id: '0004_rules',
+    sql: `
+      CREATE TABLE IF NOT EXISTS rules (
+        id TEXT PRIMARY KEY NOT NULL,
+        account_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        is_enabled INTEGER NOT NULL DEFAULT 1,
+        match_all INTEGER NOT NULL DEFAULT 1,
+        stop_processing INTEGER NOT NULL DEFAULT 0,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ix_rules_account ON rules(account_id);
+
+      CREATE TABLE IF NOT EXISTS rule_conditions (
+        id TEXT PRIMARY KEY NOT NULL,
+        rule_id TEXT NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
+        field TEXT NOT NULL,
+        op TEXT NOT NULL,
+        value TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ix_rule_conditions_rule ON rule_conditions(rule_id);
+
+      CREATE TABLE IF NOT EXISTS rule_actions (
+        id TEXT PRIMARY KEY NOT NULL,
+        rule_id TEXT NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
+        action TEXT NOT NULL,
+        value TEXT
+      );
+      CREATE INDEX IF NOT EXISTS ix_rule_actions_rule ON rule_actions(rule_id);
+    `
   }
 ]

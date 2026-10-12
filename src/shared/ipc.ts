@@ -2,13 +2,17 @@ import { z } from 'zod'
 import type {
   AccountInput,
   AccountSummary,
+  ApplyRulesResult,
   ComposeInput,
   ConnectionTestResult,
   CreateAccountInput,
+  CreateFolderInput,
   FolderSummary,
   MailEvent,
   MessageDetail,
   MessageSummary,
+  Rule,
+  RuleInput,
   SyncResult
 } from './mail'
 
@@ -42,6 +46,12 @@ export interface MailApi {
   markNotSpam: (messageId: string) => Promise<void>
   blockSender: (accountId: string, email: string) => Promise<void>
   allowSender: (accountId: string, email: string) => Promise<void>
+  createFolder: (input: CreateFolderInput) => Promise<void>
+  listRules: (accountId: string) => Promise<Rule[]>
+  createRule: (accountId: string, input: RuleInput) => Promise<Rule>
+  updateRule: (ruleId: string, input: RuleInput) => Promise<Rule>
+  deleteRule: (ruleId: string) => Promise<void>
+  applyRules: (accountId: string) => Promise<ApplyRulesResult>
   getMessage: (messageId: string) => Promise<MessageDetail | null>
   setFlags: (messageId: string, flags: { seen?: boolean; flagged?: boolean }) => Promise<void>
   moveMessage: (messageId: string, targetFolderId: string) => Promise<void>

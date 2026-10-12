@@ -128,3 +128,50 @@ export interface MailEvent {
   fetched?: number
   error?: string
 }
+
+export interface CreateFolderInput {
+  accountId: string
+  name: string
+  parentRemotePath?: string
+}
+
+export type RuleField = 'from' | 'to' | 'subject' | 'body' | 'hasAttachment'
+export type RuleOp = 'contains' | 'equals' | 'startsWith' | 'endsWith'
+export type RuleActionType = 'move' | 'markRead' | 'markFlagged' | 'markSpam' | 'trash'
+
+export interface RuleConditionInput {
+  field: RuleField
+  op: RuleOp
+  value: string
+}
+
+export interface RuleActionInput {
+  action: RuleActionType
+  value?: string
+}
+
+export interface Rule {
+  id: string
+  accountId: string
+  name: string
+  isEnabled: boolean
+  matchAll: boolean
+  stopProcessing: boolean
+  sortOrder: number
+  conditions: RuleConditionInput[]
+  actions: RuleActionInput[]
+}
+
+export interface RuleInput {
+  name: string
+  isEnabled: boolean
+  matchAll: boolean
+  stopProcessing: boolean
+  conditions: RuleConditionInput[]
+  actions: RuleActionInput[]
+}
+
+export interface ApplyRulesResult {
+  matched: number
+  moved: number
+}
