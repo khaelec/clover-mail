@@ -327,5 +327,16 @@ export const migrations: Migration[] = [
         PRIMARY KEY (message_id, label_id)
       );
     `
+  },
+  {
+    id: '0013_saved_searches',
+    sql: `
+      CREATE TABLE IF NOT EXISTS saved_searches (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        query TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+    `
   }
 ]

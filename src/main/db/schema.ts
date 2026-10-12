@@ -209,6 +209,13 @@ export const messageLabels = sqliteTable(
   (table) => [index('ix_message_labels_label').on(table.labelId)]
 )
 
+export const savedSearches = sqliteTable('saved_searches', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  query: text('query').notNull(),
+  createdAt: integer('created_at').notNull()
+})
+
 export const rules = sqliteTable(
   'rules',
   {
@@ -324,6 +331,7 @@ export const schema = {
   threadSettings,
   labels,
   messageLabels,
+  savedSearches,
   incomingSettings,
   outgoingSettings,
   folders,

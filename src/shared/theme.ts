@@ -17,6 +17,7 @@ export const DEFAULT_THEME: ThemeSettings = {
 export const SETTINGS_KEYS = {
   themeMode: 'theme.mode',
   themeAccent: 'theme.accent',
+  themeCustomAccent: 'theme.customAccent',
   blockRemoteImages: 'privacy.blockRemoteImages',
   trustedSenders: 'privacy.trustedSenders',
   threadedView: 'mail.threaded'

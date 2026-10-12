@@ -86,7 +86,22 @@ function Field({
 }
 
 export function SettingsView(): ReactNode {
-  const { mode, accent, setMode, setAccent } = useTheme()
+  const { mode, accent, customAccent, setMode, setAccent, setCustomAccent } = useTheme()
+  async function importTheme(): Promise<void> {
+    try {
+      const text = await window.navigator.clipboard.readText()
+      const parsed = JSON.parse(text) as {
+        mode?: ThemeMode
+        accent?: ThemeAccent
+        customAccent?: string | null
+      }
+      if (parsed.mode) setMode(parsed.mode)
+      if (parsed.accent) setAccent(parsed.accent)
+      if (parsed.customAccent !== undefined) setCustomAccent(parsed.customAccent ?? null)
+    } catch {
+      // ignore invalid clipboard contents
+    }
+  }
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [blockRemote, setBlockRemote] = useState(true)
   const [ai, setAi] = useState<AiSettings | null>(null)
@@ -333,6 +348,47 @@ export function SettingsView(): ReactNode {
                   </button>
                 )
               })}
+            </div>
+          </Card>
+
+          <Card title="Custom theme">
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={customAccent ?? ACCENT_COLORS[accent]}
+                onChange={(e) => setCustomAccent(e.target.value)}
+                className="h-9 w-12 cursor-pointer rounded-lg border border-line bg-canvas/60"
+              />
+              <span className="text-[12px] text-muted">
+                Pick any accent color, or copy and import a theme between machines.
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomAccent(null)}
+                className="rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-ink"
+              >
+                Reset to preset
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void window.navigator.clipboard.writeText(
+                    JSON.stringify({ mode, accent, customAccent })
+                  )
+                }
+                className="rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-ink"
+              >
+                Copy theme
+              </button>
+              <button
+                type="button"
+                onClick={() => void importTheme()}
+                className="rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-ink"
+              >
+                Import theme
+              </button>
             </div>
           </Card>
             </>

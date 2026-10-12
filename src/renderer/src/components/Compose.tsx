@@ -315,6 +315,13 @@ export function Compose({
     onClose()
   }
 
+  function addFiles(files: FileList | File[]): void {
+    const list = Array.from(files)
+    if (list.length === 0) return
+    const picked = list.map((f) => ({ name: f.name, path: window.clover.getFilePath(f) }))
+    setAttachments((prev) => [...prev, ...picked])
+  }
+
   async function submit(): Promise<void> {
     if (!to.trim()) {
       setError('Add at least one recipient.')
@@ -325,7 +332,14 @@ export function Compose({
   }
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
+    <div
+      className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault()
+        addFiles(e.dataTransfer.files)
+      }}
+    >
       <div className="animate-fade-in flex h-[74vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
         <header className="flex items-center justify-between border-b border-line px-5 py-3">
           <h2 className="text-[14px] font-semibold text-ink">New message</h2>
@@ -521,6 +535,13 @@ export function Compose({
             ref={editorRef}
             contentEditable
             suppressContentEditableWarning
+            onPaste={(e) => {
+              const files = e.clipboardData.files
+              if (files && files.length > 0) {
+                e.preventDefault()
+                addFiles(files)
+              }
+            }}
             className="mt-2 min-h-0 flex-1 overflow-y-auto bg-transparent text-[13.5px] leading-relaxed text-ink outline-none"
             dangerouslySetInnerHTML={{ __html: initialHtml }}
           />

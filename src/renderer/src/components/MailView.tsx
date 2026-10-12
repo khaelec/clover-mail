@@ -262,6 +262,9 @@ export function MailView(): ReactNode {
   const createLabel = useMail((s) => s.createLabel)
   const deleteLabel = useMail((s) => s.deleteLabel)
   const toggleLabel = useMail((s) => s.toggleLabel)
+  const savedSearches = useMail((s) => s.savedSearches)
+  const createSavedSearch = useMail((s) => s.createSavedSearch)
+  const deleteSavedSearch = useMail((s) => s.deleteSavedSearch)
   const [showNewLabel, setShowNewLabel] = useState(false)
   const [labelName, setLabelName] = useState('')
   const [menuLabelIds, setMenuLabelIds] = useState<string[]>([])
@@ -802,6 +805,44 @@ export function MailView(): ReactNode {
               </span>
             </button>
           ))}
+
+          <div className="mt-3 flex items-center justify-between px-1 pb-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+              Saved searches
+            </span>
+            {query.trim() && (
+              <button
+                type="button"
+                title="Save current search"
+                onClick={() => void createSavedSearch(query, query)}
+                className="text-muted hover:text-accent"
+              >
+                <IconPlus className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {savedSearches.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setQuery(s.query)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                ask('Delete saved search', `Delete "${s.name}"?`, () => void deleteSavedSearch(s.id))
+              }}
+              className={
+                'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
+                (query === s.query
+                  ? 'bg-accent/12 font-medium text-accent'
+                  : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
+              }
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <IconSearch className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{s.name}</span>
+              </span>
+            </button>
+          ))}
         </div>
 
         <button
@@ -835,7 +876,7 @@ export function MailView(): ReactNode {
             ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search mail (Ctrl+F)"
+            placeholder="Search (try from:, is:unread, has:attachment)"
             className="w-full bg-transparent text-[13px] text-ink placeholder:text-muted focus:outline-none"
           />
           <button

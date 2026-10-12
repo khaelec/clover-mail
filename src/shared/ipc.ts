@@ -118,6 +118,9 @@ export interface MailApi {
   removeLabelFromMessage: (messageId: string, labelId: string) => Promise<void>
   listLabelMessages: (labelId: string) => Promise<import('./mail').MessageSummary[]>
   labelsForMessage: (messageId: string) => Promise<string[]>
+  listSavedSearches: () => Promise<import('./mail').SavedSearch[]>
+  createSavedSearch: (name: string, query: string) => Promise<import('./mail').SavedSearch>
+  deleteSavedSearch: (id: string) => Promise<void>
   onEvent: (cb: (event: MailEvent) => void) => () => void
 }
 

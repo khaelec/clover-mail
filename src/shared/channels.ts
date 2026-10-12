@@ -86,6 +86,9 @@ export const IpcChannels = {
     removeLabelFromMessage: 'mail:remove-label-from-message',
     listLabelMessages: 'mail:list-label-messages',
     labelsForMessage: 'mail:labels-for-message',
+    listSavedSearches: 'mail:list-saved-searches',
+    createSavedSearch: 'mail:create-saved-search',
+    deleteSavedSearch: 'mail:delete-saved-search',
     events: 'mail:events'
   },
   apps: {

@@ -186,6 +186,10 @@ const api: CloverApi = {
       ipcRenderer.invoke(IpcChannels.mail.listLabelMessages, labelId),
     labelsForMessage: (messageId) =>
       ipcRenderer.invoke(IpcChannels.mail.labelsForMessage, messageId),
+    listSavedSearches: () => ipcRenderer.invoke(IpcChannels.mail.listSavedSearches),
+    createSavedSearch: (name, query) =>
+      ipcRenderer.invoke(IpcChannels.mail.createSavedSearch, name, query),
+    deleteSavedSearch: (id) => ipcRenderer.invoke(IpcChannels.mail.deleteSavedSearch, id),
     onEvent: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
         cb(event as Parameters<typeof cb>[0])

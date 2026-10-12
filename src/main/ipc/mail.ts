@@ -31,6 +31,7 @@ import {
   listLabels,
   removeLabelFromMessage
 } from '@main/mail/labels'
+import { createSavedSearch, deleteSavedSearch, listSavedSearches } from '@main/mail/savedSearches'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
 import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
@@ -281,6 +282,11 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.labelsForMessage, (_e, messageId: string) =>
     labelIdsForMessage(messageId)
   )
+  ipcMain.handle(IpcChannels.mail.listSavedSearches, () => listSavedSearches())
+  ipcMain.handle(IpcChannels.mail.createSavedSearch, (_e, name: string, query: string) =>
+    createSavedSearch(name, query)
+  )
+  ipcMain.handle(IpcChannels.mail.deleteSavedSearch, (_e, id: string) => deleteSavedSearch(id))
 
   startAllIdle(emit)
 }

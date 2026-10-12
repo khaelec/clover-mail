@@ -13,6 +13,7 @@ import type {
   MessageSummary,
   Rule,
   RuleInput,
+  SavedSearch,
   ThreadSummary
 } from '@shared/mail'
 
@@ -67,6 +68,10 @@ interface MailState {
   createLabel: (name: string, color?: string) => Promise<void>
   deleteLabel: (id: string) => Promise<void>
   toggleLabel: (messageId: string, labelId: string, on: boolean) => Promise<void>
+  savedSearches: SavedSearch[]
+  loadSavedSearches: () => Promise<void>
+  createSavedSearch: (name: string, query: string) => Promise<void>
+  deleteSavedSearch: (id: string) => Promise<void>
   unreadOnly: boolean
   setUnreadOnly: (value: boolean) => void
   setThreaded: (value: boolean) => Promise<void>
@@ -172,6 +177,7 @@ export const useMail = create<MailState>((set, get) => {
     unreadOnly: false,
     showHidden: false,
     labels: [],
+    savedSearches: [],
 
     init: async () => {
       window.clover.mail.onEvent((event) => {        if (event.type === 'sync:folder') {
@@ -201,6 +207,7 @@ export const useMail = create<MailState>((set, get) => {
 
       await get().refreshAccounts()
       await get().loadLabels()
+      void get().loadSavedSearches()
       const settings = await window.clover.settings.getAll()
       set({
         threaded: settings[SETTINGS_KEYS.threadedView] !== false,
@@ -458,6 +465,24 @@ export const useMail = create<MailState>((set, get) => {
       if (on) await window.clover.mail.addLabelToMessage(messageId, labelId)
       else await window.clover.mail.removeLabelFromMessage(messageId, labelId)
       if (get().activeFolderId === `label:${labelId}`) await reloadFolder()
+    },
+
+    loadSavedSearches: async () => {
+      const savedSearches = await window.clover.mail.listSavedSearches()
+      set({ savedSearches })
+    },
+
+    createSavedSearch: async (name, query) => {
+      const trimmed = name.trim()
+      const q = query.trim()
+      if (!trimmed || !q) return
+      await window.clover.mail.createSavedSearch(trimmed, q)
+      await get().loadSavedSearches()
+    },
+
+    deleteSavedSearch: async (id) => {
+      await window.clover.mail.deleteSavedSearch(id)
+      await get().loadSavedSearches()
     },
     setThreaded: async (value) => {
       set({ threaded: value })

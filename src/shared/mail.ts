@@ -147,6 +147,12 @@ export interface Label {
   color: string
 }
 
+export interface SavedSearch {
+  id: string
+  name: string
+  query: string
+}
+
 export interface ComposeInput {
   accountId: string
   to: string[]
