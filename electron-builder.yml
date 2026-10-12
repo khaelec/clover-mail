@@ -1,6 +1,6 @@
 appId: com.clovermail.app
 productName: Clover Mail
-copyright: Copyright © 2026 Clover Mail
+copyright: Copyright © 2026 Cloverfield Farms IT Services
 artifactName: CloverMail-${version}-setup.${ext}
 directories:
   output: release
