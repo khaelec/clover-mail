@@ -92,6 +92,19 @@ export function CopilotView({ embedded = false }: { embedded?: boolean } = {}): 
         ? (status?.opencodeModels ?? [])
         : MODEL_PRESETS.claude
   const modelOptions = Array.from(new Set([...(model ? [model] : []), ...providerModels]))
+  const modelGroups = (() => {
+    const groups = new Map<string, { full: string; label: string }[]>()
+    for (const entry of modelOptions) {
+      const slash = entry.indexOf('/')
+      const provider = slash >= 0 ? entry.slice(0, slash) : ''
+      const label = slash >= 0 ? entry.slice(slash + 1) : entry
+      const list = groups.get(provider) ?? []
+      list.push({ full: entry, label })
+      groups.set(provider, list)
+    }
+    return [...groups.entries()]
+  })()
+  const singlePlainGroup = modelGroups.length === 1 && modelGroups[0][0] === ''
 
   return (
     <div className="flex h-full min-h-0">
@@ -166,11 +179,21 @@ export function CopilotView({ embedded = false }: { embedded?: boolean } = {}): 
             className="rounded-md border border-line bg-canvas/60 px-2 py-1 text-[12px] text-ink outline-none focus:border-accent"
           >
             {modelOptions.length === 0 && <option value="">No models found</option>}
-            {modelOptions.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
+            {singlePlainGroup
+              ? modelGroups[0][1].map((it) => (
+                  <option key={it.full} value={it.full}>
+                    {it.label}
+                  </option>
+                ))
+              : modelGroups.map(([provider, items]) => (
+                  <optgroup key={provider} label={provider}>
+                    {items.map((it) => (
+                      <option key={it.full} value={it.full}>
+                        {it.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
             <option value="__custom__">Custom…</option>
           </select>
           {provider === 'ollama' && !(status?.ollamaReachable ?? false) && (

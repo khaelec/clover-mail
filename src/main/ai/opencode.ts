@@ -116,18 +116,27 @@ export function opencodeAvailable(exePath?: string): Promise<boolean> {
   })
 }
 
-/** List every model the opencode CLI knows about (provider/model), e.g. opencode/gpt-5. */
+/** List every model the opencode CLI knows about (provider/model), e.g. opencode-go/gpt-5. */
 export function listOpencodeModels(exePath?: string): Promise<string[]> {
   return new Promise((resolve) => {
     const child = spawnOpencode(['models'], '', exePath)
     let output = ''
     const finish = (): void => {
+      const rank = (model: string): number => {
+        const provider = model.split('/')[0]
+        if (provider === 'opencode-go') return 0
+        if (provider === 'opencode') return 1
+        return 2
+      }
       const models = output
         .replace(ANSI, '')
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter((line) => /^[\w.-]+\/[\w./-]+$/.test(line))
-      resolve([...new Set(models)])
+      const unique = [...new Set(models)]
+      // Funded/subscription providers first so the working models are easy to pick.
+      unique.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+      resolve(unique)
     }
     const timer = setTimeout(() => {
       child.kill()
@@ -166,8 +175,14 @@ export function streamOpencode(
     }
     signal.addEventListener('abort', onAbort)
 
-    const stdoutFilter = makeLineFilter((line) => onDelta(line))
-    const stderrFilter = makeLineFilter((line) => onDelta(line))
+    // Buffer output so an error response can be reported as an error, not as a reply.
+    let output = ''
+    const stdoutFilter = makeLineFilter((line) => {
+      output += line
+    })
+    const stderrFilter = makeLineFilter((line) => {
+      output += line
+    })
     child.stdout?.on('data', (data: Buffer) => stdoutFilter.push(data.toString().replace(ANSI, '')))
     child.stderr?.on('data', (data: Buffer) => stderrFilter.push(data.toString().replace(ANSI, '')))
     child.on('error', (error) => {
@@ -178,6 +193,15 @@ export function streamOpencode(
       signal.removeEventListener('abort', onAbort)
       stdoutFilter.flush()
       stderrFilter.flush()
+      const text = output.trim()
+      const isError =
+        /^error:/i.test(text) ||
+        /insufficient account funds|model access is disabled|upstream request failed/i.test(text)
+      if (isError) {
+        reject(new Error(text.replace(/^error:\s*/i, '').slice(0, 300) || 'opencode failed'))
+        return
+      }
+      if (output) onDelta(output)
       resolve()
     })
   })

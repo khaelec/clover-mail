@@ -18,10 +18,12 @@ app.whenReady().then(async () => {
     return
   }
   await new Promise((r) => setTimeout(r, 1000))
+  const wanted = process.env.OC_MODEL || ''
   try {
     const result = await win.webContents.executeJavaScript(`(async () => {
       const models = await window.clover.ai.listModels('opencode')
-      const model = models.includes('opencode/big-pickle') ? 'opencode/big-pickle' : models[0]
+      const wanted = ${JSON.stringify(wanted)}
+      const model = wanted && models.includes(wanted) ? wanted : (models.includes('opencode/big-pickle') ? 'opencode/big-pickle' : models[0])
       await window.clover.ai.setSettings({ provider: 'opencode', opencodeModel: model })
       const streamId = 'test-stream'
       return await new Promise((resolve) => {

@@ -817,20 +817,43 @@ export function SettingsView(): ReactNode {
                   hint="Only needed if Clover Mail can't find the opencode CLI automatically."
                 />
                 {aiStatus && aiStatus.opencodeModels.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {aiStatus.opencodeModels.slice(0, 12).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => void patchAi({ opencodeModel: m })}
-                        className={
-                          'rounded-full border px-2 py-0.5 text-[11px] ' +
-                          (ai?.opencodeModel === m ? 'border-accent text-accent' : 'border-line text-muted hover:text-ink')
-                        }
-                      >
-                        {m}
-                      </button>
-                    ))}
+                  <div className="mt-2 max-h-40 space-y-2 overflow-y-auto rounded-lg border border-line p-2">
+                    {(() => {
+                      const groups = new Map<string, { full: string; label: string }[]>()
+                      for (const entry of aiStatus.opencodeModels) {
+                        const slash = entry.indexOf('/')
+                        const provider = slash >= 0 ? entry.slice(0, slash) : 'models'
+                        const label = slash >= 0 ? entry.slice(slash + 1) : entry
+                        const list = groups.get(provider) ?? []
+                        list.push({ full: entry, label })
+                        groups.set(provider, list)
+                      }
+                      return [...groups.entries()].map(([provider, items]) => (
+                        <div key={provider}>
+                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                            {provider}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {items.map((it) => (
+                              <button
+                                key={it.full}
+                                type="button"
+                                title={it.full}
+                                onClick={() => void patchAi({ opencodeModel: it.full })}
+                                className={
+                                  'rounded-full border px-2 py-0.5 text-[11px] ' +
+                                  (ai?.opencodeModel === it.full
+                                    ? 'border-accent text-accent'
+                                    : 'border-line text-muted hover:text-ink')
+                                }
+                              >
+                                {it.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    })()}
                   </div>
                 )}
                 <p className="mt-1 text-[11px] text-muted">
