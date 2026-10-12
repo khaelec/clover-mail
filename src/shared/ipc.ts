@@ -61,6 +61,8 @@ export interface MailApi {
   blockSender: (accountId: string, email: string) => Promise<void>
   allowSender: (accountId: string, email: string) => Promise<void>
   createFolder: (input: CreateFolderInput) => Promise<void>
+  renameFolder: (folderId: string, newName: string) => Promise<void>
+  deleteFolder: (folderId: string) => Promise<void>
   listRules: (accountId: string) => Promise<Rule[]>
   createRule: (accountId: string, input: RuleInput) => Promise<Rule>
   updateRule: (ruleId: string, input: RuleInput) => Promise<Rule>

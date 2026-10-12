@@ -273,6 +273,8 @@ export function MailView(): ReactNode {
   const clearSelection = useMail((s) => s.clearSelection)
   const bulk = useMail((s) => s.bulk)
   const createFolder = useMail((s) => s.createFolder)
+  const renameFolder = useMail((s) => s.renameFolder)
+  const deleteFolder = useMail((s) => s.deleteFolder)
 
   const [showAdd, setShowAdd] = useState(false)
   const [showRules, setShowRules] = useState(false)
@@ -382,6 +384,11 @@ export function MailView(): ReactNode {
   const [confirm, setConfirm] = useState<{ title: string; body: string; action: () => void } | null>(
     null
   )
+  const [prompt, setPrompt] = useState<{
+    title: string
+    value: string
+    onSubmit: (value: string) => void
+  } | null>(null)
   function ask(title: string, body: string, action: () => void): void {
     setConfirm({ title, body, action })
   }
@@ -1026,6 +1033,54 @@ export function MailView(): ReactNode {
                 >
                   Mark all as read
                 </MenuItem>
+                <MenuDivider />
+                <MenuItem
+                  onClick={() => {
+                    setFolderMenu(null)
+                    setPrompt({
+                      title: 'New folder',
+                      value: '',
+                      onSubmit: (v) => {
+                        if (v.trim()) void createFolder(v)
+                      }
+                    })
+                  }}
+                >
+                  New folder…
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    const folder = folderMenu.folder
+                    setFolderMenu(null)
+                    if (folder) {
+                      setPrompt({
+                        title: 'Rename folder',
+                        value: folder.name,
+                        onSubmit: (v) => {
+                          if (v.trim()) void renameFolder(folder.id, v)
+                        }
+                      })
+                    }
+                  }}
+                >
+                  Rename…
+                </MenuItem>
+                {folderMenu.folder?.specialUse !== 'trash' && folderMenu.folder?.specialUse !== 'inbox' && (
+                  <MenuItem
+                    danger
+                    onClick={() => {
+                      const folder = folderMenu.folder
+                      setFolderMenu(null)
+                      if (folder) {
+                        ask('Delete folder', `Delete the folder “${folder.name}”?`, () =>
+                          void deleteFolder(folder.id)
+                        )
+                      }
+                    }}
+                  >
+                    Delete folder
+                  </MenuItem>
+                )}
                 {folderMenu.folder?.specialUse === 'trash' && (
                   <>
                     <MenuDivider />
@@ -1049,6 +1104,50 @@ export function MailView(): ReactNode {
             )}
           </div>
         </>
+      )}
+
+      {prompt && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+            <h3 className="text-[15px] font-semibold text-ink">{prompt.title}</h3>
+            <input
+              autoFocus
+              value={prompt.value}
+              onChange={(e) => setPrompt({ ...prompt, value: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const value = prompt.value
+                  const submit = prompt.onSubmit
+                  setPrompt(null)
+                  submit(value)
+                }
+                if (e.key === 'Escape') setPrompt(null)
+              }}
+              className="mt-3 w-full rounded-lg border border-line bg-canvas/60 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPrompt(null)}
+                className="rounded-lg px-3.5 py-2 text-[13px] text-muted hover:text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const value = prompt.value
+                  const submit = prompt.onSubmit
+                  setPrompt(null)
+                  submit(value)
+                }}
+                className="rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-accent-ink"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirm && (

@@ -18,7 +18,7 @@ import { deleteMessage, downloadAttachment, getMessageDetail, moveMessage, setFl
 import { sendMessage } from '@main/mail/send'
 import { searchMessages } from '@main/mail/search'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
-import { createFolder } from '@main/mail/folders'
+import { createFolder, deleteFolder, renameFolder } from '@main/mail/folders'
 import { bulkAction, deleteSpam, emptyFolder, markFolderRead } from '@main/mail/bulk'
 import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
 
@@ -89,6 +89,10 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.createFolder, (_e, input: CreateFolderInput) =>
     createFolder(input.accountId, input.name, input.parentRemotePath)
   )
+  ipcMain.handle(IpcChannels.mail.renameFolder, (_e, folderId: string, newName: string) =>
+    renameFolder(folderId, newName)
+  )
+  ipcMain.handle(IpcChannels.mail.deleteFolder, (_e, folderId: string) => deleteFolder(folderId))
   ipcMain.handle(IpcChannels.mail.listRules, (_e, accountId: string) => listRules(accountId))
   ipcMain.handle(IpcChannels.mail.createRule, (_e, accountId: string, input: RuleInput) =>
     createRule(accountId, input)

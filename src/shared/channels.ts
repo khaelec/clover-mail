@@ -29,6 +29,8 @@ export const IpcChannels = {
     blockSender: 'mail:block-sender',
     allowSender: 'mail:allow-sender',
     createFolder: 'mail:create-folder',
+    renameFolder: 'mail:rename-folder',
+    deleteFolder: 'mail:delete-folder',
     listRules: 'mail:list-rules',
     createRule: 'mail:create-rule',
     updateRule: 'mail:update-rule',

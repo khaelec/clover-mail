@@ -71,6 +71,8 @@ interface MailState {
   blockSender: (email: string) => Promise<void>
   allowSender: (email: string) => Promise<void>
   createFolder: (name: string) => Promise<void>
+  renameFolder: (folderId: string, name: string) => Promise<void>
+  deleteFolder: (folderId: string) => Promise<void>
   loadRules: () => Promise<void>
   saveRule: (input: RuleInput, ruleId?: string) => Promise<void>
   removeRule: (ruleId: string) => Promise<void>
@@ -428,6 +430,20 @@ export const useMail = create<MailState>((set, get) => {
       if (!accountId || !name.trim()) return
       await window.clover.mail.createFolder({ accountId, name: name.trim() })
       await reloadFolders()
+    },
+
+    renameFolder: async (folderId, name) => {
+      if (!name.trim()) return
+      await window.clover.mail.renameFolder(folderId, name.trim())
+      await reloadFolders()
+    },
+
+    deleteFolder: async (folderId) => {
+      const wasActive = get().activeFolderId === folderId
+      await window.clover.mail.deleteFolder(folderId)
+      await reloadFolders()
+      const accountId = get().activeAccountId
+      if (wasActive && accountId) await get().selectAccount(accountId)
     },
 
     loadRules: async () => {

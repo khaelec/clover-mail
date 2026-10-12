@@ -21,6 +21,7 @@ export function listFolders(accountId: string): FolderSummary[] {
   const unreadMap = new Map(unread.map((u) => [u.folderId, Number(u.count)]))
 
   return rows
+    .filter((row) => row.remotePath !== '[Gmail]' && row.name !== '[Gmail]')
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
     .map((row) => ({
       id: row.id,

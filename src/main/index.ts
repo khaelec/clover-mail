@@ -10,6 +10,10 @@ import { setAppsRoot } from '@main/apps'
 
 let mainWindow: BrowserWindow | null = null
 
+// Quiet Chromium's internal networking noise (e.g. WebRTC STUN lookups from
+// embedded apps that can't resolve stun*.google.com). Only FATAL errors log.
+app.commandLine.appendSwitch('log-level', '3')
+
 const MEDIA_EXTENSIONS = new Set([
   'mp4',
   'webm',
@@ -78,7 +82,7 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    if (/^https?:\/\//i.test(url) || url.startsWith('mailto:')) void shell.openExternal(url)
     return { action: 'deny' }
   })
 
@@ -125,6 +129,15 @@ app.whenReady().then(() => {
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+  })
+
+  // Only ever hand web URLs to the OS. Anything else (custom schemes, file paths)
+  // is denied, which prevents Windows' "Get an app from the Store" popup.
+  app.on('web-contents-created', (_event, contents) => {
+    contents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:\/\//i.test(url) || url.startsWith('mailto:')) void shell.openExternal(url)
+      return { action: 'deny' }
+    })
   })
 
   session.defaultSession.setSpellCheckerEnabled(true)

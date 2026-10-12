@@ -95,6 +95,9 @@ const api: CloverApi = {
     allowSender: (accountId, email) =>
       ipcRenderer.invoke(IpcChannels.mail.allowSender, accountId, email),
     createFolder: (input) => ipcRenderer.invoke(IpcChannels.mail.createFolder, input),
+    renameFolder: (folderId, newName) =>
+      ipcRenderer.invoke(IpcChannels.mail.renameFolder, folderId, newName),
+    deleteFolder: (folderId) => ipcRenderer.invoke(IpcChannels.mail.deleteFolder, folderId),
     listRules: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listRules, accountId),
     createRule: (accountId, input) => ipcRenderer.invoke(IpcChannels.mail.createRule, accountId, input),
     updateRule: (ruleId, input) => ipcRenderer.invoke(IpcChannels.mail.updateRule, ruleId, input),
