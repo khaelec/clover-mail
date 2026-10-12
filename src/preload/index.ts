@@ -137,6 +137,8 @@ const api: CloverApi = {
     sendMessage: (input) => ipcRenderer.invoke(IpcChannels.mail.sendMessage, input),
     downloadAttachment: (attachmentId) =>
       ipcRenderer.invoke(IpcChannels.mail.downloadAttachment, attachmentId),
+    getAttachmentPath: (attachmentId) =>
+      ipcRenderer.invoke(IpcChannels.mail.attachmentPath, attachmentId),
     search: (query, accountId) => ipcRenderer.invoke(IpcChannels.mail.search, query, accountId),
     onEvent: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>

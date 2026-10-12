@@ -370,9 +370,13 @@ export function MailView(): ReactNode {
       setMenu(null)
     })
   }
-  const [composeState, setComposeState] = useState<{ open: boolean; to?: string; subject?: string; body?: string }>({
-    open: false
-  })
+  const [composeState, setComposeState] = useState<{
+    open: boolean
+    to?: string
+    subject?: string
+    body?: string
+    attachments?: { name: string; path: string }[]
+  }>({ open: false })
   const [query, setQuery] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -429,6 +433,37 @@ export function MailView(): ReactNode {
       to,
       subject: detail.subject?.startsWith('Re:') ? detail.subject : `Re: ${detail.subject ?? ''}`,
       body
+    })
+  }
+
+  async function openForward(): Promise<void> {
+    const detail = useMail.getState().detail
+    if (!detail) return
+    const attachments: { name: string; path: string }[] = []
+    for (const att of detail.attachments) {
+      if (att.isInline || !att.available) continue
+      const path = await window.clover.mail.getAttachmentPath(att.id)
+      if (path) attachments.push({ name: att.filename ?? 'attachment', path })
+    }
+    const header = [
+      '',
+      '',
+      '---------- Forwarded message ----------',
+      `From: ${detail.fromName ? `${detail.fromName} ` : ''}<${detail.fromEmail ?? ''}>`,
+      `Date: ${new Date(detail.dateUtc ?? Date.now()).toLocaleString()}`,
+      `Subject: ${detail.subject ?? ''}`,
+      `To: ${detail.to.join(', ')}`,
+      ''
+    ].join('\n')
+    setComposeState({
+      open: true,
+      subject: detail.subject
+        ? detail.subject.toLowerCase().startsWith('fwd:')
+          ? detail.subject
+          : `Fwd: ${detail.subject}`
+        : '',
+      body: header + (detail.textPlain ?? ''),
+      attachments
     })
   }
 
@@ -962,7 +997,7 @@ export function MailView(): ReactNode {
         onCommit={() => void saveLayout()}
       />
 
-      <Reader onReply={openReply} />
+      <Reader onReply={openReply} onForward={() => void openForward()} />
 
       {layout.dockOpen && <AppDock />}
 
@@ -973,6 +1008,7 @@ export function MailView(): ReactNode {
           initialTo={composeState.to}
           initialSubject={composeState.subject}
           initialBody={composeState.body}
+          initialAttachments={composeState.attachments}
           onClose={() => setComposeState({ open: false })}
         />
       )}
@@ -1024,6 +1060,17 @@ export function MailView(): ReactNode {
                 </MenuItem>
                 <MenuDivider />
                 <MenuItem onClick={() => menuRun('archive')}>Archive</MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    void (async () => {
+                      await selectMessage(menu.message.id)
+                      await openForward()
+                    })()
+                    setMenu(null)
+                  }}
+                >
+                  Forward
+                </MenuItem>
                 <MenuItem onClick={() => setMenu({ ...menu, mode: 'move' })}>Move to folder ›</MenuItem>
                 <MenuItem danger onClick={menuDelete}>
                   Delete

@@ -191,6 +191,13 @@ export const IconReply = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconForward = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="m15 7 5 5-5 5" />
+    <path d="M20 12H9a5 5 0 0 0-5 5v1" />
+  </Base>
+)
+
 export const IconFlag = (p: IconProps): ReactNode => (
   <Base {...p}>
     <path d="M5 21V4" />

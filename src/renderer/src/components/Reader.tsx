@@ -4,7 +4,7 @@ import { SETTINGS_KEYS } from '@shared/theme'
 import { useTheme } from '../theme/theme'
 import { useMail } from '../state/mail'
 import { useAi } from '../state/ai'
-import { IconFlag, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
+import { IconFlag, IconForward, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
 
 function formatDate(value: number | null): string {
   if (!value) return ''
@@ -45,7 +45,7 @@ function blockRemoteImages(html: string): { html: string; blocked: number } {
   return { html: doc.body.innerHTML, blocked }
 }
 
-export function Reader({ onReply }: { onReply: () => void }): ReactNode {
+export function Reader({ onReply, onForward }: { onReply: () => void; onForward: () => void }): ReactNode {
   const {
     detail,
     toggleFlag,
@@ -222,10 +222,18 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
           <button
             type="button"
             onClick={onReply}
-            className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink"
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-accent"
           >
             <IconReply className="h-3.5 w-3.5" />
             Reply
+          </button>
+          <button
+            type="button"
+            onClick={onForward}
+            className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink"
+          >
+            <IconForward className="h-3.5 w-3.5" />
+            Forward
           </button>
         </div>
       </header>
@@ -411,6 +419,16 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
                   {detail.isFlagged ? 'Unstar' : 'Star'}
                 </button>
                 <div className="my-1 h-px bg-line" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    onForward()
+                    setMenu(null)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  Forward
+                </button>
                 <button
                   type="button"
                   onClick={() => {

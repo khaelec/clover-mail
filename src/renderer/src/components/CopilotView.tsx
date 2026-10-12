@@ -10,6 +10,18 @@ const PROVIDERS: { value: AiProvider; label: string }[] = [
   { value: 'opencode', label: 'opencode' }
 ]
 
+const MODEL_PRESETS: Record<AiProvider, string[]> = {
+  claude: [
+    'claude-sonnet-4-5',
+    'claude-opus-4-1',
+    'claude-haiku-4-5',
+    'claude-3-7-sonnet-latest',
+    'claude-3-5-sonnet-latest'
+  ],
+  ollama: [],
+  opencode: ['default']
+}
+
 function StatusDot({ ok }: { ok: boolean }): ReactNode {
   return (
     <span
@@ -68,6 +80,9 @@ export function CopilotView(): ReactNode {
   const provider = settings?.provider ?? 'claude'
   const model = provider === 'ollama' ? settings?.ollamaModel : settings?.claudeModel
   const claudeReady = status?.claudeConfigured ?? false
+  const providerModels =
+    provider === 'ollama' ? (status?.ollamaModels ?? []) : MODEL_PRESETS[provider]
+  const modelOptions = Array.from(new Set([...(model ? [model] : []), ...providerModels]))
 
   return (
     <div className="flex h-full min-h-0">
@@ -118,25 +133,28 @@ export function CopilotView(): ReactNode {
 
         <div className="flex items-center gap-2 border-b border-line px-4 py-2 text-[12px]">
           <span className="text-muted">Model</span>
-          {provider === 'ollama' && status && status.ollamaModels.length > 0 ? (
-            <select
-              value={model ?? ''}
-              onChange={(e) => void setModel(e.target.value)}
-              className="rounded-md border border-line bg-canvas/60 px-2 py-1 text-[12px] text-ink outline-none"
-            >
-              {status.ollamaModels.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              value={model ?? ''}
-              onChange={(e) => void setModel(e.target.value)}
-              placeholder="model name"
-              className="w-52 rounded-md border border-line bg-canvas/60 px-2 py-1 text-[12px] text-ink outline-none focus:border-accent"
-            />
+          <select
+            value={model ?? ''}
+            onChange={(e) => {
+              if (e.target.value === '__custom__') {
+                const value = window.prompt('Model name:', model ?? '')
+                if (value) void setModel(value)
+              } else {
+                void setModel(e.target.value)
+              }
+            }}
+            className="rounded-md border border-line bg-canvas/60 px-2 py-1 text-[12px] text-ink outline-none focus:border-accent"
+          >
+            {modelOptions.length === 0 && <option value="">No models found</option>}
+            {modelOptions.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+            <option value="__custom__">Custom…</option>
+          </select>
+          {provider === 'ollama' && !(status?.ollamaReachable ?? false) && (
+            <span className="text-[11px] text-muted">Ollama not detected on {settings?.ollamaBaseUrl}</span>
           )}
           <span className="ml-auto" />
           <button

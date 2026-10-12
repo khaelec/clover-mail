@@ -61,6 +61,7 @@ export const IpcChannels = {
     deleteSpam: 'mail:delete-spam',
     sendMessage: 'mail:send-message',
     downloadAttachment: 'mail:download-attachment',
+    attachmentPath: 'mail:attachment-path',
     search: 'mail:search',
     events: 'mail:events'
   },

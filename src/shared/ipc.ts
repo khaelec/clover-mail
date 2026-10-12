@@ -93,6 +93,7 @@ export interface MailApi {
   deleteSpam: (accountId: string) => Promise<{ deleted: number }>
   sendMessage: (input: ComposeInput) => Promise<void>
   downloadAttachment: (attachmentId: string) => Promise<{ saved: boolean; path?: string }>
+  getAttachmentPath: (attachmentId: string) => Promise<string | null>
   search: (query: string, accountId?: string) => Promise<MessageSummary[]>
   onEvent: (cb: (event: MailEvent) => void) => () => void
 }

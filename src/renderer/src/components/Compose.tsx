@@ -72,7 +72,8 @@ export function Compose({
   initialSubject,
   initialBody,
   inReplyTo,
-  references
+  references,
+  initialAttachments
 }: {
   accountId: string
   accountEmail?: string
@@ -82,6 +83,7 @@ export function Compose({
   initialBody?: string
   inReplyTo?: string
   references?: string
+  initialAttachments?: { name: string; path: string }[]
 }): ReactNode {
   const send = useMail((s) => s.send)
   const [to, setTo] = useState(initialTo ?? '')
@@ -89,7 +91,9 @@ export function Compose({
   const [bcc, setBcc] = useState('')
   const [showCc, setShowCc] = useState(false)
   const [subject, setSubject] = useState(initialSubject ?? '')
-  const [files, setFiles] = useState<File[]>([])
+  const [attachments, setAttachments] = useState<{ name: string; path: string }[]>(
+    initialAttachments ?? []
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
@@ -212,10 +216,7 @@ export function Compose({
         html: html.trim() ? html : undefined,
         fromEmail: fromEmail || undefined,
         fromName: fromOptions.find((o) => o.email === fromEmail)?.name ?? undefined,
-        attachments: files.map((file) => ({
-          filename: file.name,
-          path: window.clover.getFilePath(file)
-        })),
+        attachments: attachments.map((a) => ({ filename: a.name, path: a.path })),
         inReplyTo,
         references
       })
@@ -372,9 +373,9 @@ export function Compose({
             dangerouslySetInnerHTML={{ __html: initialHtml }}
           />
 
-          {files.length > 0 && (
+          {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 border-t border-line/70 pt-2">
-              {files.map((file, index) => (
+              {attachments.map((file, index) => (
                 <span
                   key={`${file.name}-${index}`}
                   className="flex items-center gap-1.5 rounded-lg border border-line bg-canvas/50 px-2.5 py-1.5 text-[12px] text-ink"
@@ -383,7 +384,7 @@ export function Compose({
                   {file.name}
                   <button
                     type="button"
-                    onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                    onClick={() => setAttachments(attachments.filter((_, i) => i !== index))}
                     className="text-muted hover:text-rose-500"
                   >
                     <IconTrash className="h-3.5 w-3.5" />
@@ -401,7 +402,11 @@ export function Compose({
             multiple
             hidden
             onChange={(e) => {
-              if (e.target.files) setFiles([...files, ...Array.from(e.target.files)])
+              const picked = Array.from(e.target.files ?? []).map((f) => ({
+                name: f.name,
+                path: window.clover.getFilePath(f)
+              }))
+              setAttachments((prev) => [...prev, ...picked])
               e.target.value = ''
             }}
           />

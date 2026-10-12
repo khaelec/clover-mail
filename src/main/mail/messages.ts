@@ -168,6 +168,13 @@ export async function downloadAttachment(
   return { saved: true, path: result.filePath }
 }
 
+/** Absolute on-disk path of a cached attachment (used to re-attach on forward). */
+export function getAttachmentPath(attachmentId: string): string | null {
+  const row = getDb().select().from(attachments).where(eq(attachments.id, attachmentId)).get()
+  if (!row || !row.contentPath) return null
+  return attachmentAbsolutePath(row.contentPath)
+}
+
 async function withMessageMailbox<T>(
   messageId: string,
   fn: (client: ImapFlow, uid: number, remotePath: string) => Promise<T>
