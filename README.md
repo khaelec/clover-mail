@@ -59,7 +59,7 @@ Requires **Node 20+** on Windows. `better-sqlite3` ships N-API prebuilds, so no 
 
 ## License
 
-[MIT](LICENSE) © 2026 Cloverfield Farms IT Services. Third-party components and their licenses are listed in
+[MIT](LICENSE) © 2026 CLOVERFIELD FARMS IT SERVICES. Third-party components and their licenses are listed in
 [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) — regenerated with `npm run licenses`, shipped
 with the installer, and viewable in-app from **Settings → Updates & About → Open source licenses**.
 
