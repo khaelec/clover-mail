@@ -24,6 +24,8 @@ export const IpcChannels = {
     spamCount: 'mail:spam-count',
     listImportant: 'mail:list-important',
     importantCount: 'mail:important-count',
+    listUnifiedThreads: 'mail:list-unified-threads',
+    listUnifiedMessages: 'mail:list-unified-messages',
     markSpam: 'mail:mark-spam',
     markNotSpam: 'mail:mark-not-spam',
     blockSender: 'mail:block-sender',

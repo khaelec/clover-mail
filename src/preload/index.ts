@@ -88,6 +88,10 @@ const api: CloverApi = {
     spamCount: (accountId) => ipcRenderer.invoke(IpcChannels.mail.spamCount, accountId),
     listImportant: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listImportant, accountId),
     importantCount: (accountId) => ipcRenderer.invoke(IpcChannels.mail.importantCount, accountId),
+    listUnifiedThreads: (limit) =>
+      ipcRenderer.invoke(IpcChannels.mail.listUnifiedThreads, limit),
+    listUnifiedMessages: (limit) =>
+      ipcRenderer.invoke(IpcChannels.mail.listUnifiedMessages, limit),
     markSpam: (messageId) => ipcRenderer.invoke(IpcChannels.mail.markSpam, messageId),
     markNotSpam: (messageId) => ipcRenderer.invoke(IpcChannels.mail.markNotSpam, messageId),
     blockSender: (accountId, email) =>

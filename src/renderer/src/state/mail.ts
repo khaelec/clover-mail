@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID } from '@shared/mail'
+import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
 import { SETTINGS_KEYS } from '@shared/theme'
 import type {
   AccountSummary,
@@ -96,7 +96,15 @@ export const useMail = create<MailState>((set, get) => {
     set({ loadingMessages: true })
 
     const synthetic = folderId === JUNK_FOLDER_ID || folderId === IMPORTANT_FOLDER_ID
-    if (synthetic) {
+    if (folderId === UNIFIED_FOLDER_ID) {
+      if (get().threaded) {
+        const threads = await window.clover.mail.listUnifiedThreads()
+        set({ threads, messages: [], loadingMessages: false })
+      } else {
+        const messages = await window.clover.mail.listUnifiedMessages()
+        set({ messages, threads: [], loadingMessages: false })
+      }
+    } else if (synthetic) {
       const messages =
         folderId === JUNK_FOLDER_ID
           ? await window.clover.mail.listJunk(accountId)

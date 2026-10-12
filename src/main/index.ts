@@ -65,6 +65,7 @@ function createWindow(): void {
     frame: false,
     backgroundColor: '#0b0f14',
     title: 'Clover Mail',
+    ...(is.dev ? { icon: join(__dirname, '../../build/icon.ico') } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,

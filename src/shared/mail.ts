@@ -5,6 +5,8 @@ export type IncomingProtocol = 'imap' | 'pop3'
 export const JUNK_FOLDER_ID = 'junk'
 /** Synthetic (local) folder id for user-marked important messages. */
 export const IMPORTANT_FOLDER_ID = 'important'
+/** Synthetic (local) folder id for the cross-account unified inbox. */
+export const UNIFIED_FOLDER_ID = 'unified'
 
 export interface EndpointInput {
   host: string

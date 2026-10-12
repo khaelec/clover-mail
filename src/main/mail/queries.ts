@@ -67,16 +67,7 @@ function normalizeSubject(subject: string | null): string {
     .toLowerCase()
 }
 
-/** Group a folder's messages into threads for conversation view. */
-export function listThreads(folderId: string, limit = 400): ThreadSummary[] {
-  const rows = getDb()
-    .select()
-    .from(messages)
-    .where(and(eq(messages.folderId, folderId), ne(messages.isSpam, true)))
-    .orderBy(desc(messages.dateUtc))
-    .limit(limit)
-    .all()
-
+function buildThreads(rows: (typeof messages.$inferSelect)[]): ThreadSummary[] {
   const groups = new Map<string, typeof rows>()
   for (const row of rows) {
     const key = normalizeSubject(row.subject) || row.threadId || row.id
@@ -105,6 +96,41 @@ export function listThreads(folderId: string, limit = 400): ThreadSummary[] {
   }
 
   return threads.sort((a, b) => (b.lastDate ?? 0) - (a.lastDate ?? 0))
+}
+
+/** Group a folder's messages into threads for conversation view. */
+export function listThreads(folderId: string, limit = 400): ThreadSummary[] {
+  const rows = getDb()
+    .select()
+    .from(messages)
+    .where(and(eq(messages.folderId, folderId), ne(messages.isSpam, true)))
+    .orderBy(desc(messages.dateUtc))
+    .limit(limit)
+    .all()
+  return buildThreads(rows)
+}
+
+/** Threads across every account (Unified Inbox). */
+export function listUnifiedThreads(limit = 300): ThreadSummary[] {
+  const rows = getDb()
+    .select()
+    .from(messages)
+    .where(ne(messages.isSpam, true))
+    .orderBy(desc(messages.dateUtc))
+    .limit(limit)
+    .all()
+  return buildThreads(rows)
+}
+
+export function listUnifiedMessages(limit = 300): MessageSummary[] {
+  return getDb()
+    .select()
+    .from(messages)
+    .where(ne(messages.isSpam, true))
+    .orderBy(desc(messages.dateUtc))
+    .limit(limit)
+    .all()
+    .map(toMessageSummary)
 }
 
 export function listImportant(accountId: string): MessageSummary[] {

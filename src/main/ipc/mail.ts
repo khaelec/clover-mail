@@ -13,7 +13,7 @@ import * as accountService from '@main/mail/accounts'
 import { testImap } from '@main/mail/imap'
 import { testSmtp } from '@main/mail/smtp'
 import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@main/mail/sync'
-import { listFolders, listImportant, listJunk, listMessages, listThreads, importantCount, spamCount } from '@main/mail/queries'
+import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount } from '@main/mail/queries'
 import { deleteMessage, downloadAttachment, getMessageDetail, moveMessage, setFlags } from '@main/mail/messages'
 import { sendMessage } from '@main/mail/send'
 import { searchMessages } from '@main/mail/search'
@@ -77,6 +77,12 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.listImportant, (_e, accountId: string) => listImportant(accountId))
   ipcMain.handle(IpcChannels.mail.importantCount, (_e, accountId: string) =>
     importantCount(accountId)
+  )
+  ipcMain.handle(IpcChannels.mail.listUnifiedThreads, (_e, limit?: number) =>
+    listUnifiedThreads(limit)
+  )
+  ipcMain.handle(IpcChannels.mail.listUnifiedMessages, (_e, limit?: number) =>
+    listUnifiedMessages(limit)
   )
   ipcMain.handle(IpcChannels.mail.markSpam, (_e, messageId: string) => markSpam(messageId))
   ipcMain.handle(IpcChannels.mail.markNotSpam, (_e, messageId: string) => markNotSpam(messageId))

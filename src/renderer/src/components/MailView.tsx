@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEven
 import { useMail } from '../state/mail'
 import { useLayout } from '../state/layout'
 import { useApps } from '../state/apps'
-import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID } from '@shared/mail'
+import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
 import type { BulkActionType, FolderSummary, MessageSummary } from '@shared/mail'
 import { Reader } from './Reader'
 import { Compose } from './Compose'
@@ -522,6 +522,21 @@ export function MailView(): ReactNode {
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
+          <button
+            type="button"
+            onClick={() => void selectFolder(UNIFIED_FOLDER_ID)}
+            className={
+              'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
+              (activeFolderId === UNIFIED_FOLDER_ID
+                ? 'bg-accent/12 font-medium text-accent'
+                : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
+            }
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <IconInbox className="h-4 w-4" />
+              <span className="truncate">Unified Inbox</span>
+            </span>
+          </button>
           {visibleFolders.map((folder) => {
             const active = folder.id === activeFolderId
             return (

@@ -56,6 +56,8 @@ export interface MailApi {
   spamCount: (accountId: string) => Promise<number>
   listImportant: (accountId: string) => Promise<MessageSummary[]>
   importantCount: (accountId: string) => Promise<number>
+  listUnifiedThreads: (limit?: number) => Promise<import('./mail').ThreadSummary[]>
+  listUnifiedMessages: (limit?: number) => Promise<MessageSummary[]>
   markSpam: (messageId: string) => Promise<void>
   markNotSpam: (messageId: string) => Promise<void>
   blockSender: (accountId: string, email: string) => Promise<void>
