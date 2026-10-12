@@ -27,6 +27,14 @@ const isNavigable = (url: string): boolean =>
 // embedded apps that can't resolve stun*.google.com). Only FATAL errors log.
 app.commandLine.appendSwitch('log-level', '3')
 
+// Present a stable, browser-like user agent to embedded apps. The default adds an
+// "Electron/x.y.z" token, which some sites (Messenger, WhatsApp Web) treat as an
+// unknown/new browser and force a fresh sign-in. Keep it constant across releases.
+app.userAgentFallback = app.userAgentFallback
+  .replace(/\s*Electron\/[\d.]+/i, '')
+  .replace(/\s{2,}/g, ' ')
+  .trim()
+
 const MEDIA_EXTENSIONS = new Set([
   'mp4',
   'webm',

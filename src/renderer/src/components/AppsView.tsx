@@ -46,8 +46,8 @@ export function AppsView(): ReactNode {
     if (!host || !activeApp) return
     host.innerHTML = ''
     const webview = document.createElement('webview')
-    webview.setAttribute('src', activeApp.url)
     webview.setAttribute('partition', `persist:app-${activeApp.id}`)
+    webview.setAttribute('src', activeApp.url)
     webview.setAttribute('allowpopups', 'true')
     webview.setAttribute('webpreferences', 'backgroundThrottling=false')
     webview.style.position = 'absolute'

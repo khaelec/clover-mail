@@ -34,8 +34,8 @@ export function AppKeepAlive(): ReactNode {
     for (const app of apps) {
       if (app.id === displayedAppId || nodes.has(app.id)) continue
       const webview = document.createElement('webview')
-      webview.setAttribute('src', app.url)
       webview.setAttribute('partition', `persist:app-${app.id}`)
+      webview.setAttribute('src', app.url)
       webview.setAttribute('webpreferences', 'backgroundThrottling=false')
       webview.style.width = '1280px'
       webview.style.height = '800px'

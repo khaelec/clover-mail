@@ -185,8 +185,8 @@ function AppDock(): ReactNode {
     host.innerHTML = ''
     if (app) {
       const webview = document.createElement('webview')
-      webview.setAttribute('src', app.url)
       webview.setAttribute('partition', `persist:app-${app.id}`)
+      webview.setAttribute('src', app.url)
       webview.setAttribute('allowpopups', 'true')
       webview.setAttribute('webpreferences', 'backgroundThrottling=false')
       webview.style.position = 'absolute'
