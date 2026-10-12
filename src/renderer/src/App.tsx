@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { TitleBar } from './components/TitleBar'
 import { Sidebar, type SectionId } from './components/Sidebar'
 import { MailView } from './components/MailView'
+import { AppsView } from './components/AppsView'
 import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
 import { IconCalendar, IconGrid, IconSparkles, IconWallpaper } from './components/icons'
@@ -42,19 +43,7 @@ function renderSection(section: SectionId): ReactNode {
         />
       )
     case 'apps':
-      return (
-        <PlaceholderView
-          title="Custom Apps"
-          blurb="Bring your own tools — including your PWA IT app — into an isolated, persistent sidebar."
-          icon={<IconGrid className="h-6 w-6" />}
-          upcoming={[
-            'Add any app by URL with manifest discovery',
-            'Embedded webview with a per-app session',
-            'Automatic icon capture and overrides',
-            'Open apps inline or in a dedicated window'
-          ]}
-        />
-      )
+      return <AppsView />
     case 'wallpaper':
       return (
         <PlaceholderView

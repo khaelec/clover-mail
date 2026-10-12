@@ -7,6 +7,12 @@ const api: CloverApi = {
   appInfo: () => ipcRenderer.invoke(IpcChannels.appInfo),
   getFilePath: (file) =>
     webUtils.getPathForFile(file as Parameters<typeof webUtils.getPathForFile>[0]),
+  apps: {
+    list: () => ipcRenderer.invoke(IpcChannels.apps.list),
+    create: (input) => ipcRenderer.invoke(IpcChannels.apps.create, input),
+    remove: (id) => ipcRenderer.invoke(IpcChannels.apps.remove, id),
+    update: (id, patch) => ipcRenderer.invoke(IpcChannels.apps.update, id, patch)
+  },
   settings: {
     getAll: () => ipcRenderer.invoke(IpcChannels.settingsGetAll),
     get: (key: string) => ipcRenderer.invoke(IpcChannels.settingsGet, key),

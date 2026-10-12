@@ -52,7 +52,19 @@ app.whenReady().then(async () => {
       })
       const rules = await api.listRules(created.id)
       await api.deleteRule(rule.id)
+
+      let appCreated = null
+      try {
+        appCreated = await window.clover.apps.create({ url: 'https://example.com' })
+      } catch (e) {
+        appCreated = null
+      }
+      const appsAfter = await window.clover.apps.list()
+      if (appCreated) await window.clover.apps.remove(appCreated.id)
+      const appsFinal = await window.clover.apps.list()
+
       await api.deleteAccount(created.id)
+      for (const stale of await api.listAccounts()) await api.deleteAccount(stale.id)
       const after = await api.listAccounts()
       return JSON.stringify({
         before: before.length,
@@ -66,6 +78,9 @@ app.whenReady().then(async () => {
         spamCount: spam,
         rulesCreated: rules.length,
         ruleConditions: rules[0] ? rules[0].conditions.length : 0,
+        appCreated: appCreated ? appCreated.name : null,
+        appsAfterCreate: appsAfter.length,
+        appsFinal: appsFinal.length,
         accountsAfterDelete: after.length
       })
     })()`)

@@ -15,6 +15,7 @@ import type {
   RuleInput,
   SyncResult
 } from './mail'
+import type { CreateAppInput, CustomApp } from './apps'
 
 export const AppInfoSchema = z.object({
   name: z.string(),
@@ -62,9 +63,17 @@ export interface MailApi {
   onEvent: (cb: (event: MailEvent) => void) => () => void
 }
 
+export interface AppsApi {
+  list: () => Promise<CustomApp[]>
+  create: (input: CreateAppInput) => Promise<CustomApp>
+  remove: (id: string) => Promise<void>
+  update: (id: string, patch: Partial<CustomApp>) => Promise<void>
+}
+
 export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
+  apps: AppsApi
   settings: {
     getAll: () => Promise<SettingsRecord>
     get: (key: string) => Promise<unknown>

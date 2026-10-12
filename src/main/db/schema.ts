@@ -189,6 +189,18 @@ export const ruleActions = sqliteTable(
   (table) => [index('ix_rule_actions_rule').on(table.ruleId)]
 )
 
+export const customWebApps = sqliteTable('custom_web_apps', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  url: text('url').notNull(),
+  manifestUrl: text('manifest_url'),
+  iconRef: text('icon_ref'),
+  windowMode: text('window_mode').notNull().default('inline'),
+  isPinned: integer('is_pinned', { mode: 'boolean' }).notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: integer('created_at').notNull()
+})
+
 export const schema = {
   appSettings,
   migrationsTable,
@@ -203,5 +215,6 @@ export const schema = {
   spamTokens,
   rules,
   ruleConditions,
-  ruleActions
+  ruleActions,
+  customWebApps
 }

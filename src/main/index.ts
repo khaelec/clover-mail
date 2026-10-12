@@ -5,6 +5,7 @@ import { IpcChannels } from '@shared/channels'
 import { initDatabase, closeDatabase } from '@main/db'
 import { registerIpc } from '@main/ipc'
 import { setStorageRoot } from '@main/mail/storage'
+import { setAppsRoot } from '@main/apps'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -22,7 +23,8 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      webviewTag: true
     }
   })
 
@@ -58,6 +60,7 @@ app.whenReady().then(() => {
 
   initDatabase(app.getPath('userData'))
   setStorageRoot(app.getPath('userData'))
+  setAppsRoot(app.getPath('userData'))
   registerIpc(() => mainWindow)
   createWindow()
 

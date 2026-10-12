@@ -39,6 +39,12 @@ export const IpcChannels = {
     downloadAttachment: 'mail:download-attachment',
     search: 'mail:search',
     events: 'mail:events'
+  },
+  apps: {
+    list: 'apps:list',
+    create: 'apps:create',
+    remove: 'apps:remove',
+    update: 'apps:update'
   }
 } as const
 

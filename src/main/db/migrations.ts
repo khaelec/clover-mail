@@ -191,5 +191,21 @@ export const migrations: Migration[] = [
       );
       CREATE INDEX IF NOT EXISTS ix_rule_actions_rule ON rule_actions(rule_id);
     `
+  },
+  {
+    id: '0005_custom_apps',
+    sql: `
+      CREATE TABLE IF NOT EXISTS custom_web_apps (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        url TEXT NOT NULL,
+        manifest_url TEXT,
+        icon_ref TEXT,
+        window_mode TEXT NOT NULL DEFAULT 'inline',
+        is_pinned INTEGER NOT NULL DEFAULT 0,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      );
+    `
   }
 ]
