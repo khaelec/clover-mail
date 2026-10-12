@@ -160,7 +160,7 @@ function resolveThreadId(
   return messageId ?? id
 }
 
-function upsertMessage(accountId: string, folderId: string, msg: FetchMessageObject): void {
+export function upsertMessage(accountId: string, folderId: string, msg: FetchMessageObject): void {
   const db = getDb()
   const uid = msg.uid
   const id = `${folderId}:${uid}`

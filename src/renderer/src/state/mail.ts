@@ -264,8 +264,23 @@ export const useMail = create<MailState>((set, get) => {
         get().activeFolderId === UNIFIED_FOLDER_ID
           ? undefined
           : (get().activeAccountId ?? undefined)
-      const searchResults = await window.clover.mail.search(trimmed, accountId)
-      set({ searchResults })
+      const local = await window.clover.mail.search(trimmed, accountId)
+
+      let merged = local
+      if (accountId) {
+        set({ status: 'Searching server…' })
+        try {
+          const server = await window.clover.mail.searchServer(accountId, trimmed)
+          const byId = new Map<string, MessageSummary>()
+          for (const m of [...server, ...local]) byId.set(m.id, m)
+          merged = [...byId.values()].sort((a, b) => (b.dateUtc ?? 0) - (a.dateUtc ?? 0))
+        } catch {
+          // server search unavailable — keep local results
+        } finally {
+          set({ status: null })
+        }
+      }
+      set({ searchResults: merged })
     },
 
     clearSearch: () => set({ searchQuery: '', searchResults: null }),

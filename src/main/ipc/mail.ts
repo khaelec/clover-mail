@@ -17,7 +17,7 @@ import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit }
 import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount } from '@main/mail/queries'
 import { deleteMessage, downloadAttachment, getAttachmentPath, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@main/mail/messages'
 import { sendMessage } from '@main/mail/send'
-import { searchMessages } from '@main/mail/search'
+import { searchMessages, searchServer } from '@main/mail/search'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
 import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
@@ -226,6 +226,9 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   )
   ipcMain.handle(IpcChannels.mail.search, (_e, query: string, accountId?: string) =>
     searchMessages(query, accountId)
+  )
+  ipcMain.handle(IpcChannels.mail.searchServer, (_e, accountId: string, query: string) =>
+    searchServer(accountId, query)
   )
 
   startAllIdle(emit)

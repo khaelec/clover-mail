@@ -68,6 +68,7 @@ export const IpcChannels = {
     openAttachment: 'mail:open-attachment',
     readAttachmentText: 'mail:read-attachment-text',
     search: 'mail:search',
+    searchServer: 'mail:search-server',
     events: 'mail:events'
   },
   apps: {

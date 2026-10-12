@@ -1,6 +1,8 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { getDb, getRawDb } from '../db'
-import { messageBodies, messages } from '../db/schema'
+import { folders, messageBodies, messages } from '../db/schema'
+import { withImap } from './connection'
+import { upsertMessage } from './sync'
 import { toMessageSummary } from './mappers'
 import type { MessageSummary } from '@shared/mail'
 
@@ -70,6 +72,53 @@ export function searchMessages(query: string, accountId?: string): MessageSummar
     .all()
 
   return rows
+    .sort((a, b) => (b.dateUtc ?? 0) - (a.dateUtc ?? 0))
+    .map(toMessageSummary)
+}
+
+/**
+ * Ask the IMAP server directly (searches the whole mailbox, not just cache).
+ * Matches are upserted locally so they can be opened normally.
+ */
+export async function searchServer(accountId: string, query: string): Promise<MessageSummary[]> {
+  const q = query.trim()
+  if (!q) return []
+  const db = getDb()
+  const folderRows = db.select().from(folders).where(eq(folders.accountId, accountId)).all()
+  const ids = new Set<string>()
+
+  await withImap(accountId, async (client) => {
+    for (const folder of folderRows) {
+      if (ids.size >= 200) break
+      try {
+        await client.mailboxOpen(folder.remotePath, { readOnly: true })
+        const uids = await client.search(
+          { or: [{ subject: q }, { from: q }, { body: q }] },
+          { uid: true }
+        )
+        if (!uids || uids.length === 0) continue
+        const subset = uids.slice(-100)
+        for await (const msg of client.fetch(
+          subset,
+          { uid: true, envelope: true, flags: true, internalDate: true, size: true, bodyStructure: true },
+          { uid: true }
+        )) {
+          upsertMessage(accountId, folder.id, msg)
+          ids.add(`${folder.id}:${msg.uid}`)
+        }
+      } catch {
+        // skip folders the server refuses to search
+      }
+      await client.mailboxClose().catch(() => undefined)
+    }
+  })
+
+  if (ids.size === 0) return []
+  return db
+    .select()
+    .from(messages)
+    .where(inArray(messages.id, [...ids]))
+    .all()
     .sort((a, b) => (b.dateUtc ?? 0) - (a.dateUtc ?? 0))
     .map(toMessageSummary)
 }
