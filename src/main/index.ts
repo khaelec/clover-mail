@@ -10,6 +10,10 @@ import { setAppsRoot } from '@main/apps'
 
 let mainWindow: BrowserWindow | null = null
 
+const isWebUrl = (url: string): boolean => /^https?:\/\//i.test(url) || url.startsWith('mailto:')
+const isNavigable = (url: string): boolean =>
+  /^(https?:|file:|about:|devtools:|chrome-extension:|clover-media:|blob:|data:)/i.test(url)
+
 // Quiet Chromium's internal networking noise (e.g. WebRTC STUN lookups from
 // embedded apps that can't resolve stun*.google.com). Only FATAL errors log.
 app.commandLine.appendSwitch('log-level', '3')
@@ -135,8 +139,17 @@ app.whenReady().then(() => {
   // is denied, which prevents Windows' "Get an app from the Store" popup.
   app.on('web-contents-created', (_event, contents) => {
     contents.setWindowOpenHandler(({ url }) => {
-      if (/^https?:\/\//i.test(url) || url.startsWith('mailto:')) void shell.openExternal(url)
+      if (isWebUrl(url)) void shell.openExternal(url)
       return { action: 'deny' }
+    })
+
+    // Block top-level navigations to non-web schemes (steam://, ms-windows-store:, …)
+    // so Chromium never hands them to the OS.
+    contents.on('will-navigate', (event, url) => {
+      if (!isNavigable(url)) event.preventDefault()
+    })
+    contents.on('will-redirect', (event, url) => {
+      if (!isNavigable(url)) event.preventDefault()
     })
   })
 
