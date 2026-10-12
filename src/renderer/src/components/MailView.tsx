@@ -45,20 +45,26 @@ function folderIcon(folder: FolderSummary): ReactNode {
 }
 
 function Splitter({
-  onResize,
+  width,
+  min,
+  max,
+  onChange,
   onCommit
 }: {
-  onResize: (deltaX: number) => void
+  width: number
+  min: number
+  max: number
+  onChange: (width: number) => void
   onCommit: () => void
 }): ReactNode {
   return (
     <div
       onPointerDown={(e) => {
         e.preventDefault()
-        let last = e.clientX
+        const startX = e.clientX
+        const startWidth = width
         const move = (ev: PointerEvent): void => {
-          onResize(ev.clientX - last)
-          last = ev.clientX
+          onChange(Math.max(min, Math.min(max, startWidth + (ev.clientX - startX))))
         }
         const up = (): void => {
           window.removeEventListener('pointermove', move)
@@ -353,9 +359,10 @@ export function MailView(): ReactNode {
 
       {layout.showFolders && (
         <Splitter
-          onResize={(dx) =>
-            setLayout({ foldersWidth: Math.max(170, Math.min(420, layout.foldersWidth + dx)) })
-          }
+          width={layout.foldersWidth}
+          min={170}
+          max={420}
+          onChange={(w) => setLayout({ foldersWidth: w })}
           onCommit={() => void saveLayout()}
         />
       )}
@@ -625,7 +632,10 @@ export function MailView(): ReactNode {
       </section>
 
       <Splitter
-        onResize={(dx) => setLayout({ listWidth: Math.max(260, Math.min(680, layout.listWidth + dx)) })}
+        width={layout.listWidth}
+        min={260}
+        max={680}
+        onChange={(w) => setLayout({ listWidth: w })}
         onCommit={() => void saveLayout()}
       />
 
