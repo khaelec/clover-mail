@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Lint, LocalLinter, Suggestion } from 'harper.js'
-import type { ComposeInput, DraftData } from '@shared/mail'
+import type { ComposeInput, DraftData, Snippet } from '@shared/mail'
 import { useMail } from '../state/mail'
 import { IconCheck, IconClose, IconHighlight, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
 
@@ -107,6 +107,17 @@ export function Compose({
   const [issues, setIssues] = useState<GrammarIssue[]>([])
   const [signatureHtml, setSignatureHtml] = useState('')
   const [signatureOn, setSignatureOn] = useState(false)
+  const [snippets, setSnippets] = useState<Snippet[]>([])
+  const [snippetOpen, setSnippetOpen] = useState(false)
+
+  useEffect(() => {
+    void window.clover.mail.listSnippets().then(setSnippets)
+  }, [])
+
+  function insertSnippet(body: string): void {
+    editorRef.current?.focus()
+    document.execCommand('insertHTML', false, body)
+  }
   const [fromOptions, setFromOptions] = useState<{ name: string | null; email: string }[]>([])
   const [fromEmail, setFromEmail] = useState(accountEmail ?? '')
   const [pending, setPending] = useState<{ input: ComposeInput; seconds: number } | null>(null)
@@ -410,6 +421,37 @@ export function Compose({
               <IconSignature className="h-3.5 w-3.5" />
               Signature
             </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setSnippetOpen((v) => !v)}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted hover:text-accent"
+              >
+                Snippet
+              </button>
+              {snippetOpen && (
+                <div className="absolute left-0 top-8 z-50 w-56 overflow-hidden rounded-xl border border-line bg-surface py-1 text-ink shadow-2xl">
+                  {snippets.length === 0 && (
+                    <div className="px-3 py-1.5 text-[12px] text-muted">
+                      No snippets — add them in Settings → Mail.
+                    </div>
+                  )}
+                  {snippets.map((snippet) => (
+                    <button
+                      key={snippet.id}
+                      type="button"
+                      onClick={() => {
+                        setSnippetOpen(false)
+                        insertSnippet(snippet.body)
+                      }}
+                      className="block w-full px-3 py-1.5 text-left text-[12px] hover:bg-black/5 dark:hover:bg-white/10"
+                    >
+                      {snippet.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {grammarOpen && (

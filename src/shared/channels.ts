@@ -69,6 +69,11 @@ export const IpcChannels = {
     readAttachmentText: 'mail:read-attachment-text',
     search: 'mail:search',
     searchServer: 'mail:search-server',
+    listSnippets: 'mail:list-snippets',
+    addSnippet: 'mail:add-snippet',
+    deleteSnippet: 'mail:delete-snippet',
+    snooze: 'mail:snooze',
+    unsnooze: 'mail:unsnooze',
     events: 'mail:events'
   },
   apps: {

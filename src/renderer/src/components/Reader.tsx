@@ -31,6 +31,12 @@ const AI_ACTIONS: { label: string; prompt: string }[] = [
   }
 ]
 
+const SNOOZE_OPTIONS: { label: string; kind: 'later' | 'tomorrow' | 'week' }[] = [
+  { label: 'Later today', kind: 'later' },
+  { label: 'Tomorrow morning', kind: 'tomorrow' },
+  { label: 'Next week', kind: 'week' }
+]
+
 function formatDate(value: number | null): string {
   if (!value) return ''
   try {
@@ -90,7 +96,8 @@ export function Reader({
     blockSender,
     allowSender,
     folders,
-    bulkIds
+    bulkIds,
+    snooze
   } = useMail()
   const [allowRemote, setAllowRemote] = useState(false)
   const [trusted, setTrusted] = useState<string[]>([])
@@ -98,8 +105,25 @@ export function Reader({
   const [calendarNotice, setCalendarNotice] = useState<string | null>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const effective = useTheme((s) => s.effective)
-  const [menu, setMenu] = useState<{ x: number; y: number; mode: 'main' | 'move' } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; mode: 'main' | 'move' | 'snooze' } | null>(
+    null
+  )
   const [aiOpen, setAiOpen] = useState(false)
+
+  function snoozeUntil(kind: 'later' | 'tomorrow' | 'week'): number {
+    const d = new Date()
+    if (kind === 'later') {
+      d.setHours(18, 0, 0, 0)
+      if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1)
+    } else if (kind === 'tomorrow') {
+      d.setDate(d.getDate() + 1)
+      d.setHours(8, 0, 0, 0)
+    } else {
+      d.setDate(d.getDate() + 7)
+      d.setHours(8, 0, 0, 0)
+    }
+    return d.getTime()
+  }
   const [preview, setPreview] = useState<{
     id: string
     name: string
@@ -541,6 +565,13 @@ export function Reader({
                 >
                   {detail.isFlagged ? 'Unstar' : 'Star'}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setMenu({ ...menu, mode: 'snooze' })}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  Snooze ›
+                </button>
                 <div className="my-1 h-px bg-line" />
                 <button
                   type="button"
@@ -580,7 +611,7 @@ export function Reader({
                   Delete
                 </button>
               </>
-            ) : (
+            ) : menu.mode === 'move' ? (
               <>
                 <button
                   type="button"
@@ -605,6 +636,41 @@ export function Reader({
                     </button>
                   ))}
                 </div>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setMenu({ ...menu, mode: 'main' })}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  ‹ Back
+                </button>
+                <div className="my-1 h-px bg-line" />
+                {SNOOZE_OPTIONS.map((option) => (
+                  <button
+                    key={option.kind}
+                    type="button"
+                    onClick={() => {
+                      void snooze(detail.id, snoozeUntil(option.kind))
+                      setMenu(null)
+                    }}
+                    className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+                <div className="my-1 h-px bg-line" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    void useMail.getState().unsnooze(detail.id)
+                    setMenu(null)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] text-muted hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  Remove snooze
+                </button>
               </>
             )}
           </div>

@@ -18,6 +18,8 @@ import { listFolders, listImportant, listJunk, listMessages, listThreads, listUn
 import { deleteMessage, downloadAttachment, getAttachmentPath, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@main/mail/messages'
 import { sendMessage } from '@main/mail/send'
 import { searchMessages, searchServer } from '@main/mail/search'
+import { addSnippet, deleteSnippet, listSnippets } from '@main/mail/snippets'
+import { snooze, unsnooze } from '@main/mail/snooze'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
 import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
@@ -230,6 +232,15 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.searchServer, (_e, accountId: string, query: string) =>
     searchServer(accountId, query)
   )
+  ipcMain.handle(IpcChannels.mail.listSnippets, () => listSnippets())
+  ipcMain.handle(IpcChannels.mail.addSnippet, (_e, name: string, body: string) =>
+    addSnippet(name, body)
+  )
+  ipcMain.handle(IpcChannels.mail.deleteSnippet, (_e, id: string) => deleteSnippet(id))
+  ipcMain.handle(IpcChannels.mail.snooze, (_e, messageId: string, untilMs: number) =>
+    snooze(messageId, untilMs)
+  )
+  ipcMain.handle(IpcChannels.mail.unsnooze, (_e, messageId: string) => unsnooze(messageId))
 
   startAllIdle(emit)
 }

@@ -11,6 +11,7 @@ import { setAppsRoot } from '@main/apps'
 import { stopAllIdle } from '@main/mail/idle'
 import { initUpdater } from '@main/updater'
 import { createTray } from '@main/tray'
+import { clearDueSnoozes } from '@main/mail/snooze'
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
@@ -211,6 +212,14 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+
+  // Wake snoozed messages when their time arrives.
+  setInterval(() => {
+    const due = clearDueSnoozes(Date.now())
+    if (due.length > 0) {
+      mainWindow?.webContents.send(IpcChannels.mail.events, { type: 'mail:refresh', accountId: '' })
+    }
+  }, 60_000)
 })
 
 app.on('window-all-closed', () => {

@@ -162,6 +162,11 @@ const api: CloverApi = {
     search: (query, accountId) => ipcRenderer.invoke(IpcChannels.mail.search, query, accountId),
     searchServer: (accountId, query) =>
       ipcRenderer.invoke(IpcChannels.mail.searchServer, accountId, query),
+    listSnippets: () => ipcRenderer.invoke(IpcChannels.mail.listSnippets),
+    addSnippet: (name, body) => ipcRenderer.invoke(IpcChannels.mail.addSnippet, name, body),
+    deleteSnippet: (id) => ipcRenderer.invoke(IpcChannels.mail.deleteSnippet, id),
+    snooze: (messageId, untilMs) => ipcRenderer.invoke(IpcChannels.mail.snooze, messageId, untilMs),
+    unsnooze: (messageId) => ipcRenderer.invoke(IpcChannels.mail.unsnooze, messageId),
     onEvent: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
         cb(event as Parameters<typeof cb>[0])

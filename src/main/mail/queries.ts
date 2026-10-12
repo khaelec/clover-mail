@@ -1,9 +1,14 @@
-import { and, asc, desc, eq, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { toMessageSummary } from './mappers'
 import { countSpam, listSpam } from './spam'
 import type { FolderSummary, MessageSummary, ThreadSummary } from '@shared/mail'
+
+/** Excludes messages snoozed into the future. */
+function notSnoozed(): ReturnType<typeof or> {
+  return or(isNull(messages.snoozedUntil), lt(messages.snoozedUntil, Date.now()))
+}
 
 export function listFolders(accountId: string): FolderSummary[] {
   const db = getDb()
@@ -41,7 +46,7 @@ export function listMessages(folderId: string, limit = 150, offset = 0): Message
   return getDb()
     .select()
     .from(messages)
-    .where(and(eq(messages.folderId, folderId), ne(messages.isSpam, true)))
+    .where(and(eq(messages.folderId, folderId), ne(messages.isSpam, true), notSnoozed()))
     .orderBy(desc(messages.dateUtc), desc(messages.uid))
     .limit(limit)
     .offset(offset)
@@ -144,7 +149,7 @@ export function listThreads(folderId: string, limit = 1500): ThreadSummary[] {
   const rows = db
     .select()
     .from(messages)
-    .where(and(eq(messages.accountId, folderRow.accountId), ne(messages.isSpam, true)))
+    .where(and(eq(messages.accountId, folderRow.accountId), ne(messages.isSpam, true), notSnoozed()))
     .orderBy(desc(messages.dateUtc))
     .limit(limit)
     .all()
@@ -156,7 +161,7 @@ export function listUnifiedThreads(limit = 300): ThreadSummary[] {
   const rows = getDb()
     .select()
     .from(messages)
-    .where(ne(messages.isSpam, true))
+    .where(and(ne(messages.isSpam, true), notSnoozed()))
     .orderBy(desc(messages.dateUtc))
     .limit(limit)
     .all()
@@ -167,7 +172,7 @@ export function listUnifiedMessages(limit = 300): MessageSummary[] {
   return getDb()
     .select()
     .from(messages)
-    .where(ne(messages.isSpam, true))
+    .where(and(ne(messages.isSpam, true), notSnoozed()))
     .orderBy(desc(messages.dateUtc))
     .limit(limit)
     .all()
@@ -178,7 +183,7 @@ export function listImportant(accountId: string): MessageSummary[] {
   return getDb()
     .select()
     .from(messages)
-    .where(and(eq(messages.accountId, accountId), eq(messages.isImportant, true)))
+    .where(and(eq(messages.accountId, accountId), eq(messages.isImportant, true), notSnoozed()))
     .orderBy(desc(messages.dateUtc))
     .all()
     .map(toMessageSummary)

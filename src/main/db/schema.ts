@@ -111,7 +111,8 @@ export const messages = sqliteTable(
     isSpam: integer('is_spam', { mode: 'boolean' }).notNull().default(false),
     spamScore: integer('spam_score').notNull().default(0),
     spamReasons: text('spam_reasons'),
-    isImportant: integer('is_important', { mode: 'boolean' }).notNull().default(false)
+    isImportant: integer('is_important', { mode: 'boolean' }).notNull().default(false),
+    snoozedUntil: integer('snoozed_until')
   },
   (table) => [
     uniqueIndex('ux_messages_account_folder_uid').on(table.accountId, table.folderId, table.uid),
@@ -168,6 +169,13 @@ export const accountOauth = sqliteTable('account_oauth', {
   provider: text('provider').notNull(),
   refreshTokenRef: text('refresh_token_ref').notNull(),
   scope: text('scope'),
+  createdAt: integer('created_at').notNull()
+})
+
+export const snippets = sqliteTable('snippets', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  body: text('body').notNull(),
   createdAt: integer('created_at').notNull()
 })
 
@@ -281,6 +289,7 @@ export const schema = {
   accounts,
   accountAliases,
   accountOauth,
+  snippets,
   incomingSettings,
   outgoingSettings,
   folders,

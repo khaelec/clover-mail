@@ -7,7 +7,7 @@ import {
   type ThemeMode
 } from '@shared/theme'
 import type { AppInfo } from '@shared/ipc'
-import type { AccountAlias, AccountSummary } from '@shared/mail'
+import type { AccountAlias, AccountSummary, Snippet } from '@shared/mail'
 import type { AiSettings, AiStatus, McpSettings } from '@shared/ai'
 import { useTheme } from '../theme/theme'
 import { useUpdate } from '../state/update'
@@ -104,6 +104,9 @@ export function SettingsView(): ReactNode {
   const [aliasList, setAliasList] = useState<AccountAlias[]>([])
   const [aliasEmail, setAliasEmail] = useState('')
   const [aliasName, setAliasName] = useState('')
+  const [snippetList, setSnippetList] = useState<Snippet[]>([])
+  const [snippetName, setSnippetName] = useState('')
+  const [snippetBody, setSnippetBody] = useState('')
   const [googleClientId, setGoogleClientId] = useState('')
   const [googleSecret, setGoogleSecret] = useState('')
   const [googleMsg, setGoogleMsg] = useState<string | null>(null)
@@ -150,7 +153,21 @@ export function SettingsView(): ReactNode {
     })
     void window.clover.mail.getGoogleConfig().then((cfg) => setGoogleClientId(cfg.clientId))
     void window.clover.mail.getMicrosoftConfig().then((cfg) => setMsClientId(cfg.clientId))
+    void window.clover.mail.listSnippets().then(setSnippetList)
   }, [])
+
+  async function addSnippetEntry(): Promise<void> {
+    if (!snippetName.trim() || !snippetBody.trim()) return
+    await window.clover.mail.addSnippet(snippetName.trim(), snippetBody.trim())
+    setSnippetName('')
+    setSnippetBody('')
+    setSnippetList(await window.clover.mail.listSnippets())
+  }
+
+  async function removeSnippetEntry(id: string): Promise<void> {
+    await window.clover.mail.deleteSnippet(id)
+    setSnippetList(await window.clover.mail.listSnippets())
+  }
 
   async function saveGoogleConfig(): Promise<void> {
     await window.clover.mail.setGoogleConfig(googleClientId, googleSecret || undefined)
@@ -507,6 +524,47 @@ export function SettingsView(): ReactNode {
                   </p>
                 </>
               )}
+            </div>
+          </Card>
+
+          <Card title="Snippets">
+            <div className="space-y-3">
+              {snippetList.length > 0 && (
+                <ul className="space-y-1.5">
+                  {snippetList.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex items-center gap-2 rounded-lg border border-line bg-canvas/40 px-3 py-1.5 text-[13px] text-ink"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => void removeSnippetEntry(s.id)}
+                        className="text-muted hover:text-rose-500"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Field label="Name" value={snippetName} onChange={setSnippetName} placeholder="e.g. Meeting follow-up" />
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-medium text-muted">Text / HTML</span>
+                <textarea
+                  value={snippetBody}
+                  onChange={(e) => setSnippetBody(e.target.value)}
+                  className="min-h-[80px] w-full rounded-lg border border-line bg-canvas/60 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void addSnippetEntry()}
+                className="rounded-lg bg-accent px-3.5 py-2 text-[12px] font-semibold text-accent-ink"
+              >
+                Add snippet
+              </button>
+              <p className="text-[11px] text-muted">Insert snippets from the composer&apos;s Snippet menu.</p>
             </div>
           </Card>
             </>

@@ -57,6 +57,8 @@ interface MailState {
   markFolderRead: (folderId: string) => Promise<void>
   syncFolder: (folderId: string) => Promise<void>
   emptyJunk: () => Promise<void>
+  snooze: (messageId: string, untilMs: number) => Promise<void>
+  unsnooze: (messageId: string) => Promise<void>
   unreadOnly: boolean
   setUnreadOnly: (value: boolean) => void
   setThreaded: (value: boolean) => Promise<void>
@@ -177,6 +179,9 @@ export const useMail = create<MailState>((set, get) => {
           setTimeout(() => {
             if (get().status === 'New mail received') set({ status: null })
           }, 4000)
+        } else if (event.type === 'mail:refresh') {
+          void reloadFolders()
+          void reloadFolder()
         }
       })
 
@@ -390,6 +395,18 @@ export const useMail = create<MailState>((set, get) => {
 
     setUnreadOnly: (value) => set({ unreadOnly: value }),
 
+    snooze: async (messageId, untilMs) => {
+      await window.clover.mail.snooze(messageId, untilMs)
+      set({ selectedMessageId: null, detail: null })
+      await reloadFolder()
+      await reloadFolders()
+    },
+
+    unsnooze: async (messageId) => {
+      await window.clover.mail.unsnooze(messageId)
+      await reloadFolder()
+      await reloadFolders()
+    },
     setThreaded: async (value) => {
       set({ threaded: value })
       await window.clover.settings.set(SETTINGS_KEYS.threadedView, value)

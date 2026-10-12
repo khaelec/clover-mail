@@ -127,6 +127,12 @@ export interface DraftData {
   fromName?: string
 }
 
+export interface Snippet {
+  id: string
+  name: string
+  body: string
+}
+
 export interface ComposeInput {
   accountId: string
   to: string[]
@@ -154,6 +160,7 @@ export type MailEventType =
   | 'sync:done'
   | 'sync:error'
   | 'mail:new'
+  | 'mail:refresh'
 
 export interface MailEvent {
   type: MailEventType

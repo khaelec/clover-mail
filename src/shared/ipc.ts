@@ -101,6 +101,11 @@ export interface MailApi {
   readAttachmentText: (attachmentId: string) => Promise<string | null>
   search: (query: string, accountId?: string) => Promise<MessageSummary[]>
   searchServer: (accountId: string, query: string) => Promise<MessageSummary[]>
+  listSnippets: () => Promise<import('./mail').Snippet[]>
+  addSnippet: (name: string, body: string) => Promise<import('./mail').Snippet>
+  deleteSnippet: (id: string) => Promise<void>
+  snooze: (messageId: string, untilMs: number) => Promise<void>
+  unsnooze: (messageId: string) => Promise<void>
   onEvent: (cb: (event: MailEvent) => void) => () => void
 }
 

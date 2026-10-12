@@ -282,5 +282,17 @@ export const migrations: Migration[] = [
         created_at INTEGER NOT NULL
       );
     `
+  },
+  {
+    id: '0010_snippets_and_snooze',
+    sql: `
+      CREATE TABLE IF NOT EXISTS snippets (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        body TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      ALTER TABLE messages ADD COLUMN snoozed_until INTEGER;
+    `
   }
 ]
