@@ -6,6 +6,7 @@ import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/
 import type { BulkActionType, FolderSummary, MessageSummary, ThreadSummary } from '@shared/mail'
 import { Reader } from './Reader'
 import { Compose } from './Compose'
+import { CopilotView } from './CopilotView'
 import { AccountSetup } from './AccountSetup'
 import { RulesModal } from './RulesModal'
 import {
@@ -166,19 +167,20 @@ function AppDock(): ReactNode {
   const setLayout = useLayout((s) => s.set)
   const saveLayout = useLayout((s) => s.save)
   const hostRef = useRef<HTMLDivElement>(null)
-  const app = apps.find((a) => a.id === layout.dockAppId) ?? null
+  const isCopilot = layout.dockKind === 'copilot'
+  const app = isCopilot ? null : (apps.find((a) => a.id === layout.dockAppId) ?? null)
 
   useEffect(() => {
     void load()
   }, [load])
 
   useEffect(() => {
-    if (!layout.dockAppId && apps.length > 0) setLayout({ dockAppId: apps[0].id })
-  }, [apps, layout.dockAppId, setLayout])
+    if (!isCopilot && !layout.dockAppId && apps.length > 0) setLayout({ dockAppId: apps[0].id })
+  }, [apps, layout.dockAppId, isCopilot, setLayout])
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host) return
+    if (!host || isCopilot) return
     host.innerHTML = ''
     if (app) {
       const webview = document.createElement('webview')
@@ -192,7 +194,7 @@ function AppDock(): ReactNode {
     return () => {
       host.innerHTML = ''
     }
-  }, [app, app?.id, app?.url])
+  }, [app, app?.id, app?.url, isCopilot])
 
   return (
     <>
@@ -210,11 +212,17 @@ function AppDock(): ReactNode {
       >
         <div className="flex items-center gap-2 border-b border-line px-3 py-2">
           <select
-            value={layout.dockAppId ?? ''}
-            onChange={(e) => setLayout({ dockAppId: e.target.value })}
+            value={isCopilot ? '__copilot__' : layout.dockAppId ?? ''}
+            onChange={(e) => {
+              if (e.target.value === '__copilot__') setLayout({ dockKind: 'copilot' })
+              else setLayout({ dockKind: 'app', dockAppId: e.target.value })
+            }}
             className="min-w-0 flex-1 rounded-md border border-line bg-canvas/60 px-2 py-1 text-[12px] text-ink outline-none"
           >
-            {apps.length === 0 && <option value="">No apps — add one in the Apps tab</option>}
+            <option value="__copilot__">Copilot</option>
+            {apps.length === 0 && !isCopilot && (
+              <option value="">No apps — add one in the Apps tab</option>
+            )}
             {apps.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
@@ -230,7 +238,13 @@ function AppDock(): ReactNode {
             <IconClose className="h-4 w-4" />
           </button>
         </div>
-        <div ref={hostRef} className="min-h-0 min-w-0 flex-1 overflow-hidden" />
+        {isCopilot ? (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <CopilotView embedded />
+          </div>
+        ) : (
+          <div ref={hostRef} className="min-h-0 min-w-0 flex-1 overflow-hidden" />
+        )}
       </section>
     </>
   )

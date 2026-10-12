@@ -4,6 +4,7 @@ import type { AiChatRequest, AiSettings, McpSettings } from '@shared/ai'
 import { aiStatus, cancelChat, runChat, setAiEmitter } from '@main/ai'
 import { getAiSettings, getMcpSettings, setAiSettings, setClaudeKey, setMcpSettings } from '@main/ai/settings'
 import { listOllamaModels } from '@main/ai/ollama'
+import { listOpencodeModels } from '@main/ai/opencode'
 import { startMcpServer, stopMcpServer } from '@main/ai/mcpServer'
 export function registerAiIpc(getWindow: () => BrowserWindow | null): void {
   setAiEmitter((event) => getWindow()?.webContents.send(IpcChannels.ai.stream, event))
@@ -18,9 +19,12 @@ export function registerAiIpc(getWindow: () => BrowserWindow | null): void {
     }
   )
   ipcMain.handle(IpcChannels.ai.status, () => aiStatus())
-  ipcMain.handle(IpcChannels.ai.listModels, (_e, provider: string) =>
-    provider === 'ollama' ? listOllamaModels(getAiSettings().ollamaBaseUrl) : Promise.resolve([])
-  )
+  ipcMain.handle(IpcChannels.ai.listModels, (_e, provider: string) => {
+    const settings = getAiSettings()
+    if (provider === 'ollama') return listOllamaModels(settings.ollamaBaseUrl)
+    if (provider === 'opencode') return listOpencodeModels(settings.opencodePath)
+    return Promise.resolve([])
+  })
   ipcMain.handle(IpcChannels.ai.chat, (_e, request: AiChatRequest) => runChat(request))
   ipcMain.handle(IpcChannels.ai.cancel, (_e, streamId: string) => cancelChat(streamId))
 

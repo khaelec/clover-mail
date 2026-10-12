@@ -25,7 +25,9 @@ export interface AiSettings {
   claudeModel: string
   ollamaBaseUrl: string
   ollamaModel: string
+  opencodeModel: string
   opencodeWorkspace: string
+  opencodePath: string
 }
 
 export interface AiStatus {
@@ -33,6 +35,7 @@ export interface AiStatus {
   ollamaReachable: boolean
   ollamaModels: string[]
   opencodeAvailable: boolean
+  opencodeModels: string[]
 }
 
 export interface McpSettings {
@@ -47,7 +50,9 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   claudeModel: 'claude-sonnet-4-5',
   ollamaBaseUrl: 'http://127.0.0.1:11434',
   ollamaModel: 'llama3.1',
-  opencodeWorkspace: ''
+  opencodeModel: 'default',
+  opencodeWorkspace: '',
+  opencodePath: ''
 }
 
 export const DEFAULT_MCP_SETTINGS: McpSettings = {

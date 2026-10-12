@@ -7,6 +7,7 @@ export interface LayoutSettings {
   dockOpen: boolean
   dockWidth: number
   dockAppId: string | null
+  dockKind: 'app' | 'copilot'
 }
 
 export const DEFAULT_LAYOUT: LayoutSettings = {
@@ -15,7 +16,8 @@ export const DEFAULT_LAYOUT: LayoutSettings = {
   showFolders: true,
   dockOpen: false,
   dockWidth: 420,
-  dockAppId: null
+  dockAppId: null,
+  dockKind: 'app'
 }
 
 const KEY = 'mail.layout'

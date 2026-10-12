@@ -2,7 +2,7 @@ import type { AiChatRequest, AiStatus, AiStreamEvent } from '@shared/ai'
 import { getAiSettings, getClaudeKey, hasClaudeKey } from './settings'
 import { streamClaude } from './claude'
 import { listOllamaModels, ollamaReachable, streamOllama } from './ollama'
-import { opencodeAvailable, streamOpencode } from './opencode'
+import { listOpencodeModels, opencodeAvailable, streamOpencode } from './opencode'
 
 let emitter: (event: AiStreamEvent) => void = () => {}
 
@@ -44,7 +44,16 @@ export async function runChat(request: AiChatRequest): Promise<void> {
       const prompt = [request.system, ...request.messages.map((m) => `${m.role}: ${m.content}`)]
         .filter(Boolean)
         .join('\n\n')
-      await streamOpencode(settings.opencodeWorkspace, prompt, onDelta, controller.signal)
+      await streamOpencode(
+        {
+          workspace: settings.opencodeWorkspace,
+          model: request.model || settings.opencodeModel,
+          exePath: settings.opencodePath,
+          prompt
+        },
+        onDelta,
+        controller.signal
+      )
     }
     emitter({ streamId: request.streamId, type: 'done' })
   } catch (error) {
@@ -67,13 +76,17 @@ export async function aiStatus(): Promise<AiStatus> {
   const settings = getAiSettings()
   const [ollamaUp, opencodeUp] = await Promise.all([
     ollamaReachable(settings.ollamaBaseUrl),
-    opencodeAvailable()
+    opencodeAvailable(settings.opencodePath)
   ])
-  const ollamaModels = ollamaUp ? await listOllamaModels(settings.ollamaBaseUrl) : []
+  const [ollamaModels, opencodeModels] = await Promise.all([
+    ollamaUp ? listOllamaModels(settings.ollamaBaseUrl) : Promise.resolve([]),
+    opencodeUp ? listOpencodeModels(settings.opencodePath) : Promise.resolve([])
+  ])
   return {
     claudeConfigured: hasClaudeKey(),
     ollamaReachable: ollamaUp,
     ollamaModels,
-    opencodeAvailable: opencodeUp
+    opencodeAvailable: opencodeUp,
+    opencodeModels
   }
 }

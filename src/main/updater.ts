@@ -1,6 +1,8 @@
 import { app, type BrowserWindow } from 'electron'
+import { join } from 'node:path'
 import type { AppUpdater } from 'electron-updater'
 import type { UpdateEvent } from '@shared/ipc'
+import { cleanupUpdateDir } from './updateCleanup'
 
 let updater: AppUpdater | null = null
 let getWindow: () => BrowserWindow | null = () => null
@@ -26,6 +28,14 @@ export async function initUpdater(): Promise<void> {
   if (!app.isPackaged) {
     emit({ type: 'unavailable-dev' })
     return
+  }
+
+  // Remove downloads left behind by a previous update run.
+  try {
+    const local = process.env.LOCALAPPDATA
+    if (local) cleanupUpdateDir(join(local, `${app.getName()}-updater`), app.getVersion())
+  } catch {
+    // best effort
   }
 
   try {

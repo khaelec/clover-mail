@@ -19,7 +19,7 @@ const MODEL_PRESETS: Record<AiProvider, string[]> = {
     'claude-3-5-sonnet-latest'
   ],
   ollama: [],
-  opencode: ['default']
+  opencode: []
 }
 
 function StatusDot({ ok }: { ok: boolean }): ReactNode {
@@ -31,7 +31,7 @@ function StatusDot({ ok }: { ok: boolean }): ReactNode {
   )
 }
 
-export function CopilotView(): ReactNode {
+export function CopilotView({ embedded = false }: { embedded?: boolean } = {}): ReactNode {
   const settings = useAi((s) => s.settings)
   const status = useAi((s) => s.status)
   const messages = useAi((s) => s.messages)
@@ -78,18 +78,32 @@ export function CopilotView(): ReactNode {
   }
 
   const provider = settings?.provider ?? 'claude'
-  const model = provider === 'ollama' ? settings?.ollamaModel : settings?.claudeModel
+  const model =
+    provider === 'ollama'
+      ? settings?.ollamaModel
+      : provider === 'opencode'
+        ? settings?.opencodeModel
+        : settings?.claudeModel
   const claudeReady = status?.claudeConfigured ?? false
   const providerModels =
-    provider === 'ollama' ? (status?.ollamaModels ?? []) : MODEL_PRESETS[provider]
+    provider === 'ollama'
+      ? (status?.ollamaModels ?? [])
+      : provider === 'opencode'
+        ? (status?.opencodeModels ?? [])
+        : MODEL_PRESETS.claude
   const modelOptions = Array.from(new Set([...(model ? [model] : []), ...providerModels]))
 
   return (
     <div className="flex h-full min-h-0">
       <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
-          <IconSparkles className="h-5 w-5 text-accent" />
-          <h1 className="text-[15px] font-semibold text-ink">Copilot</h1>
+        <header
+          className={
+            'flex items-center gap-2 border-b border-line ' +
+            (embedded ? 'px-3 py-2' : 'px-4 py-3')
+          }
+        >
+          <IconSparkles className="h-4 w-4 text-accent" />
+          {!embedded && <h1 className="text-[15px] font-semibold text-ink">Copilot</h1>}
           <div className="ml-auto flex items-center gap-1 rounded-lg border border-line p-0.5">
             {PROVIDERS.map((p) => (
               <button
@@ -131,7 +145,13 @@ export function CopilotView(): ReactNode {
           </button>
         </header>
 
-        <div className="flex items-center gap-2 border-b border-line px-4 py-2 text-[12px]">
+        <div
+          className={
+            'flex flex-wrap items-center gap-2 border-b border-line ' +
+            (embedded ? 'px-3 py-1.5' : 'px-4 py-2') +
+            ' text-[12px]'
+          }
+        >
           <span className="text-muted">Model</span>
           <select
             value={model ?? ''}
@@ -156,6 +176,16 @@ export function CopilotView(): ReactNode {
           {provider === 'ollama' && !(status?.ollamaReachable ?? false) && (
             <span className="text-[11px] text-muted">Ollama not detected on {settings?.ollamaBaseUrl}</span>
           )}
+          {provider === 'opencode' && !(status?.opencodeAvailable ?? false) && (
+            <span className="text-[11px] text-muted">
+              opencode CLI not found — set its path in Settings → AI.
+            </span>
+          )}
+          {provider === 'opencode' &&
+            (status?.opencodeAvailable ?? false) &&
+            (status?.opencodeModels.length ?? 0) === 0 && (
+              <span className="text-[11px] text-muted">No models reported by opencode.</span>
+            )}
           <span className="ml-auto" />
           <button
             type="button"

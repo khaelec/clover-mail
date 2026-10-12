@@ -83,7 +83,11 @@ export const useAi = create<AiState>((set, get) => ({
     const current = get().settings
     if (!current) return
     const patch =
-      current.provider === 'ollama' ? { ollamaModel: model } : { claudeModel: model }
+      current.provider === 'ollama'
+        ? { ollamaModel: model }
+        : current.provider === 'opencode'
+          ? { opencodeModel: model }
+          : { claudeModel: model }
     const settings = await window.clover.ai.setSettings(patch)
     set({ settings })
   },
@@ -107,7 +111,12 @@ export const useAi = create<AiState>((set, get) => ({
 
     await window.clover.ai.chat({
       provider: settings.provider,
-      model: settings.provider === 'ollama' ? settings.ollamaModel : settings.claudeModel,
+      model:
+        settings.provider === 'ollama'
+          ? settings.ollamaModel
+          : settings.provider === 'opencode'
+            ? settings.opencodeModel
+            : settings.claudeModel,
       system: systemPrompt(contextText),
       messages: next.slice(0, -1),
       streamId

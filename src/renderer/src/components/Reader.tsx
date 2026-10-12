@@ -6,6 +6,7 @@ import { useTheme } from '../theme/theme'
 import { useMail } from '../state/mail'
 import { useAi } from '../state/ai'
 import { useCalendar } from '../state/calendar'
+import { useLayout } from '../state/layout'
 import { IconCalendar, IconClose, IconDownload, IconFlag, IconForward, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
 
 const AI_ACTIONS: { label: string; prompt: string }[] = [
@@ -279,7 +280,9 @@ export function Reader({
     void (async () => {
       await useAi.getState().load()
       useAi.getState().setContext(detail.subject ?? 'Email', text)
-      window.dispatchEvent(new Event('clover:open-copilot'))
+      // Open the Copilot in the side panel next to the message, like the app dock.
+      useLayout.getState().set({ dockOpen: true, dockKind: 'copilot' })
+      void useLayout.getState().save()
       await useAi.getState().send(prompt)
     })()
   }

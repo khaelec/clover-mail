@@ -802,7 +802,40 @@ export function SettingsView(): ReactNode {
                   placeholder="C:\\path\\to\\project"
                   hint="Folder where the opencode CLI runs when you use the opencode provider."
                 />
-                <p className="mt-1 text-[11px] text-muted">Runs the opencode CLI in this folder when you use the opencode provider.</p>
+                <Field
+                  label="Model"
+                  value={ai?.opencodeModel ?? 'default'}
+                  onChange={(v) => void patchAi({ opencodeModel: v })}
+                  placeholder="default"
+                  hint="provider/model, e.g. opencode/gpt-5. Leave as 'default' to use your opencode config. All models are listed in the Copilot."
+                />
+                <Field
+                  label="opencode executable (optional)"
+                  value={ai?.opencodePath ?? ''}
+                  onChange={(v) => void patchAi({ opencodePath: v })}
+                  placeholder="C:\\Users\\you\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe"
+                  hint="Only needed if Clover Mail can't find the opencode CLI automatically."
+                />
+                {aiStatus && aiStatus.opencodeModels.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {aiStatus.opencodeModels.slice(0, 12).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => void patchAi({ opencodeModel: m })}
+                        className={
+                          'rounded-full border px-2 py-0.5 text-[11px] ' +
+                          (ai?.opencodeModel === m ? 'border-accent text-accent' : 'border-line text-muted hover:text-ink')
+                        }
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-1 text-[11px] text-muted">
+                  Runs the opencode CLI in this folder when you use the opencode provider.
+                </p>
               </div>
             </div>
           </Card>
