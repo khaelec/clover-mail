@@ -8,6 +8,7 @@ import type {
   ComposeInput,
   CreateAccountInput,
   FolderSummary,
+  Label,
   MessageDetail,
   MessageSummary,
   Rule,
@@ -61,6 +62,11 @@ interface MailState {
   unsnooze: (messageId: string) => Promise<void>
   muteThread: (threadId: string, muted: boolean) => Promise<void>
   pinThread: (threadId: string, pinned: boolean) => Promise<void>
+  labels: Label[]
+  loadLabels: () => Promise<void>
+  createLabel: (name: string, color?: string) => Promise<void>
+  deleteLabel: (id: string) => Promise<void>
+  toggleLabel: (messageId: string, labelId: string, on: boolean) => Promise<void>
   unreadOnly: boolean
   setUnreadOnly: (value: boolean) => void
   setThreaded: (value: boolean) => Promise<void>
@@ -96,12 +102,17 @@ let readTimer: ReturnType<typeof setTimeout> | null = null
 export const useMail = create<MailState>((set, get) => {
   async function reloadFolder(): Promise<void> {
     const folderId = get().activeFolderId
+    if (!folderId) return
+    const labelId = folderId.startsWith('label:') ? folderId.slice('label:'.length) : null
     const accountId = get().activeAccountId
-    if (!folderId || !accountId) return
+    if (!accountId && !labelId) return
     set({ loadingMessages: true })
 
     const synthetic = folderId === JUNK_FOLDER_ID || folderId === IMPORTANT_FOLDER_ID
-    if (folderId === UNIFIED_FOLDER_ID) {
+    if (labelId) {
+      const messages = await window.clover.mail.listLabelMessages(labelId)
+      set({ messages, threads: [], loadingMessages: false })
+    } else if (folderId === UNIFIED_FOLDER_ID) {
       if (get().threaded) {
         const threads = await window.clover.mail.listUnifiedThreads()
         set({ threads, messages: [], loadingMessages: false })
@@ -109,7 +120,7 @@ export const useMail = create<MailState>((set, get) => {
         const messages = await window.clover.mail.listUnifiedMessages()
         set({ messages, threads: [], loadingMessages: false })
       }
-    } else if (synthetic) {
+    } else if (synthetic && accountId) {
       const messages =
         folderId === JUNK_FOLDER_ID
           ? await window.clover.mail.listJunk(accountId)
@@ -160,6 +171,7 @@ export const useMail = create<MailState>((set, get) => {
     expandedThreadIds: [],
     unreadOnly: false,
     showHidden: false,
+    labels: [],
 
     init: async () => {
       window.clover.mail.onEvent((event) => {        if (event.type === 'sync:folder') {
@@ -188,6 +200,7 @@ export const useMail = create<MailState>((set, get) => {
       })
 
       await get().refreshAccounts()
+      await get().loadLabels()
       const settings = await window.clover.settings.getAll()
       set({
         threaded: settings[SETTINGS_KEYS.threadedView] !== false,
@@ -418,6 +431,33 @@ export const useMail = create<MailState>((set, get) => {
     pinThread: async (threadId, pinned) => {
       await window.clover.mail.setThreadPinned(threadId, pinned)
       await reloadFolder()
+    },
+
+    loadLabels: async () => {
+      const labels = await window.clover.mail.listLabels()
+      set({ labels })
+    },
+
+    createLabel: async (name, color) => {
+      const trimmed = name.trim()
+      if (!trimmed) return
+      await window.clover.mail.createLabel(trimmed, color)
+      await get().loadLabels()
+    },
+
+    deleteLabel: async (id) => {
+      await window.clover.mail.deleteLabel(id)
+      await get().loadLabels()
+      if (get().activeFolderId === `label:${id}`) {
+        const accountId = get().activeAccountId
+        if (accountId) await get().selectAccount(accountId)
+      }
+    },
+
+    toggleLabel: async (messageId, labelId, on) => {
+      if (on) await window.clover.mail.addLabelToMessage(messageId, labelId)
+      else await window.clover.mail.removeLabelFromMessage(messageId, labelId)
+      if (get().activeFolderId === `label:${labelId}`) await reloadFolder()
     },
     setThreaded: async (value) => {
       set({ threaded: value })

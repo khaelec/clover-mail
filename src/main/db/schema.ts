@@ -193,6 +193,22 @@ export const threadSettings = sqliteTable('thread_settings', {
   pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false)
 })
 
+export const labels = sqliteTable('labels', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  color: text('color').notNull(),
+  createdAt: integer('created_at').notNull()
+})
+
+export const messageLabels = sqliteTable(
+  'message_labels',
+  {
+    messageId: text('message_id').notNull(),
+    labelId: text('label_id').notNull()
+  },
+  (table) => [index('ix_message_labels_label').on(table.labelId)]
+)
+
 export const rules = sqliteTable(
   'rules',
   {
@@ -306,6 +322,8 @@ export const schema = {
   snippets,
   scheduledSends,
   threadSettings,
+  labels,
+  messageLabels,
   incomingSettings,
   outgoingSettings,
   folders,

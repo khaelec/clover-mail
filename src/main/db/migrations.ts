@@ -311,5 +311,21 @@ export const migrations: Migration[] = [
         pinned INTEGER NOT NULL DEFAULT 0
       );
     `
+  },
+  {
+    id: '0012_labels',
+    sql: `
+      CREATE TABLE IF NOT EXISTS labels (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS message_labels (
+        message_id TEXT NOT NULL,
+        label_id TEXT NOT NULL,
+        PRIMARY KEY (message_id, label_id)
+      );
+    `
   }
 ]

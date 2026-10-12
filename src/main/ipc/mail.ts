@@ -22,6 +22,15 @@ import { addSnippet, deleteSnippet, listSnippets } from '@main/mail/snippets'
 import { snooze, unsnooze } from '@main/mail/snooze'
 import { cancelScheduled, listScheduled, scheduleSend } from '@main/mail/schedules'
 import { setThreadMuted, setThreadPinned } from '@main/mail/threadSettings'
+import {
+  addLabelToMessage,
+  createLabel,
+  deleteLabel,
+  labelIdsForMessage,
+  listLabelMessages,
+  listLabels,
+  removeLabelFromMessage
+} from '@main/mail/labels'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
 import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
@@ -253,6 +262,24 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   )
   ipcMain.handle(IpcChannels.mail.setThreadPinned, (_e, threadId: string, pinned: boolean) =>
     setThreadPinned(threadId, pinned)
+  )
+  ipcMain.handle(IpcChannels.mail.listLabels, () => listLabels())
+  ipcMain.handle(IpcChannels.mail.createLabel, (_e, name: string, color?: string) =>
+    createLabel(name, color)
+  )
+  ipcMain.handle(IpcChannels.mail.deleteLabel, (_e, id: string) => deleteLabel(id))
+  ipcMain.handle(IpcChannels.mail.addLabelToMessage, (_e, messageId: string, labelId: string) =>
+    addLabelToMessage(messageId, labelId)
+  )
+  ipcMain.handle(
+    IpcChannels.mail.removeLabelFromMessage,
+    (_e, messageId: string, labelId: string) => removeLabelFromMessage(messageId, labelId)
+  )
+  ipcMain.handle(IpcChannels.mail.listLabelMessages, (_e, labelId: string) =>
+    listLabelMessages(labelId)
+  )
+  ipcMain.handle(IpcChannels.mail.labelsForMessage, (_e, messageId: string) =>
+    labelIdsForMessage(messageId)
   )
 
   startAllIdle(emit)

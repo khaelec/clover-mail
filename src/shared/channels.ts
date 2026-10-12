@@ -79,6 +79,13 @@ export const IpcChannels = {
     cancelScheduled: 'mail:cancel-scheduled',
     setThreadMuted: 'mail:set-thread-muted',
     setThreadPinned: 'mail:set-thread-pinned',
+    listLabels: 'mail:list-labels',
+    createLabel: 'mail:create-label',
+    deleteLabel: 'mail:delete-label',
+    addLabelToMessage: 'mail:add-label-to-message',
+    removeLabelFromMessage: 'mail:remove-label-from-message',
+    listLabelMessages: 'mail:list-label-messages',
+    labelsForMessage: 'mail:labels-for-message',
     events: 'mail:events'
   },
   apps: {

@@ -175,6 +175,17 @@ const api: CloverApi = {
       ipcRenderer.invoke(IpcChannels.mail.setThreadMuted, threadId, muted),
     setThreadPinned: (threadId, pinned) =>
       ipcRenderer.invoke(IpcChannels.mail.setThreadPinned, threadId, pinned),
+    listLabels: () => ipcRenderer.invoke(IpcChannels.mail.listLabels),
+    createLabel: (name, color) => ipcRenderer.invoke(IpcChannels.mail.createLabel, name, color),
+    deleteLabel: (id) => ipcRenderer.invoke(IpcChannels.mail.deleteLabel, id),
+    addLabelToMessage: (messageId, labelId) =>
+      ipcRenderer.invoke(IpcChannels.mail.addLabelToMessage, messageId, labelId),
+    removeLabelFromMessage: (messageId, labelId) =>
+      ipcRenderer.invoke(IpcChannels.mail.removeLabelFromMessage, messageId, labelId),
+    listLabelMessages: (labelId) =>
+      ipcRenderer.invoke(IpcChannels.mail.listLabelMessages, labelId),
+    labelsForMessage: (messageId) =>
+      ipcRenderer.invoke(IpcChannels.mail.labelsForMessage, messageId),
     onEvent: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
         cb(event as Parameters<typeof cb>[0])

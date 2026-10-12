@@ -258,6 +258,13 @@ export function MailView(): ReactNode {
   const setThreaded = useMail((s) => s.setThreaded)
   const muteThread = useMail((s) => s.muteThread)
   const pinThread = useMail((s) => s.pinThread)
+  const labels = useMail((s) => s.labels)
+  const createLabel = useMail((s) => s.createLabel)
+  const deleteLabel = useMail((s) => s.deleteLabel)
+  const toggleLabel = useMail((s) => s.toggleLabel)
+  const [showNewLabel, setShowNewLabel] = useState(false)
+  const [labelName, setLabelName] = useState('')
+  const [menuLabelIds, setMenuLabelIds] = useState<string[]>([])
   const [threadMenu, setThreadMenu] = useState<{
     x: number
     y: number
@@ -313,7 +320,7 @@ export function MailView(): ReactNode {
     x: number
     y: number
     message: MessageSummary
-    mode: 'main' | 'move'
+    mode: 'main' | 'move' | 'label'
   } | null>(null)
   const [folderMenu, setFolderMenu] = useState<{
     x: number
@@ -366,6 +373,7 @@ export function MailView(): ReactNode {
     const x = Math.min(e.clientX, window.innerWidth - 220)
     const y = Math.min(e.clientY, window.innerHeight - 280)
     setMenu({ x, y, message, mode: 'main' })
+    setMenuLabelIds([])
   }
 
   const menuTargets =
@@ -731,6 +739,69 @@ export function MailView(): ReactNode {
               </span>
             )}
           </button>
+
+          <div className="mt-3 flex items-center justify-between px-1 pb-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Labels</span>
+            <button
+              type="button"
+              title="New label"
+              onClick={() => setShowNewLabel((v) => !v)}
+              className="text-muted hover:text-accent"
+            >
+              <IconPlus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {showNewLabel && (
+            <div className="flex items-center gap-1 px-1 pb-1.5">
+              <input
+                autoFocus
+                value={labelName}
+                onChange={(e) => setLabelName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && labelName.trim()) {
+                    void createLabel(labelName)
+                    setLabelName('')
+                    setShowNewLabel(false)
+                  }
+                }}
+                placeholder="Label name"
+                className="flex-1 rounded-lg border border-line bg-canvas/60 px-2.5 py-1.5 text-[12px] text-ink outline-none focus:border-accent"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  void createLabel(labelName)
+                  setLabelName('')
+                  setShowNewLabel(false)
+                }}
+                className="rounded-lg bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink"
+              >
+                Add
+              </button>
+            </div>
+          )}
+          {labels.map((label) => (
+            <button
+              key={label.id}
+              type="button"
+              onClick={() => void selectFolder(`label:${label.id}`)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                ask('Delete label', `Delete label "${label.name}"?`, () => void deleteLabel(label.id))
+              }}
+              className={
+                'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
+                (activeFolderId === `label:${label.id}`
+                  ? 'bg-accent/12 font-medium text-accent'
+                  : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
+              }
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: label.color }} />
+                <span className="truncate">{label.name}</span>
+              </span>
+            </button>
+          ))}
         </div>
 
         <button
@@ -1184,11 +1255,19 @@ export function MailView(): ReactNode {
                   Forward
                 </MenuItem>
                 <MenuItem onClick={() => setMenu({ ...menu, mode: 'move' })}>Move to folder ›</MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    void window.clover.mail.labelsForMessage(menu.message.id).then(setMenuLabelIds)
+                    setMenu({ ...menu, mode: 'label' })
+                  }}
+                >
+                  Labels ›
+                </MenuItem>
                 <MenuItem danger onClick={menuDelete}>
                   Delete
                 </MenuItem>
               </>
-            ) : (
+            ) : menu.mode === 'move' ? (
               <>
                 <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>‹ Back</MenuItem>
                 <MenuDivider />
@@ -1198,6 +1277,42 @@ export function MailView(): ReactNode {
                       {folder.name}
                     </MenuItem>
                   ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>‹ Back</MenuItem>
+                <MenuDivider />
+                <div className="max-h-64 overflow-y-auto">
+                  {labels.length === 0 && (
+                    <div className="px-3 py-1.5 text-[12px] text-muted">No labels yet</div>
+                  )}
+                  {labels.map((label) => {
+                    const on = menuLabelIds.includes(label.id)
+                    return (
+                      <MenuItem
+                        key={label.id}
+                        onClick={() => {
+                          const mid = menu.message.id
+                          void toggleLabel(mid, label.id, !on)
+                          setMenuLabelIds(
+                            on
+                              ? menuLabelIds.filter((x) => x !== label.id)
+                              : [...menuLabelIds, label.id]
+                          )
+                        }}
+                      >
+                        <span className="flex flex-1 items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ background: label.color }}
+                          />
+                          <span className="flex-1">{label.name}</span>
+                          {on && <span className="text-accent">✓</span>}
+                        </span>
+                      </MenuItem>
+                    )
+                  })}
                 </div>
               </>
             )}

@@ -141,6 +141,12 @@ export interface ScheduledSend {
   sendAt: number
 }
 
+export interface Label {
+  id: string
+  name: string
+  color: string
+}
+
 export interface ComposeInput {
   accountId: string
   to: string[]

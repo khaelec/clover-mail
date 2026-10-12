@@ -111,6 +111,13 @@ export interface MailApi {
   cancelScheduled: (id: string) => Promise<void>
   setThreadMuted: (threadId: string, muted: boolean) => Promise<void>
   setThreadPinned: (threadId: string, pinned: boolean) => Promise<void>
+  listLabels: () => Promise<import('./mail').Label[]>
+  createLabel: (name: string, color?: string) => Promise<import('./mail').Label>
+  deleteLabel: (id: string) => Promise<void>
+  addLabelToMessage: (messageId: string, labelId: string) => Promise<void>
+  removeLabelFromMessage: (messageId: string, labelId: string) => Promise<void>
+  listLabelMessages: (labelId: string) => Promise<import('./mail').MessageSummary[]>
+  labelsForMessage: (messageId: string) => Promise<string[]>
   onEvent: (cb: (event: MailEvent) => void) => () => void
 }
 
