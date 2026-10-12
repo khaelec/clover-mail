@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   SETTINGS_KEYS,
   THEME_ACCENTS,
@@ -7,9 +7,10 @@ import {
   type ThemeMode
 } from '@shared/theme'
 import type { AppInfo } from '@shared/ipc'
+import type { AccountSummary } from '@shared/mail'
 import type { AiSettings, AiStatus, McpSettings } from '@shared/ai'
 import { useTheme } from '../theme/theme'
-import { IconCheck, IconMonitor, IconMoon, IconSun } from './icons'
+import { IconCheck, IconMonitor, IconMoon, IconSignature, IconSun } from './icons'
 
 const MODE_META: Record<ThemeMode, { label: string; icon: (p: { className?: string }) => ReactNode }> = {
   light: { label: 'Light', icon: IconSun },
@@ -71,16 +72,58 @@ export function SettingsView(): ReactNode {
   const [apiKey, setApiKey] = useState('')
   const [mcp, setMcp] = useState<McpSettings | null>(null)
   const [mcpRunning, setMcpRunning] = useState(false)
+  const [accounts, setAccounts] = useState<AccountSummary[]>([])
+  const [sigAccountId, setSigAccountId] = useState('')
+  const [sigEnabled, setSigEnabled] = useState(true)
+  const [sigMsg, setSigMsg] = useState<string | null>(null)
+  const sigEditorRef = useRef<HTMLDivElement>(null)
+  const sigFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     void window.clover.appInfo().then(setInfo)
     void window.clover.settings.getAll().then((settings) => {
-      setBlockRemote(settings[SETTINGS_KEYS.blockRemoteImages] !== false)
+      setBlockRemote(settings[SETTINGS_KEYS.blockRemoteImages] === true)
     })
     void window.clover.ai.getSettings().then(setAi)
     void window.clover.ai.status().then(setAiStatus)
     void window.clover.ai.getMcpSettings().then(setMcp)
+    void window.clover.mail.listAccounts().then((list) => {
+      setAccounts(list)
+      if (list[0]) setSigAccountId((current) => current || list[0].id)
+    })
   }, [])
+
+  useEffect(() => {
+    if (!sigAccountId) return
+    void (async () => {
+      const sig = (await window.clover.settings.get(`signature.${sigAccountId}`)) as
+        | { html?: string; enabled?: boolean }
+        | undefined
+      setSigEnabled(sig?.enabled !== false)
+      if (sigEditorRef.current) sigEditorRef.current.innerHTML = sig?.html ?? ''
+    })()
+  }, [sigAccountId])
+
+  async function saveSignature(): Promise<void> {
+    if (!sigAccountId) return
+    await window.clover.settings.set(`signature.${sigAccountId}`, {
+      html: sigEditorRef.current?.innerHTML ?? '',
+      enabled: sigEnabled
+    })
+    setSigMsg('Signature saved.')
+  }
+
+  function onSigImage(event: React.ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      sigEditorRef.current?.focus()
+      document.execCommand('insertImage', false, String(reader.result))
+    }
+    reader.readAsDataURL(file)
+    event.target.value = ''
+  }
 
   function toggleBlockRemote(): void {
     const next = !blockRemote
@@ -188,6 +231,69 @@ export function SettingsView(): ReactNode {
                 />
               </span>
             </button>
+          </Card>
+
+          <Card title="Signature">
+            <div className="space-y-3">
+              {accounts.length === 0 ? (
+                <p className="text-[12px] text-muted">Add a mail account first to set a signature.</p>
+              ) : (
+                <>
+                  <label className="block">
+                    <span className="mb-1 block text-[11px] font-medium text-muted">Account</span>
+                    <select
+                      value={sigAccountId}
+                      onChange={(e) => setSigAccountId(e.target.value)}
+                      className="w-full rounded-lg border border-line bg-canvas/60 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.email}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => sigFileRef.current?.click()}
+                      className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-ink"
+                    >
+                      <IconSignature className="h-3.5 w-3.5" />
+                      Insert picture
+                    </button>
+                    <input ref={sigFileRef} type="file" accept="image/*" hidden onChange={onSigImage} />
+                    <label className="ml-auto flex items-center gap-1.5 text-[12px] text-muted">
+                      <input
+                        type="checkbox"
+                        checked={sigEnabled}
+                        onChange={(e) => setSigEnabled(e.target.checked)}
+                      />
+                      Add to new mail
+                    </label>
+                  </div>
+                  <div
+                    ref={sigEditorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    className="min-h-[110px] rounded-lg border border-line bg-canvas/50 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void saveSignature()}
+                      className="rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-accent-ink"
+                    >
+                      Save signature
+                    </button>
+                    {sigMsg && <span className="text-[12px] text-accent">{sigMsg}</span>}
+                  </div>
+                  <p className="text-[11px] text-muted">
+                    Pictures are embedded into outgoing messages automatically.
+                  </p>
+                </>
+              )}
+            </div>
           </Card>
 
           <Card title="AI copilot">

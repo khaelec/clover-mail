@@ -256,6 +256,13 @@ export const IconLayout = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconSignature = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M3 17c3 0 4-9 6-9s2 8 4 8 2-5 4-5 2 2 4 2" />
+    <path d="M3 21h18" />
+  </Base>
+)
+
 export function CloverMark({ className }: { className?: string }): ReactNode {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" className={className} aria-hidden="true">

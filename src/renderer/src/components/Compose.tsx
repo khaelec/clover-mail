@@ -1,7 +1,9 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Lint, LocalLinter, Suggestion } from 'harper.js'
 import { useMail } from '../state/mail'
-import { IconCheck, IconClose, IconPaperclip, IconRefresh, IconSend, IconTrash } from './icons'
+import { IconCheck, IconClose, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
+
+const SIGNATURE_MARKER = '<div data-clover-signature="1">'
 
 let harperLinter: LocalLinter | null = null
 async function getLinter(): Promise<LocalLinter> {
@@ -94,6 +96,38 @@ export function Compose({
   const [grammarBusy, setGrammarBusy] = useState(false)
   const [grammarError, setGrammarError] = useState<string | null>(null)
   const [issues, setIssues] = useState<GrammarIssue[]>([])
+  const [signatureHtml, setSignatureHtml] = useState('')
+  const [signatureOn, setSignatureOn] = useState(false)
+
+  useEffect(() => {
+    void (async () => {
+      const sig = (await window.clover.settings.get(`signature.${accountId}`)) as
+        | { html?: string; enabled?: boolean }
+        | undefined
+      if (sig?.enabled && sig.html) {
+        setSignatureHtml(sig.html)
+        const editor = editorRef.current
+        if (editor) {
+          editor.innerHTML += `${SIGNATURE_MARKER}<br>${sig.html}</div>`
+          setSignatureOn(true)
+        }
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId])
+
+  function toggleSignature(): void {
+    const editor = editorRef.current
+    if (!editor) return
+    const index = editor.innerHTML.indexOf(SIGNATURE_MARKER)
+    if (index >= 0) {
+      editor.innerHTML = editor.innerHTML.slice(0, index)
+      setSignatureOn(false)
+    } else if (signatureHtml) {
+      editor.innerHTML += `${SIGNATURE_MARKER}<br>${signatureHtml}</div>`
+      setSignatureOn(true)
+    }
+  }
 
   async function checkWriting(): Promise<void> {
     setGrammarOpen(true)
@@ -245,6 +279,17 @@ export function Compose({
             >
               <IconCheck className="h-3.5 w-3.5" />
               Check writing
+            </button>
+            <button
+              type="button"
+              onClick={toggleSignature}
+              className={
+                'flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ' +
+                (signatureOn ? 'text-accent' : 'text-muted hover:text-accent')
+              }
+            >
+              <IconSignature className="h-3.5 w-3.5" />
+              Signature
             </button>
           </div>
 

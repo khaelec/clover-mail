@@ -45,6 +45,16 @@ export function spamCount(accountId: string): number {
   return countSpam(accountId)
 }
 
+/** Strip Re:/Fwd: prefixes so a conversation groups regardless of reply markers. */
+function normalizeSubject(subject: string | null): string {
+  if (!subject) return ''
+  return subject
+    .replace(/^\s*(?:(?:re|fwd|fw|aw|sv|vs)\s*(?:\[\d+\])?\s*:\s*)+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
 /** Group a folder's messages into threads for conversation view. */
 export function listThreads(folderId: string, limit = 400): ThreadSummary[] {
   const rows = getDb()
@@ -57,19 +67,19 @@ export function listThreads(folderId: string, limit = 400): ThreadSummary[] {
 
   const groups = new Map<string, typeof rows>()
   for (const row of rows) {
-    const key = row.threadId ?? row.id
+    const key = normalizeSubject(row.subject) || row.threadId || row.id
     const list = groups.get(key) ?? []
     list.push(row)
     groups.set(key, list)
   }
 
   const threads: ThreadSummary[] = []
-  for (const [threadId, list] of groups) {
+  for (const [key, list] of groups) {
     const ordered = [...list].sort((a, b) => (a.dateUtc ?? 0) - (b.dateUtc ?? 0))
     const first = ordered[0]
     const last = ordered[ordered.length - 1]
     threads.push({
-      threadId,
+      threadId: key,
       subject: first.subject,
       fromName: last.fromName,
       fromEmail: last.fromEmail,

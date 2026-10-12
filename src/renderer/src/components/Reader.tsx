@@ -58,10 +58,10 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
   useEffect(() => {
     void (async () => {
       const settings = await window.clover.settings.getAll()
-      setBlockEnabled(settings[SETTINGS_KEYS.blockRemoteImages] !== false)
+      setBlockEnabled(settings[SETTINGS_KEYS.blockRemoteImages] === true)
       setTrusted((settings[SETTINGS_KEYS.trustedSenders] as string[] | undefined) ?? [])
     })()
-  }, [])
+  }, [detail?.id])
 
   useEffect(() => {
     setAllowRemote(false)
@@ -90,15 +90,16 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
     if (!frame) return
     const dark = effective === 'dark'
     const css = [
-      'html,body{margin:0;padding:0;background:transparent}',
-      `body{font-family:Inter,'Segoe UI',system-ui,sans-serif;font-size:13.5px;line-height:1.6;padding:20px 24px;word-break:break-word;overflow-wrap:anywhere;color:${dark ? '#e9eef4' : '#10151c'}}`,
+      `html{background:${dark ? '#0a0e13' : '#ffffff'}}`,
+      'html,body{margin:0;padding:0}',
+      "body{background:transparent;font-family:Inter,'Segoe UI',system-ui,sans-serif;font-size:13.5px;line-height:1.6;padding:20px 24px;word-break:break-word;overflow-wrap:anywhere}",
       'img{max-width:100%;height:auto}',
-      `a{color:${dark ? '#5ea9ff' : '#2563eb'}}`,
+      dark ? '' : 'a{color:#2563eb}',
       `blockquote{border-left:3px solid ${dark ? '#3a4653' : '#d7dbe0'};margin:.5rem 0;padding-left:.75rem;color:${dark ? '#9aa7b4' : '#5b6572'}}`,
       'table{max-width:100%;border-collapse:collapse}',
       'pre{white-space:pre-wrap;word-break:break-word}',
       dark
-        ? 'html{filter:invert(1) hue-rotate(180deg)} img,video,svg,canvas,[style*="background-image"]{filter:invert(1) hue-rotate(180deg)}'
+        ? 'body{filter:invert(1) hue-rotate(180deg)} img,video,svg,canvas,[style*="background-image"]{filter:invert(1) hue-rotate(180deg)}'
         : ''
     ].join('')
     frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>${css}</style></head><body>${rendered.html ?? ''}</body></html>`
