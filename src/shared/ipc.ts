@@ -74,6 +74,10 @@ export interface MailApi {
   googleConfigured: () => Promise<boolean>
   getGoogleConfig: () => Promise<{ clientId: string }>
   setGoogleConfig: (clientId: string, clientSecret?: string) => Promise<void>
+  startMicrosoftOAuth: () => Promise<AccountSummary>
+  microsoftConfigured: () => Promise<boolean>
+  getMicrosoftConfig: () => Promise<{ clientId: string }>
+  setMicrosoftConfig: (clientId: string, clientSecret?: string) => Promise<void>
   listRules: (accountId: string) => Promise<Rule[]>
   createRule: (accountId: string, input: RuleInput) => Promise<Rule>
   updateRule: (ruleId: string, input: RuleInput) => Promise<Rule>

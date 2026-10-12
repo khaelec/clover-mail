@@ -5,7 +5,7 @@ import { accountOauth } from '../db/schema'
 import { getAccountById, getAccountPassword } from './accounts'
 import { buildImapClient } from './imap'
 import { getSecret } from '../settings/secrets'
-import { refreshGoogle } from '../oauth'
+import { refreshGoogle, refreshMicrosoft } from '../oauth'
 
 export interface ResolvedAuth {
   user: string
@@ -22,7 +22,12 @@ export async function getAccountAuth(accountId: string): Promise<ResolvedAuth | 
   if (oauth) {
     const refresh = getSecret(oauth.refreshTokenRef)
     if (!refresh) return null
-    const accessToken = oauth.provider === 'google' ? await refreshGoogle(refresh) : null
+    const accessToken =
+      oauth.provider === 'google'
+        ? await refreshGoogle(refresh)
+        : oauth.provider === 'microsoft'
+          ? await refreshMicrosoft(refresh)
+          : null
     if (!accessToken) return null
     return { user: account.incoming.username, accessToken }
   }

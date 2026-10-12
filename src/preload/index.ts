@@ -114,6 +114,11 @@ const api: CloverApi = {
     getGoogleConfig: () => ipcRenderer.invoke(IpcChannels.mail.oauthGetGoogleConfig),
     setGoogleConfig: (clientId, clientSecret) =>
       ipcRenderer.invoke(IpcChannels.mail.oauthSetGoogleConfig, clientId, clientSecret),
+    startMicrosoftOAuth: () => ipcRenderer.invoke(IpcChannels.mail.oauthStartMicrosoft),
+    microsoftConfigured: () => ipcRenderer.invoke(IpcChannels.mail.oauthMicrosoftConfigured),
+    getMicrosoftConfig: () => ipcRenderer.invoke(IpcChannels.mail.oauthGetMicrosoftConfig),
+    setMicrosoftConfig: (clientId, clientSecret) =>
+      ipcRenderer.invoke(IpcChannels.mail.oauthSetMicrosoftConfig, clientId, clientSecret),
     listRules: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listRules, accountId),
     createRule: (accountId, input) => ipcRenderer.invoke(IpcChannels.mail.createRule, accountId, input),
     updateRule: (ruleId, input) => ipcRenderer.invoke(IpcChannels.mail.updateRule, ruleId, input),

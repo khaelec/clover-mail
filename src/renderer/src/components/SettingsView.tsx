@@ -85,6 +85,9 @@ export function SettingsView(): ReactNode {
   const [googleClientId, setGoogleClientId] = useState('')
   const [googleSecret, setGoogleSecret] = useState('')
   const [googleMsg, setGoogleMsg] = useState<string | null>(null)
+  const [msClientId, setMsClientId] = useState('')
+  const [msSecret, setMsSecret] = useState('')
+  const [msMsg, setMsMsg] = useState<string | null>(null)
 
   useEffect(() => {
     void window.clover.appInfo().then(setInfo)
@@ -102,11 +105,17 @@ export function SettingsView(): ReactNode {
       }
     })
     void window.clover.mail.getGoogleConfig().then((cfg) => setGoogleClientId(cfg.clientId))
+    void window.clover.mail.getMicrosoftConfig().then((cfg) => setMsClientId(cfg.clientId))
   }, [])
 
   async function saveGoogleConfig(): Promise<void> {
     await window.clover.mail.setGoogleConfig(googleClientId, googleSecret || undefined)
     setGoogleMsg('Saved. You can now use “Sign in with Google”.')
+  }
+
+  async function saveMicrosoftConfig(): Promise<void> {
+    await window.clover.mail.setMicrosoftConfig(msClientId, msSecret || undefined)
+    setMsMsg('Saved. You can now use “Sign in with Microsoft”.')
   }
 
   useEffect(() => {
@@ -434,19 +443,41 @@ export function SettingsView(): ReactNode {
             </div>
           </Card>
 
-          <Card title="Google OAuth (optional)">
-            <div className="space-y-3">
-              <p className="text-[12px] text-muted">
-                To sign in to Gmail without an app password, create a <strong>Desktop app</strong> OAuth client in
-                Google Cloud Console and paste its Client ID here (redirect: loopback). The secret is optional for PKCE.
-              </p>
-              <Field label="Google Client ID" value={googleClientId} onChange={setGoogleClientId} placeholder="xxxxx.apps.googleusercontent.com" />
-              <Field label="Google Client Secret (optional)" type="password" value={googleSecret} onChange={setGoogleSecret} placeholder="optional" />
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => void saveGoogleConfig()} className="rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-accent-ink">
-                  Save
-                </button>
-                {googleMsg && <span className="text-[12px] text-accent">{googleMsg}</span>}
+          <Card title="OAuth clients (optional)">
+            <div className="space-y-4">
+              <div className="rounded-xl border border-line p-3">
+                <div className="mb-1 text-[12px] font-medium text-ink">Google</div>
+                <p className="mb-2 text-[11px] text-muted">
+                  Desktop-app OAuth client from Google Cloud Console. Redirect: loopback. Secret optional (PKCE).
+                </p>
+                <Field label="Client ID" value={googleClientId} onChange={setGoogleClientId} placeholder="xxxxx.apps.googleusercontent.com" />
+                <div className="mt-2">
+                  <Field label="Client Secret (optional)" type="password" value={googleSecret} onChange={setGoogleSecret} />
+                </div>
+                <div className="mt-2 flex items-center gap-3">
+                  <button type="button" onClick={() => void saveGoogleConfig()} className="rounded-lg bg-accent px-3.5 py-2 text-[12px] font-semibold text-accent-ink">
+                    Save Google
+                  </button>
+                  {googleMsg && <span className="text-[11px] text-accent">{googleMsg}</span>}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-line p-3">
+                <div className="mb-1 text-[12px] font-medium text-ink">Microsoft / Outlook</div>
+                <p className="mb-2 text-[11px] text-muted">
+                  Register an app in Azure (Entra) → “Mobile and desktop applications”, redirect <code>http://localhost</code>.
+                  Public client (no secret needed).
+                </p>
+                <Field label="Application (client) ID" value={msClientId} onChange={setMsClientId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                <div className="mt-2">
+                  <Field label="Client Secret (optional)" type="password" value={msSecret} onChange={setMsSecret} />
+                </div>
+                <div className="mt-2 flex items-center gap-3">
+                  <button type="button" onClick={() => void saveMicrosoftConfig()} className="rounded-lg bg-accent px-3.5 py-2 text-[12px] font-semibold text-accent-ink">
+                    Save Microsoft
+                  </button>
+                  {msMsg && <span className="text-[11px] text-accent">{msMsg}</span>}
+                </div>
               </div>
             </div>
           </Card>

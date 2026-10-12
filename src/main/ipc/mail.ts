@@ -23,9 +23,13 @@ import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
 import { exportFolderMbox } from '@main/mail/archive'
 import {
   getGoogleConfig,
+  getMicrosoftConfig,
   googleConfigured,
+  microsoftConfigured,
   setGoogleConfig,
-  startGoogleOAuth
+  setMicrosoftConfig,
+  startGoogleOAuth,
+  startMicrosoftOAuth
 } from '@main/oauth'
 import { bulkAction, deleteSpam, emptyFolder, markFolderRead } from '@main/mail/bulk'
 import { startAllIdle, startIdle, stopIdle } from '@main/mail/idle'
@@ -138,6 +142,19 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(
     IpcChannels.mail.oauthSetGoogleConfig,
     (_e, clientId: string, clientSecret?: string) => setGoogleConfig(clientId, clientSecret)
+  )
+  ipcMain.handle(IpcChannels.mail.oauthStartMicrosoft, async () => {
+    const account = await startMicrosoftOAuth()
+    startIdle(account.id, emit)
+    return account
+  })
+  ipcMain.handle(IpcChannels.mail.oauthMicrosoftConfigured, () => microsoftConfigured())
+  ipcMain.handle(IpcChannels.mail.oauthGetMicrosoftConfig, () => ({
+    clientId: getMicrosoftConfig().clientId
+  }))
+  ipcMain.handle(
+    IpcChannels.mail.oauthSetMicrosoftConfig,
+    (_e, clientId: string, clientSecret?: string) => setMicrosoftConfig(clientId, clientSecret)
   )
   ipcMain.handle(IpcChannels.mail.listRules, (_e, accountId: string) => listRules(accountId))
   ipcMain.handle(IpcChannels.mail.createRule, (_e, accountId: string, input: RuleInput) =>

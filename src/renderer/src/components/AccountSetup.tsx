@@ -104,6 +104,21 @@ export function AccountSetup({ onClose }: { onClose: () => void }): ReactNode {
     }
   }
 
+  async function signInMicrosoft(): Promise<void> {
+    setOauthBusy(true)
+    setIsError(false)
+    setMessage(null)
+    try {
+      await window.clover.mail.startMicrosoftOAuth()
+      onClose()
+    } catch (error) {
+      setIsError(true)
+      setMessage((error as Error).message)
+    } finally {
+      setOauthBusy(false)
+    }
+  }
+
   const preset = useMemo(() => {
     const domain = email.split('@')[1]?.toLowerCase().trim()
     return domain ? PRESETS[domain] : undefined
@@ -170,14 +185,24 @@ export function AccountSetup({ onClose }: { onClose: () => void }): ReactNode {
         </header>
 
         <div className="max-h-[70vh] space-y-4 overflow-y-auto px-5 py-4">
-          <button
-            type="button"
-            onClick={() => void signInGoogle()}
-            disabled={oauthBusy}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-canvas/50 px-3 py-2.5 text-[13px] font-medium text-ink hover:border-accent disabled:opacity-50"
-          >
-            {oauthBusy ? 'Opening Google…' : 'Sign in with Google (recommended — no app password)'}
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => void signInGoogle()}
+              disabled={oauthBusy}
+              className="rounded-lg border border-line bg-canvas/50 px-3 py-2.5 text-[12px] font-medium text-ink hover:border-accent disabled:opacity-50"
+            >
+              Sign in with Google
+            </button>
+            <button
+              type="button"
+              onClick={() => void signInMicrosoft()}
+              disabled={oauthBusy}
+              className="rounded-lg border border-line bg-canvas/50 px-3 py-2.5 text-[12px] font-medium text-ink hover:border-accent disabled:opacity-50"
+            >
+              Sign in with Microsoft
+            </button>
+          </div>
           <div className="flex items-center gap-3 text-[11px] text-muted">
             <span className="h-px flex-1 bg-line" />
             or add manually
