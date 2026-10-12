@@ -12,6 +12,7 @@ import {
   IconArchive,
   IconClose,
   IconCompose,
+  IconEye,
   IconFilter,
   IconFolderPlus,
   IconGrid,
@@ -275,6 +276,9 @@ export function MailView(): ReactNode {
   const createFolder = useMail((s) => s.createFolder)
   const renameFolder = useMail((s) => s.renameFolder)
   const deleteFolder = useMail((s) => s.deleteFolder)
+  const setFolderVisible = useMail((s) => s.setFolderVisible)
+  const showHidden = useMail((s) => s.showHidden)
+  const setShowHidden = useMail((s) => s.setShowHidden)
 
   const [showAdd, setShowAdd] = useState(false)
   const [showRules, setShowRules] = useState(false)
@@ -380,6 +384,7 @@ export function MailView(): ReactNode {
   const showingThreads = threaded && !isSynthetic && !searchResults
   const visibleList = unreadOnly ? list.filter((m) => !m.isRead) : list
   const visibleThreads = unreadOnly ? threads.filter((t) => t.unreadCount > 0) : threads
+  const visibleFolders = showHidden ? folders : folders.filter((f) => f.isVisible)
 
   const [confirm, setConfirm] = useState<{ title: string; body: string; action: () => void } | null>(
     null
@@ -467,14 +472,24 @@ export function MailView(): ReactNode {
 
         <div className="flex items-center justify-between px-3.5 pb-1 pt-1">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Folders</span>
-          <button
-            type="button"
-            title="New folder"
-            onClick={() => setShowNewFolder((v) => !v)}
-            className="text-muted hover:text-accent"
-          >
-            <IconFolderPlus className="h-3.5 w-3.5" />
-          </button>
+          <span className="flex items-center gap-1.5">
+            <button
+              type="button"
+              title={showHidden ? 'Hide hidden folders' : 'Show hidden folders'}
+              onClick={() => setShowHidden(!showHidden)}
+              className={showHidden ? 'text-accent' : 'text-muted hover:text-accent'}
+            >
+              <IconEye className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              title="New folder"
+              onClick={() => setShowNewFolder((v) => !v)}
+              className="text-muted hover:text-accent"
+            >
+              <IconFolderPlus className="h-3.5 w-3.5" />
+            </button>
+          </span>
         </div>
         {showNewFolder && (
           <div className="flex items-center gap-1 px-2.5 pb-1.5">
@@ -507,7 +522,7 @@ export function MailView(): ReactNode {
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
-          {folders.map((folder) => {
+          {visibleFolders.map((folder) => {
             const active = folder.id === activeFolderId
             return (
               <button
@@ -515,6 +530,15 @@ export function MailView(): ReactNode {
                 type="button"
                 onClick={() => void selectFolder(folder.id)}
                 onContextMenu={(e) => openFolderMenu(e, folder)}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const raw = e.dataTransfer.getData('application/x-clover-messages')
+                  if (raw) void bulkIds(JSON.parse(raw) as string[], 'move', folder.id)
+                }}
                 className={
                   'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
                   (active ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
@@ -758,6 +782,14 @@ export function MailView(): ReactNode {
                         single && latest ? void selectMessage(latest.id) : toggleThread(t.threadId)
                       }
                       onContextMenu={(e) => latest && openMenu(e, latest)}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData(
+                          'application/x-clover-messages',
+                          JSON.stringify(t.messages.map((x) => x.id))
+                        )
+                        e.dataTransfer.effectAllowed = 'move'
+                      }}
                       className={
                         'flex cursor-pointer gap-2 px-3 py-2.5 transition-colors ' +
                         (single && latest?.id === selectedMessageId
@@ -836,6 +868,12 @@ export function MailView(): ReactNode {
                 key={m.id}
                 onClick={() => void selectMessage(m.id)}
                 onContextMenu={(e) => openMenu(e, m)}
+                draggable
+                onDragStart={(e) => {
+                  const ids = selectedIds.includes(m.id) && selectedIds.length > 1 ? selectedIds : [m.id]
+                  e.dataTransfer.setData('application/x-clover-messages', JSON.stringify(ids))
+                  e.dataTransfer.effectAllowed = 'move'
+                }}
                 className={
                   'group flex cursor-pointer gap-2 border-b border-line/70 px-3 py-2.5 transition-colors ' +
                   (m.isImportant ? 'border-l-2 border-l-accent ' : 'border-l-2 border-l-transparent ') +
@@ -915,6 +953,7 @@ export function MailView(): ReactNode {
       {composeState.open && activeAccountId && (
         <Compose
           accountId={activeAccountId}
+          accountEmail={activeAccount?.email}
           initialTo={composeState.to}
           initialSubject={composeState.subject}
           initialBody={composeState.body}
@@ -1034,6 +1073,15 @@ export function MailView(): ReactNode {
                   Mark all as read
                 </MenuItem>
                 <MenuDivider />
+                <MenuItem
+                  onClick={() => {
+                    const folder = folderMenu.folder
+                    setFolderMenu(null)
+                    if (folder) void setFolderVisible(folder.id, !folder.isVisible)
+                  }}
+                >
+                  {folderMenu.folder?.isVisible ? 'Hide folder' : 'Show folder'}
+                </MenuItem>
                 <MenuItem
                   onClick={() => {
                     setFolderMenu(null)

@@ -50,6 +50,14 @@ export interface FolderSummary {
   unreadCount: number
   totalCount: number
   sortOrder: number
+  isVisible: boolean
+}
+
+export interface AccountAlias {
+  id: string
+  accountId: string
+  name: string | null
+  email: string
 }
 
 export interface MessageSummary {
@@ -112,6 +120,8 @@ export interface ComposeInput {
   text?: string
   html?: string
   attachments?: AttachmentRef[]
+  fromEmail?: string
+  fromName?: string
   inReplyTo?: string
   references?: string
 }

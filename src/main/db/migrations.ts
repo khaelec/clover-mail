@@ -257,5 +257,18 @@ export const migrations: Migration[] = [
     sql: `
       ALTER TABLE messages ADD COLUMN is_important INTEGER NOT NULL DEFAULT 0;
     `
+  },
+  {
+    id: '0008_aliases_and_folder_visibility',
+    sql: `
+      CREATE TABLE IF NOT EXISTS account_aliases (
+        id TEXT PRIMARY KEY NOT NULL,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        name TEXT,
+        email TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      ALTER TABLE folders ADD COLUMN is_visible INTEGER NOT NULL DEFAULT 1;
+    `
   }
 ]

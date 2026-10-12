@@ -31,7 +31,8 @@ export function listFolders(accountId: string): FolderSummary[] {
       specialUse: row.specialUse,
       unreadCount: unreadMap.get(row.id) ?? 0,
       totalCount: row.totalCount,
-      sortOrder: row.sortOrder
+      sortOrder: row.sortOrder,
+      isVisible: row.isVisible
     }))
 }
 

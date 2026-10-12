@@ -271,6 +271,13 @@ export const IconUnread = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconEye = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
+    <circle cx="12" cy="12" r="2.6" />
+  </Base>
+)
+
 export function CloverMark({ className }: { className?: string }): ReactNode {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" className={className} aria-hidden="true">

@@ -7,7 +7,7 @@ import {
   type ThemeMode
 } from '@shared/theme'
 import type { AppInfo } from '@shared/ipc'
-import type { AccountSummary } from '@shared/mail'
+import type { AccountAlias, AccountSummary } from '@shared/mail'
 import type { AiSettings, AiStatus, McpSettings } from '@shared/ai'
 import { useTheme } from '../theme/theme'
 import { IconCheck, IconMonitor, IconMoon, IconSignature, IconSun } from './icons'
@@ -78,6 +78,10 @@ export function SettingsView(): ReactNode {
   const [sigMsg, setSigMsg] = useState<string | null>(null)
   const sigEditorRef = useRef<HTMLDivElement>(null)
   const sigFileRef = useRef<HTMLInputElement>(null)
+  const [aliasAccountId, setAliasAccountId] = useState('')
+  const [aliasList, setAliasList] = useState<AccountAlias[]>([])
+  const [aliasEmail, setAliasEmail] = useState('')
+  const [aliasName, setAliasName] = useState('')
 
   useEffect(() => {
     void window.clover.appInfo().then(setInfo)
@@ -89,9 +93,30 @@ export function SettingsView(): ReactNode {
     void window.clover.ai.getMcpSettings().then(setMcp)
     void window.clover.mail.listAccounts().then((list) => {
       setAccounts(list)
-      if (list[0]) setSigAccountId((current) => current || list[0].id)
+      if (list[0]) {
+        setSigAccountId((current) => current || list[0].id)
+        setAliasAccountId((current) => current || list[0].id)
+      }
     })
   }, [])
+
+  useEffect(() => {
+    if (!aliasAccountId) return
+    void window.clover.mail.listAliases(aliasAccountId).then(setAliasList)
+  }, [aliasAccountId])
+
+  async function addAliasEntry(): Promise<void> {
+    if (!aliasAccountId || !aliasEmail.trim()) return
+    await window.clover.mail.addAlias(aliasAccountId, aliasEmail.trim(), aliasName.trim() || undefined)
+    setAliasEmail('')
+    setAliasName('')
+    setAliasList(await window.clover.mail.listAliases(aliasAccountId))
+  }
+
+  async function removeAliasEntry(id: string): Promise<void> {
+    await window.clover.mail.deleteAlias(id)
+    setAliasList(await window.clover.mail.listAliases(aliasAccountId))
+  }
 
   useEffect(() => {
     if (!sigAccountId) return
@@ -290,6 +315,69 @@ export function SettingsView(): ReactNode {
                   </div>
                   <p className="text-[11px] text-muted">
                     Pictures are embedded into outgoing messages automatically.
+                  </p>
+                </>
+              )}
+            </div>
+          </Card>
+
+          <Card title="Send-as aliases">
+            <div className="space-y-3">
+              {accounts.length === 0 ? (
+                <p className="text-[12px] text-muted">Add a mail account first.</p>
+              ) : (
+                <>
+                  <label className="block">
+                    <span className="mb-1 block text-[11px] font-medium text-muted">Account</span>
+                    <select
+                      value={aliasAccountId}
+                      onChange={(e) => setAliasAccountId(e.target.value)}
+                      className="w-full rounded-lg border border-line bg-canvas/60 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.email}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {aliasList.length > 0 && (
+                    <ul className="space-y-1.5">
+                      {aliasList.map((a) => (
+                        <li
+                          key={a.id}
+                          className="flex items-center gap-2 rounded-lg border border-line bg-canvas/40 px-3 py-1.5 text-[13px] text-ink"
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            {a.name ? `${a.name} ` : ''}
+                            <span className="text-muted">&lt;{a.email}&gt;</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void removeAliasEntry(a.id)}
+                            className="text-muted hover:text-rose-500"
+                          >
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="flex flex-wrap items-end gap-2">
+                    <Field label="Alias email" value={aliasEmail} onChange={setAliasEmail} placeholder="sales@yourdomain.com" />
+                    <Field label="Name (optional)" value={aliasName} onChange={setAliasName} placeholder="Sales" />
+                    <button
+                      type="button"
+                      onClick={() => void addAliasEntry()}
+                      className="mb-0.5 rounded-lg bg-accent px-3.5 py-2 text-[13px] font-semibold text-accent-ink"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted">
+                    Aliases appear in the composer&apos;s “From” menu. Make sure your provider allows sending as them.
                   </p>
                 </>
               )}

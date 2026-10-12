@@ -18,7 +18,8 @@ import { deleteMessage, downloadAttachment, getMessageDetail, moveMessage, setFl
 import { sendMessage } from '@main/mail/send'
 import { searchMessages } from '@main/mail/search'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
-import { createFolder, deleteFolder, renameFolder } from '@main/mail/folders'
+import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
+import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
 import { bulkAction, deleteSpam, emptyFolder, markFolderRead } from '@main/mail/bulk'
 import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
 
@@ -93,6 +94,14 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     renameFolder(folderId, newName)
   )
   ipcMain.handle(IpcChannels.mail.deleteFolder, (_e, folderId: string) => deleteFolder(folderId))
+  ipcMain.handle(IpcChannels.mail.setFolderVisible, (_e, folderId: string, visible: boolean) =>
+    setFolderVisible(folderId, visible)
+  )
+  ipcMain.handle(IpcChannels.mail.listAliases, (_e, accountId: string) => listAliases(accountId))
+  ipcMain.handle(IpcChannels.mail.addAlias, (_e, accountId: string, email: string, name?: string) =>
+    addAlias(accountId, email, name)
+  )
+  ipcMain.handle(IpcChannels.mail.deleteAlias, (_e, aliasId: string) => deleteAlias(aliasId))
   ipcMain.handle(IpcChannels.mail.listRules, (_e, accountId: string) => listRules(accountId))
   ipcMain.handle(IpcChannels.mail.createRule, (_e, accountId: string, input: RuleInput) =>
     createRule(accountId, input)

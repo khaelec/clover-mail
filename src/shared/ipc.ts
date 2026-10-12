@@ -63,6 +63,10 @@ export interface MailApi {
   createFolder: (input: CreateFolderInput) => Promise<void>
   renameFolder: (folderId: string, newName: string) => Promise<void>
   deleteFolder: (folderId: string) => Promise<void>
+  setFolderVisible: (folderId: string, visible: boolean) => Promise<void>
+  listAliases: (accountId: string) => Promise<import('./mail').AccountAlias[]>
+  addAlias: (accountId: string, email: string, name?: string) => Promise<import('./mail').AccountAlias>
+  deleteAlias: (aliasId: string) => Promise<void>
   listRules: (accountId: string) => Promise<Rule[]>
   createRule: (accountId: string, input: RuleInput) => Promise<Rule>
   updateRule: (ruleId: string, input: RuleInput) => Promise<Rule>

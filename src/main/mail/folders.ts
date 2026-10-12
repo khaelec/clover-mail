@@ -60,3 +60,7 @@ export async function deleteFolder(folderId: string): Promise<void> {
   db.delete(messages).where(eq(messages.folderId, folderId)).run()
   db.delete(folders).where(eq(folders.id, folderId)).run()
 }
+
+export function setFolderVisible(folderId: string, visible: boolean): void {
+  getDb().update(folders).set({ isVisible: visible }).where(eq(folders.id, folderId)).run()
+}

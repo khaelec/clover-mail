@@ -58,10 +58,13 @@ export async function sendMessage(input: ComposeInput): Promise<void> {
   ]
 
   const transport = buildTransport(account.outgoing, password)
+  const fromEmail = input.fromEmail || account.email
+  const fromName = input.fromName ?? (input.fromEmail ? null : account.displayName)
+  const from = fromName ? `"${fromName}" <${fromEmail}>` : fromEmail
   let raw: Buffer | undefined
   try {
     const info = (await transport.sendMail({
-      from: account.displayName ? `"${account.displayName}" <${account.email}>` : account.email,
+      from,
       to: input.to.join(', '),
       cc: input.cc?.length ? input.cc.join(', ') : undefined,
       bcc: input.bcc?.length ? input.bcc.join(', ') : undefined,

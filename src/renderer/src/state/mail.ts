@@ -73,6 +73,9 @@ interface MailState {
   createFolder: (name: string) => Promise<void>
   renameFolder: (folderId: string, name: string) => Promise<void>
   deleteFolder: (folderId: string) => Promise<void>
+  setFolderVisible: (folderId: string, visible: boolean) => Promise<void>
+  showHidden: boolean
+  setShowHidden: (value: boolean) => void
   loadRules: () => Promise<void>
   saveRule: (input: RuleInput, ruleId?: string) => Promise<void>
   removeRule: (ruleId: string) => Promise<void>
@@ -141,6 +144,7 @@ export const useMail = create<MailState>((set, get) => {
     threads: [],
     expandedThreadIds: [],
     unreadOnly: false,
+    showHidden: false,
 
     init: async () => {
       window.clover.mail.onEvent((event) => {        if (event.type === 'sync:folder') {
@@ -160,7 +164,10 @@ export const useMail = create<MailState>((set, get) => {
 
       await get().refreshAccounts()
       const settings = await window.clover.settings.getAll()
-      set({ threaded: settings[SETTINGS_KEYS.threadedView] !== false })
+      set({
+        threaded: settings[SETTINGS_KEYS.threadedView] !== false,
+        showHidden: settings['mail.showHidden'] === true
+      })
       const first = get().accounts[0]
       if (first) await get().selectAccount(first.id)
     },
@@ -444,6 +451,16 @@ export const useMail = create<MailState>((set, get) => {
       await reloadFolders()
       const accountId = get().activeAccountId
       if (wasActive && accountId) await get().selectAccount(accountId)
+    },
+
+    setFolderVisible: async (folderId, visible) => {
+      await window.clover.mail.setFolderVisible(folderId, visible)
+      await reloadFolders()
+    },
+
+    setShowHidden: (value) => {
+      set({ showHidden: value })
+      void window.clover.settings.set('mail.showHidden', value)
     },
 
     loadRules: async () => {

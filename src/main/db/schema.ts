@@ -20,6 +20,20 @@ export const accounts = sqliteTable('accounts', {
   createdAt: integer('created_at').notNull()
 })
 
+export const accountAliases = sqliteTable(
+  'account_aliases',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    name: text('name'),
+    email: text('email').notNull(),
+    createdAt: integer('created_at').notNull()
+  },
+  (table) => [index('ix_account_aliases_account').on(table.accountId)]
+)
+
 export const incomingSettings = sqliteTable('incoming_settings', {
   id: text('id').primaryKey(),
   accountId: text('account_id')
@@ -61,7 +75,8 @@ export const folders = sqliteTable(
     unreadCount: integer('unread_count').notNull().default(0),
     totalCount: integer('total_count').notNull().default(0),
     isSubscribed: integer('is_subscribed', { mode: 'boolean' }).notNull().default(true),
-    sortOrder: integer('sort_order').notNull().default(0)
+    sortOrder: integer('sort_order').notNull().default(0),
+    isVisible: integer('is_visible', { mode: 'boolean' }).notNull().default(true)
   },
   (table) => [uniqueIndex('ux_folders_account_path').on(table.accountId, table.remotePath)]
 )
@@ -256,6 +271,7 @@ export const schema = {
   appSettings,
   migrationsTable,
   accounts,
+  accountAliases,
   incomingSettings,
   outgoingSettings,
   folders,

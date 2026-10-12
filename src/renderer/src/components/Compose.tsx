@@ -66,6 +66,7 @@ function ToolbarButton({ label, title, onClick, className }: ToolbarButtonProps)
 
 export function Compose({
   accountId,
+  accountEmail,
   onClose,
   initialTo,
   initialSubject,
@@ -74,6 +75,7 @@ export function Compose({
   references
 }: {
   accountId: string
+  accountEmail?: string
   onClose: () => void
   initialTo?: string
   initialSubject?: string
@@ -98,6 +100,18 @@ export function Compose({
   const [issues, setIssues] = useState<GrammarIssue[]>([])
   const [signatureHtml, setSignatureHtml] = useState('')
   const [signatureOn, setSignatureOn] = useState(false)
+  const [fromOptions, setFromOptions] = useState<{ name: string | null; email: string }[]>([])
+  const [fromEmail, setFromEmail] = useState(accountEmail ?? '')
+
+  useEffect(() => {
+    void window.clover.mail.listAliases(accountId).then((list) => {
+      setFromOptions([
+        { name: null, email: accountEmail ?? '' },
+        ...list.map((a) => ({ name: a.name, email: a.email }))
+      ])
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, accountEmail])
 
   useEffect(() => {
     void (async () => {
@@ -196,6 +210,8 @@ export function Compose({
         subject,
         text,
         html: html.trim() ? html : undefined,
+        fromEmail: fromEmail || undefined,
+        fromName: fromOptions.find((o) => o.email === fromEmail)?.name ?? undefined,
         attachments: files.map((file) => ({
           filename: file.name,
           path: window.clover.getFilePath(file)
@@ -226,6 +242,22 @@ export function Compose({
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col px-5 py-3">
+          {fromOptions.length > 1 && (
+            <div className="flex items-center gap-2 border-b border-line/70 py-1.5">
+              <span className="w-10 text-[12px] text-muted">From</span>
+              <select
+                value={fromEmail}
+                onChange={(e) => setFromEmail(e.target.value)}
+                className="rounded-md border border-line bg-canvas/60 px-2 py-1 text-[13px] text-ink outline-none focus:border-accent"
+              >
+                {fromOptions.map((o) => (
+                  <option key={o.email} value={o.email}>
+                    {o.name ? `${o.name} <${o.email}>` : o.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex items-center gap-2 border-b border-line/70 py-1.5">
             <span className="w-10 text-[12px] text-muted">To</span>
             <input
