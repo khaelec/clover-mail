@@ -376,6 +376,7 @@ export function MailView(): ReactNode {
   const [composeState, setComposeState] = useState<{
     open: boolean
     to?: string
+    cc?: string
     subject?: string
     body?: string
     attachments?: { name: string; path: string }[]
@@ -447,6 +448,31 @@ export function MailView(): ReactNode {
     setComposeState({
       open: true,
       to,
+      subject: detail.subject?.startsWith('Re:') ? detail.subject : `Re: ${detail.subject ?? ''}`,
+      body
+    })
+  }
+
+  function openReplyAll(): void {
+    const detail = useMail.getState().detail
+    if (!detail) return
+    const self = activeAccount?.email?.toLowerCase()
+    const parseEmail = (addr: string): string => (addr.match(/<([^>]+)>/)?.[1] ?? addr).toLowerCase()
+    const sender = detail.fromEmail
+      ? detail.fromName
+        ? `${detail.fromName} <${detail.fromEmail}>`
+        : detail.fromEmail
+      : ''
+    const ccList = [...detail.to, ...detail.cc].filter((addr) => {
+      const email = parseEmail(addr)
+      return email && email !== self && email !== detail.fromEmail?.toLowerCase()
+    })
+    const cc = Array.from(new Set(ccList.map((a) => a.trim()))).join(', ')
+    const body = `\n\nOn ${new Date(detail.dateUtc ?? Date.now()).toLocaleString()}, ${detail.fromName || detail.fromEmail} wrote:\n> ${(detail.textPlain ?? '').split('\n').join('\n> ')}`
+    setComposeState({
+      open: true,
+      to: sender,
+      cc,
       subject: detail.subject?.startsWith('Re:') ? detail.subject : `Re: ${detail.subject ?? ''}`,
       body
     })
@@ -1025,7 +1051,7 @@ export function MailView(): ReactNode {
         onCommit={() => void saveLayout()}
       />
 
-      <Reader onReply={openReply} onForward={() => void openForward()} />
+      <Reader onReply={openReply} onReplyAll={openReplyAll} onForward={() => void openForward()} />
 
       {layout.dockOpen && <AppDock />}
 
@@ -1034,6 +1060,7 @@ export function MailView(): ReactNode {
           accountId={activeAccountId}
           accountEmail={activeAccount?.email}
           initialTo={composeState.to}
+          initialCc={composeState.cc}
           initialSubject={composeState.subject}
           initialBody={composeState.body}
           initialAttachments={composeState.attachments}

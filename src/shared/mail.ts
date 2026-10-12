@@ -116,6 +116,17 @@ export interface AttachmentRef {
   path: string
 }
 
+export interface DraftData {
+  to: string[]
+  cc?: string[]
+  bcc?: string[]
+  subject: string
+  text?: string
+  html?: string
+  fromEmail?: string
+  fromName?: string
+}
+
 export interface ComposeInput {
   accountId: string
   to: string[]

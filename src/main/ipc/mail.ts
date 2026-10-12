@@ -7,6 +7,7 @@ import type {
   ConnectionTestResult,
   CreateAccountInput,
   CreateFolderInput,
+  DraftData,
   RuleInput
 } from '@shared/mail'
 import * as accountService from '@main/mail/accounts'
@@ -21,6 +22,7 @@ import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
 import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
 import { exportFolderMbox } from '@main/mail/archive'
+import { deleteDraft, saveDraft } from '@main/mail/drafts'
 import {
   getGoogleConfig,
   getMicrosoftConfig,
@@ -184,6 +186,14 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.markFolderRead, (_e, folderId: string) => markFolderRead(folderId))
   ipcMain.handle(IpcChannels.mail.deleteSpam, (_e, accountId: string) => deleteSpam(accountId))
   ipcMain.handle(IpcChannels.mail.sendMessage, (_e, input: ComposeInput) => sendMessage(input))
+  ipcMain.handle(
+    IpcChannels.mail.saveDraft,
+    (_e, accountId: string, draft: DraftData, existingUid?: number | null) =>
+      saveDraft(accountId, draft, existingUid)
+  )
+  ipcMain.handle(IpcChannels.mail.deleteDraft, (_e, accountId: string, uid: number) =>
+    deleteDraft(accountId, uid)
+  )
   ipcMain.handle(IpcChannels.mail.downloadAttachment, (_e, attachmentId: string) =>
     downloadAttachment(attachmentId)
   )

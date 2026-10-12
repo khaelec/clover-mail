@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Lint, LocalLinter, Suggestion } from 'harper.js'
+import type { ComposeInput, DraftData } from '@shared/mail'
 import { useMail } from '../state/mail'
 import { IconCheck, IconClose, IconHighlight, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
 
@@ -69,6 +70,7 @@ export function Compose({
   accountEmail,
   onClose,
   initialTo,
+  initialCc,
   initialSubject,
   initialBody,
   inReplyTo,
@@ -79,6 +81,7 @@ export function Compose({
   accountEmail?: string
   onClose: () => void
   initialTo?: string
+  initialCc?: string
   initialSubject?: string
   initialBody?: string
   inReplyTo?: string
@@ -87,7 +90,7 @@ export function Compose({
 }): ReactNode {
   const send = useMail((s) => s.send)
   const [to, setTo] = useState(initialTo ?? '')
-  const [cc, setCc] = useState('')
+  const [cc, setCc] = useState(initialCc ?? '')
   const [bcc, setBcc] = useState('')
   const [showCc, setShowCc] = useState(false)
   const [subject, setSubject] = useState(initialSubject ?? '')
@@ -106,6 +109,69 @@ export function Compose({
   const [signatureOn, setSignatureOn] = useState(false)
   const [fromOptions, setFromOptions] = useState<{ name: string | null; email: string }[]>([])
   const [fromEmail, setFromEmail] = useState(accountEmail ?? '')
+  const [pending, setPending] = useState<{ input: ComposeInput; seconds: number } | null>(null)
+  const sentRef = useRef(false)
+  const draftUidRef = useRef<number | null>(null)
+  const draftRef = useRef<() => DraftData>(() => ({ to: [], subject: '' }))
+  draftRef.current = () => ({
+    to: parseList(to),
+    cc: parseList(cc),
+    bcc: parseList(bcc),
+    subject,
+    text: editorRef.current?.innerText ?? '',
+    html: (editorRef.current?.innerHTML ?? '').trim() || undefined,
+    fromEmail: fromEmail || undefined,
+    fromName: fromOptions.find((o) => o.email === fromEmail)?.name ?? undefined
+  })
+
+  // Autosave the draft to the server Drafts folder while composing.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (sentRef.current || pending) return
+      const draft = draftRef.current()
+      const text = editorRef.current?.innerText ?? ''
+      if (!draft.to.length && !draft.subject.trim() && !text.trim()) return
+      void (async () => {
+        try {
+          const uid = await window.clover.mail.saveDraft(accountId, draft, draftUidRef.current)
+          if (uid) draftUidRef.current = uid
+        } catch {
+          // ignore autosave failures
+        }
+      })()
+    }, 7000)
+    return () => clearInterval(interval)
+  }, [accountId, pending])
+
+  useEffect(() => {
+    if (!pending) return
+    if (pending.seconds <= 0) {
+      if (sentRef.current) return
+      sentRef.current = true
+      void (async () => {
+        setBusy(true)
+        try {
+          await send(pending.input)
+          if (draftUidRef.current) {
+            await window.clover.mail.deleteDraft(accountId, draftUidRef.current).catch(() => undefined)
+            draftUidRef.current = null
+          }
+          onClose()
+        } catch (err) {
+          setError((err as Error).message)
+          setBusy(false)
+          setPending(null)
+          sentRef.current = false
+        }
+      })()
+      return
+    }
+    const timer = setTimeout(
+      () => setPending((p) => (p ? { ...p, seconds: p.seconds - 1 } : p)),
+      1000
+    )
+    return () => clearTimeout(timer)
+  }, [pending, send, onClose])
 
   useEffect(() => {
     void window.clover.mail.listAliases(accountId).then((list) => {
@@ -201,12 +267,12 @@ export function Compose({
       setError('Add at least one recipient.')
       return
     }
-    setBusy(true)
     setError(null)
-    try {
-      const html = editorRef.current?.innerHTML ?? ''
-      const text = editorRef.current?.innerText ?? ''
-      await send({
+    const html = editorRef.current?.innerHTML ?? ''
+    const text = editorRef.current?.innerText ?? ''
+    setPending({
+      seconds: 8,
+      input: {
         accountId,
         to: parseList(to),
         cc: parseList(cc),
@@ -219,13 +285,8 @@ export function Compose({
         attachments: attachments.map((a) => ({ filename: a.name, path: a.path })),
         inReplyTo,
         references
-      })
-      onClose()
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setBusy(false)
-    }
+      }
+    })
   }
 
   return (
@@ -421,6 +482,18 @@ export function Compose({
         </div>
 
         <footer className="flex items-center gap-2 border-t border-line px-5 py-3">
+          {pending && (
+            <span className="flex items-center gap-2 text-[12px] text-accent">
+              Sending in {pending.seconds}s…
+              <button
+                type="button"
+                onClick={() => setPending(null)}
+                className="rounded-md border border-line px-2 py-0.5 text-muted hover:text-ink"
+              >
+                Undo
+              </button>
+            </span>
+          )}
           <input
             ref={fileInputRef}
             type="file"

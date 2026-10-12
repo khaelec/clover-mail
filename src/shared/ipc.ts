@@ -93,6 +93,8 @@ export interface MailApi {
   markFolderRead: (folderId: string) => Promise<number>
   deleteSpam: (accountId: string) => Promise<{ deleted: number }>
   sendMessage: (input: ComposeInput) => Promise<void>
+  saveDraft: (accountId: string, draft: import('./mail').DraftData, existingUid?: number | null) => Promise<number | null>
+  deleteDraft: (accountId: string, uid: number) => Promise<void>
   downloadAttachment: (attachmentId: string) => Promise<{ saved: boolean; path?: string }>
   getAttachmentPath: (attachmentId: string) => Promise<string | null>
   openAttachment: (attachmentId: string) => Promise<{ opened: boolean; error?: string }>

@@ -46,7 +46,15 @@ function blockRemoteImages(html: string): { html: string; blocked: number } {
   return { html: doc.body.innerHTML, blocked }
 }
 
-export function Reader({ onReply, onForward }: { onReply: () => void; onForward: () => void }): ReactNode {
+export function Reader({
+  onReply,
+  onReplyAll,
+  onForward
+}: {
+  onReply: () => void
+  onReplyAll: () => void
+  onForward: () => void
+}): ReactNode {
   const {
     detail,
     toggleFlag,
@@ -266,6 +274,14 @@ export function Reader({ onReply, onForward }: { onReply: () => void; onForward:
           >
             <IconReply className="h-3.5 w-3.5" />
             Reply
+          </button>
+          <button
+            type="button"
+            onClick={onReplyAll}
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-accent"
+          >
+            <IconReply className="h-3.5 w-3.5" />
+            Reply all
           </button>
           <button
             type="button"

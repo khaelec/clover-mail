@@ -60,6 +60,8 @@ export const IpcChannels = {
     markFolderRead: 'mail:mark-folder-read',
     deleteSpam: 'mail:delete-spam',
     sendMessage: 'mail:send-message',
+    saveDraft: 'mail:save-draft',
+    deleteDraft: 'mail:delete-draft',
     downloadAttachment: 'mail:download-attachment',
     attachmentPath: 'mail:attachment-path',
     openAttachment: 'mail:open-attachment',
