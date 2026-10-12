@@ -34,7 +34,7 @@ Built with **Electron + React + TypeScript**, local-first (SQLite), by [@khaelec
 
 **Look & feel**
 - Light / Dark / System themes + accent colors
-- **Live wallpapers** — video, GIF, image slideshow, HTML, and **Wallpaper Engine** auto-discovery
+- **Live wallpapers** — video, GIF, image slideshow, HTML, and **Wallpaper Engine** auto-discovery (if you have it installed)
 - Native spellcheck + local **grammar check** (Harper)
 
 **Accounts**
@@ -56,6 +56,19 @@ Requires **Node 20+** on Windows. `better-sqlite3` ships N-API prebuilds, so no 
 
 - Everything is local. Your mail lives in SQLite under `%APPDATA%\clover-mail\`.
 - Passwords and OAuth tokens are encrypted with the Windows **DPAPI** (`safeStorage`) and never leave your machine.
+
+## Third-party software (bring your own)
+
+Clover Mail integrates with, but does **not** bundle or redistribute, the following — you supply and
+license them yourself:
+
+- **Wallpaper Engine** — the app only *detects* an existing installation so it can play the wallpapers
+  you already own. Wallpaper Engine is a separate, paid application on Steam and is not affiliated
+  with or included in this project. Buy/own it separately if you want to use those wallpapers.
+- **AI providers** — Claude (your Anthropic API key), **Ollama** (installed locally), or the
+  **opencode** CLI. Your key/account, your usage.
+- **Email OAuth** — Google and Microsoft access goes through OAuth; large-scale distribution may
+  require registering/verifying your own OAuth client with each provider.
 
 ## License
 
