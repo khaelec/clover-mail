@@ -34,6 +34,7 @@ export const IpcChannels = {
     renameFolder: 'mail:rename-folder',
     deleteFolder: 'mail:delete-folder',
     setFolderVisible: 'mail:set-folder-visible',
+    exportMbox: 'mail:export-mbox',
     listAliases: 'mail:list-aliases',
     addAlias: 'mail:add-alias',
     deleteAlias: 'mail:delete-alias',

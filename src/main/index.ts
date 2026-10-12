@@ -130,7 +130,7 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.clovermail.app')
 
   app.on('browser-window-created', (_, window) => {
@@ -169,6 +169,15 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+
+  if (app.isPackaged) {
+    try {
+      const { autoUpdater } = await import('electron-updater')
+      autoUpdater.checkForUpdatesAndNotify().catch(() => undefined)
+    } catch {
+      // auto-update unavailable
+    }
+  }
 })
 
 app.on('window-all-closed', () => {

@@ -277,6 +277,7 @@ export function MailView(): ReactNode {
   const renameFolder = useMail((s) => s.renameFolder)
   const deleteFolder = useMail((s) => s.deleteFolder)
   const setFolderVisible = useMail((s) => s.setFolderVisible)
+  const exportMbox = useMail((s) => s.exportMbox)
   const showHidden = useMail((s) => s.showHidden)
   const setShowHidden = useMail((s) => s.setShowHidden)
 
@@ -1088,6 +1089,15 @@ export function MailView(): ReactNode {
                   Mark all as read
                 </MenuItem>
                 <MenuDivider />
+                <MenuItem
+                  onClick={() => {
+                    const folder = folderMenu.folder
+                    setFolderMenu(null)
+                    if (folder) void exportMbox(folder.id)
+                  }}
+                >
+                  Export to mbox…
+                </MenuItem>
                 <MenuItem
                   onClick={() => {
                     const folder = folderMenu.folder

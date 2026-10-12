@@ -25,6 +25,7 @@
     "better-sqlite3": "^13.0.3",
     "dompurify": "^3.4.16",
     "drizzle-orm": "^0.45.4",
+    "electron-updater": "^6.8.9",
     "harper.js": "^2.10.0",
     "imapflow": "^2.4.0",
     "mailparser": "^3.9.38",

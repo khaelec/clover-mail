@@ -74,6 +74,7 @@ interface MailState {
   renameFolder: (folderId: string, name: string) => Promise<void>
   deleteFolder: (folderId: string) => Promise<void>
   setFolderVisible: (folderId: string, visible: boolean) => Promise<void>
+  exportMbox: (folderId: string) => Promise<void>
   showHidden: boolean
   setShowHidden: (value: boolean) => void
   loadRules: () => Promise<void>
@@ -471,6 +472,16 @@ export const useMail = create<MailState>((set, get) => {
     setFolderVisible: async (folderId, visible) => {
       await window.clover.mail.setFolderVisible(folderId, visible)
       await reloadFolders()
+    },
+
+    exportMbox: async (folderId) => {
+      const result = await window.clover.mail.exportMbox(folderId)
+      if (result.saved) {
+        set({ status: `Exported ${result.count ?? 0} messages to mbox` })
+        setTimeout(() => {
+          if (get().status?.startsWith('Exported')) set({ status: null })
+        }, 4000)
+      }
     },
 
     setShowHidden: (value) => {

@@ -66,6 +66,7 @@ export interface MailApi {
   renameFolder: (folderId: string, newName: string) => Promise<void>
   deleteFolder: (folderId: string) => Promise<void>
   setFolderVisible: (folderId: string, visible: boolean) => Promise<void>
+  exportMbox: (folderId: string) => Promise<{ saved: boolean; path?: string; count?: number }>
   listAliases: (accountId: string) => Promise<import('./mail').AccountAlias[]>
   addAlias: (accountId: string, email: string, name?: string) => Promise<import('./mail').AccountAlias>
   deleteAlias: (aliasId: string) => Promise<void>

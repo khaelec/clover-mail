@@ -20,6 +20,7 @@ import { searchMessages } from '@main/mail/search'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
 import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
+import { exportFolderMbox } from '@main/mail/archive'
 import { bulkAction, deleteSpam, emptyFolder, markFolderRead } from '@main/mail/bulk'
 import { startAllIdle, startIdle, stopIdle } from '@main/mail/idle'
 import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
@@ -107,6 +108,7 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.setFolderVisible, (_e, folderId: string, visible: boolean) =>
     setFolderVisible(folderId, visible)
   )
+  ipcMain.handle(IpcChannels.mail.exportMbox, (_e, folderId: string) => exportFolderMbox(folderId))
   ipcMain.handle(IpcChannels.mail.listAliases, (_e, accountId: string) => listAliases(accountId))
   ipcMain.handle(IpcChannels.mail.addAlias, (_e, accountId: string, email: string, name?: string) =>
     addAlias(accountId, email, name)

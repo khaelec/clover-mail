@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { listAccounts } from '../mail/accounts'
 import { listFolders } from '../mail/queries'
 import { searchMessages } from '../mail/search'
-import { getMessageDetail } from '../mail/messages'
+import { getMessageDetail, moveMessage, setFlags } from '../mail/messages'
 import { getMcpSettings } from './settings'
 
 let httpServer: Server | null = null
@@ -57,12 +57,21 @@ function buildServer(grantWrite: boolean): McpServer {
 
   if (grantWrite) {
     server.tool(
-      'list_unread',
-      'List unread messages for an account (write scope enabled).',
-      { accountId: z.string() },
-      async ({ accountId }) => {
-        const unread = searchMessages('', accountId)
-        return text(unread.filter((m) => !m.isRead))
+      'mark_read',
+      'Mark one message read or unread.',
+      { messageId: z.string(), read: z.boolean().optional() },
+      async ({ messageId, read }) => {
+        await setFlags(messageId, { seen: read ?? true })
+        return text(`Marked ${messageId} as ${(read ?? true) ? 'read' : 'unread'}`)
+      }
+    )
+    server.tool(
+      'move_message',
+      'Move a message to another folder (use list_folders for ids).',
+      { messageId: z.string(), folderId: z.string() },
+      async ({ messageId, folderId }) => {
+        await moveMessage(messageId, folderId)
+        return text(`Moved ${messageId} to folder ${folderId}`)
       }
     )
   }

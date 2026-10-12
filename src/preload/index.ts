@@ -104,6 +104,7 @@ const api: CloverApi = {
     deleteFolder: (folderId) => ipcRenderer.invoke(IpcChannels.mail.deleteFolder, folderId),
     setFolderVisible: (folderId, visible) =>
       ipcRenderer.invoke(IpcChannels.mail.setFolderVisible, folderId, visible),
+    exportMbox: (folderId) => ipcRenderer.invoke(IpcChannels.mail.exportMbox, folderId),
     listAliases: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listAliases, accountId),
     addAlias: (accountId, email, name) =>
       ipcRenderer.invoke(IpcChannels.mail.addAlias, accountId, email, name),
