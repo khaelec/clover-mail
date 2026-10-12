@@ -206,6 +206,18 @@ export interface BackupApi {
   importBackup: () => Promise<BackupResult>
 }
 
+export interface DictationEvent {
+  type: 'ready' | 'partial' | 'result' | 'error'
+  text?: string
+}
+
+export interface DictationApi {
+  start: () => Promise<{ ok: boolean; error?: string }>
+  stop: () => void
+  supported: () => Promise<boolean>
+  onEvent: (cb: (event: DictationEvent) => void) => () => void
+}
+
 export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
@@ -217,6 +229,7 @@ export interface CloverApi {
   wallpaper: WallpaperApi
   update: UpdateApi
   backup: BackupApi
+  dictation: DictationApi
   settings: {
     getAll: () => Promise<SettingsRecord>
     get: (key: string) => Promise<unknown>

@@ -9,6 +9,7 @@ import { registerAiIpc } from './ai'
 import { registerWallpaperIpc } from './wallpaper'
 import { registerUpdateIpc } from './update'
 import { registerBackupIpc } from './backup'
+import { registerDictationIpc } from './dictation'
 import { setTrayUnread } from '@main/tray'
 
 export function registerIpc(
@@ -56,4 +57,5 @@ export function registerIpc(
   registerWallpaperIpc()
   registerUpdateIpc(getWindow, forceQuit)
   registerBackupIpc(getWindow)
+  registerDictationIpc(getWindow)
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Lint, LocalLinter, Suggestion } from 'harper.js'
 import type { ComposeInput, DraftData, Snippet } from '@shared/mail'
 import { useMail } from '../state/mail'
-import { IconCheck, IconClose, IconHighlight, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
+import { IconCheck, IconClose, IconHighlight, IconMic, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
 
 const SIGNATURE_MARKER = '<div data-clover-signature="1">'
 
@@ -109,6 +109,10 @@ export function Compose({
   const [signatureOn, setSignatureOn] = useState(false)
   const [snippets, setSnippets] = useState<Snippet[]>([])
   const [snippetOpen, setSnippetOpen] = useState(false)
+  const [dictating, setDictating] = useState(false)
+  const [partial, setPartial] = useState('')
+  const [dictationError, setDictationError] = useState<string | null>(null)
+  const [micSupported, setMicSupported] = useState(false)
   const [laterOpen, setLaterOpen] = useState(false)
 
   useEffect(() => {
@@ -320,6 +324,67 @@ export function Compose({
     if (list.length === 0) return
     const picked = list.map((f) => ({ name: f.name, path: window.clover.getFilePath(f) }))
     setAttachments((prev) => [...prev, ...picked])
+  }
+
+  useEffect(() => {
+    void window.clover.dictation.supported().then(setMicSupported)
+  }, [])
+
+  useEffect(() => {
+    if (!dictating) return
+    const off = window.clover.dictation.onEvent((event) => {
+      if (event.type === 'partial') {
+        setPartial(event.text ?? '')
+      } else if (event.type === 'result') {
+        setPartial('')
+        insertDictatedText(event.text ?? '')
+      } else if (event.type === 'error') {
+        setDictationError(event.text ?? 'Dictation stopped')
+        setDictating(false)
+      }
+    })
+    return off
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dictating])
+
+  useEffect(() => {
+    return () => {
+      window.clover.dictation.stop()
+    }
+  }, [])
+
+  function insertDictatedText(text: string): void {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    const editor = editorRef.current
+    if (!editor) return
+    editor.focus()
+    const selection = window.getSelection()
+    if (!selection || !editor.contains(selection.anchorNode)) {
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+    document.execCommand('insertText', false, `${trimmed} `)
+  }
+
+  async function toggleDictation(): Promise<void> {
+    if (dictating) {
+      window.clover.dictation.stop()
+      setDictating(false)
+      setPartial('')
+      return
+    }
+    setDictationError(null)
+    setPartial('')
+    const result = await window.clover.dictation.start()
+    if (!result.ok) {
+      setDictationError(result.error ?? 'Could not start dictation')
+      return
+    }
+    setDictating(true)
   }
 
   async function submit(): Promise<void> {
@@ -546,6 +611,19 @@ export function Compose({
             dangerouslySetInnerHTML={{ __html: initialHtml }}
           />
 
+          {dictating && (
+            <div className="mt-1.5 flex items-center gap-2 rounded-lg bg-rose-500/10 px-2.5 py-1.5 text-[12px] text-rose-500">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
+              <span className="font-medium">Listening…</span>
+              {partial && <span className="truncate text-muted">{partial}</span>}
+            </div>
+          )}
+          {dictationError && (
+            <div className="mt-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[12px] text-amber-600">
+              {dictationError}
+            </div>
+          )}
+
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 border-t border-line/70 pt-2">
               {attachments.map((file, index) => (
@@ -603,6 +681,20 @@ export function Compose({
             <IconPaperclip className="h-4 w-4" />
             Attach
           </button>
+          {micSupported && (
+            <button
+              type="button"
+              onClick={() => void toggleDictation()}
+              title={dictating ? 'Stop dictation' : 'Dictate a reply'}
+              className={
+                'flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] ' +
+                (dictating ? 'text-rose-500' : 'text-muted hover:text-ink')
+              }
+            >
+              <IconMic className="h-4 w-4" />
+              {dictating ? 'Stop' : 'Dictate'}
+            </button>
+          )}
           {error && <span className="text-[12px] text-rose-500">{error}</span>}
           <div className="relative ml-auto">
             <button

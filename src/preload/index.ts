@@ -80,6 +80,18 @@ const api: CloverApi = {
       ipcRenderer.invoke(IpcChannels.backup.export, includeAttachments),
     importBackup: () => ipcRenderer.invoke(IpcChannels.backup.import)
   },
+  dictation: {
+    start: () => ipcRenderer.invoke(IpcChannels.dictation.start),
+    stop: () => ipcRenderer.send(IpcChannels.dictation.stop),
+    supported: () => ipcRenderer.invoke(IpcChannels.dictation.supported),
+    onEvent: (cb) => {
+      const listener = (_e: unknown, event: unknown): void => cb(event as never)
+      ipcRenderer.on(IpcChannels.dictation.event, listener)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.dictation.event, listener)
+      }
+    }
+  },
   settings: {
     getAll: () => ipcRenderer.invoke(IpcChannels.settingsGetAll),
     get: (key: string) => ipcRenderer.invoke(IpcChannels.settingsGet, key),

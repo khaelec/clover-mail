@@ -139,6 +139,12 @@ export const IpcChannels = {
     export: 'backup:export',
     import: 'backup:import'
   },
+  dictation: {
+    start: 'dictation:start',
+    stop: 'dictation:stop',
+    supported: 'dictation:supported',
+    event: 'dictation:event'
+  },
   update: {
     check: 'update:check',
     download: 'update:download',

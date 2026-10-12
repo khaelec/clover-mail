@@ -178,6 +178,14 @@ export const IconPaperclip = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconMic = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M12 3.5a2.5 2.5 0 0 1 2.5 2.5v5a2.5 2.5 0 0 1-5 0V6A2.5 2.5 0 0 1 12 3.5Z" />
+    <path d="M6.5 11a5.5 5.5 0 0 0 11 0" />
+    <path d="M12 16.5V20" />
+  </Base>
+)
+
 export const IconArrowLeft = (p: IconProps): ReactNode => (
   <Base {...p}>
     <path d="M19 12H5M11 6l-6 6 6 6" />
