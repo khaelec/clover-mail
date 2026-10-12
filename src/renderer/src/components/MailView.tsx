@@ -204,7 +204,10 @@ function AppDock(): ReactNode {
         onChange={(w) => setLayout({ dockWidth: w })}
         onCommit={() => void saveLayout()}
       />
-      <section className="flex min-w-0 shrink-0 flex-col overflow-hidden border-l border-line" style={{ width: layout.dockWidth }}>
+      <section
+        className="flex min-w-0 shrink-0 flex-col overflow-hidden border-l border-line bg-surface"
+        style={{ width: layout.dockWidth }}
+      >
         <div className="flex items-center gap-2 border-b border-line px-3 py-2">
           <select
             value={layout.dockAppId ?? ''}
@@ -471,7 +474,7 @@ export function MailView(): ReactNode {
     <div className="flex h-full min-h-0">
       {layout.showFolders && (
       <aside
-        className="flex shrink-0 flex-col border-r border-line"
+        className="flex shrink-0 flex-col border-r border-line bg-surface"
         style={{ width: layout.foldersWidth }}
       >
         <div className="border-b border-line p-2.5">
@@ -674,7 +677,7 @@ export function MailView(): ReactNode {
       )}
 
       <section
-        className="flex shrink-0 flex-col border-r border-line"
+        className="flex shrink-0 flex-col border-r border-line bg-surface"
         style={{ width: layout.listWidth }}
       >
         <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
