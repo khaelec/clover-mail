@@ -71,6 +71,8 @@ export interface MailApi {
   moveMessage: (messageId: string, targetFolderId: string) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
   bulkAction: (input: BulkActionInput) => Promise<BulkActionResult>
+  emptyFolder: (folderId: string) => Promise<{ deleted: number }>
+  markFolderRead: (folderId: string) => Promise<number>
   sendMessage: (input: ComposeInput) => Promise<void>
   downloadAttachment: (attachmentId: string) => Promise<{ saved: boolean; path?: string }>
   search: (query: string, accountId?: string) => Promise<MessageSummary[]>

@@ -39,6 +39,8 @@ export const IpcChannels = {
     moveMessage: 'mail:move-message',
     deleteMessage: 'mail:delete-message',
     bulkAction: 'mail:bulk-action',
+    emptyFolder: 'mail:empty-folder',
+    markFolderRead: 'mail:mark-folder-read',
     sendMessage: 'mail:send-message',
     downloadAttachment: 'mail:download-attachment',
     search: 'mail:search',

@@ -1,17 +1,20 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { useMail } from '../state/mail'
 import { useLayout } from '../state/layout'
+import { useApps } from '../state/apps'
 import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID } from '@shared/mail'
-import type { FolderSummary, MessageSummary } from '@shared/mail'
+import type { BulkActionType, FolderSummary, MessageSummary } from '@shared/mail'
 import { Reader } from './Reader'
 import { Compose } from './Compose'
 import { AccountSetup } from './AccountSetup'
 import { RulesModal } from './RulesModal'
 import {
   IconArchive,
+  IconClose,
   IconCompose,
   IconFilter,
   IconFolderPlus,
+  IconGrid,
   IconImportance,
   IconInbox,
   IconLayout,
@@ -48,12 +51,14 @@ function Splitter({
   width,
   min,
   max,
+  invert,
   onChange,
   onCommit
 }: {
   width: number
   min: number
   max: number
+  invert?: boolean
   onChange: (width: number) => void
   onCommit: () => void
 }): ReactNode {
@@ -64,7 +69,8 @@ function Splitter({
         const startX = e.clientX
         const startWidth = width
         const move = (ev: PointerEvent): void => {
-          onChange(Math.max(min, Math.min(max, startWidth + (ev.clientX - startX))))
+          const delta = ev.clientX - startX
+          onChange(Math.max(min, Math.min(max, startWiden(invert, startWidth, delta))))
         }
         const up = (): void => {
           window.removeEventListener('pointermove', move)
@@ -77,6 +83,10 @@ function Splitter({
       className="w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-accent/40"
     />
   )
+}
+
+function startWiden(invert: boolean | undefined, startWidth: number, delta: number): number {
+  return invert ? startWidth - delta : startWidth + delta
 }
 
 function EmptyState({ onAdd }: { onAdd: () => void }): ReactNode {
@@ -101,6 +111,107 @@ function EmptyState({ onAdd }: { onAdd: () => void }): ReactNode {
         </button>
       </div>
     </div>
+  )
+}
+
+function MenuItem({
+  onClick,
+  danger,
+  children
+}: {
+  onClick: () => void
+  danger?: boolean
+  children: ReactNode
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10 ' +
+        (danger ? 'text-rose-500' : 'text-ink')
+      }
+    >
+      {children}
+    </button>
+  )
+}
+
+function MenuDivider(): ReactNode {
+  return <div className="my-1 h-px bg-line" />
+}
+
+function AppDock(): ReactNode {
+  const apps = useApps((s) => s.apps)
+  const load = useApps((s) => s.load)
+  const layout = useLayout((s) => s.settings)
+  const setLayout = useLayout((s) => s.set)
+  const saveLayout = useLayout((s) => s.save)
+  const hostRef = useRef<HTMLDivElement>(null)
+  const app = apps.find((a) => a.id === layout.dockAppId) ?? null
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useEffect(() => {
+    if (!layout.dockAppId && apps.length > 0) setLayout({ dockAppId: apps[0].id })
+  }, [apps, layout.dockAppId, setLayout])
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return
+    host.innerHTML = ''
+    if (app) {
+      const webview = document.createElement('webview')
+      webview.setAttribute('src', app.url)
+      webview.setAttribute('partition', `persist:app-${app.id}`)
+      webview.setAttribute('allowpopups', 'true')
+      webview.style.width = '100%'
+      webview.style.height = '100%'
+      host.appendChild(webview)
+    }
+    return () => {
+      host.innerHTML = ''
+    }
+  }, [app, app?.id, app?.url])
+
+  return (
+    <>
+      <Splitter
+        width={layout.dockWidth}
+        min={260}
+        max={760}
+        invert
+        onChange={(w) => setLayout({ dockWidth: w })}
+        onCommit={() => void saveLayout()}
+      />
+      <section className="flex shrink-0 flex-col border-l border-line" style={{ width: layout.dockWidth }}>
+        <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+          <select
+            value={layout.dockAppId ?? ''}
+            onChange={(e) => setLayout({ dockAppId: e.target.value })}
+            className="min-w-0 flex-1 rounded-md border border-line bg-canvas/60 px-2 py-1 text-[12px] text-ink outline-none"
+          >
+            {apps.length === 0 && <option value="">No apps — add one in the Apps tab</option>}
+            {apps.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            title="Close panel"
+            onClick={() => setLayout({ dockOpen: false })}
+            className="grid h-7 w-7 place-items-center rounded-md text-muted hover:text-ink"
+          >
+            <IconClose className="h-4 w-4" />
+          </button>
+        </div>
+        <div ref={hostRef} className="min-h-0 flex-1" />
+      </section>
+    </>
   )
 }
 
@@ -150,6 +261,68 @@ export function MailView(): ReactNode {
   const [showRules, setShowRules] = useState(false)
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [folderName, setFolderName] = useState('')
+  const bulkIds = useMail((s) => s.bulkIds)
+  const emptyFolder = useMail((s) => s.emptyFolder)
+  const markFolderRead = useMail((s) => s.markFolderRead)
+  const syncFolder = useMail((s) => s.syncFolder)
+  const [menu, setMenu] = useState<{
+    x: number
+    y: number
+    message: MessageSummary
+    mode: 'main' | 'move'
+  } | null>(null)
+  const [folderMenu, setFolderMenu] = useState<{
+    x: number
+    y: number
+    folder: FolderSummary
+  } | null>(null)
+
+  useEffect(() => {
+    if (!menu && !folderMenu) return
+    const close = (): void => {
+      setMenu(null)
+      setFolderMenu(null)
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') close()
+    }
+    window.addEventListener('resize', close)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('resize', close)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [menu, folderMenu])
+
+  function openFolderMenu(e: ReactMouseEvent, folder: FolderSummary): void {
+    e.preventDefault()
+    e.stopPropagation()
+    setFolderMenu({
+      x: Math.min(e.clientX, window.innerWidth - 220),
+      y: Math.min(e.clientY, window.innerHeight - 200),
+      folder
+    })
+  }
+
+  function openMenu(e: ReactMouseEvent, message: MessageSummary): void {
+    e.preventDefault()
+    e.stopPropagation()
+    const x = Math.min(e.clientX, window.innerWidth - 220)
+    const y = Math.min(e.clientY, window.innerHeight - 280)
+    setMenu({ x, y, message, mode: 'main' })
+  }
+
+  const menuTargets =
+    menu && selectedIds.includes(menu.message.id) && selectedIds.length > 1
+      ? selectedIds
+      : menu
+        ? [menu.message.id]
+        : []
+
+  function menuRun(action: BulkActionType, targetFolderId?: string): void {
+    void bulkIds(menuTargets, action, targetFolderId)
+    setMenu(null)
+  }
   const [composeState, setComposeState] = useState<{ open: boolean; to?: string; subject?: string; body?: string }>({
     open: false
   })
@@ -285,6 +458,7 @@ export function MailView(): ReactNode {
                 key={folder.id}
                 type="button"
                 onClick={() => void selectFolder(folder.id)}
+                onContextMenu={(e) => openFolderMenu(e, folder)}
                 className={
                   'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
                   (active ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
@@ -406,6 +580,20 @@ export function MailView(): ReactNode {
           </button>
           <button
             type="button"
+            title="Open app beside the reader"
+            onClick={() => {
+              setLayout({ dockOpen: !layout.dockOpen })
+              void saveLayout()
+            }}
+            className={
+              'grid h-7 w-7 place-items-center rounded-md ' +
+              (layout.dockOpen ? 'text-accent' : 'text-muted hover:text-accent')
+            }
+          >
+            <IconGrid className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
             title="Rules & workflow"
             onClick={() => setShowRules(true)}
             className="grid h-7 w-7 place-items-center rounded-md text-muted hover:text-accent"
@@ -491,6 +679,7 @@ export function MailView(): ReactNode {
                       onClick={() =>
                         single && latest ? void selectMessage(latest.id) : toggleThread(t.threadId)
                       }
+                      onContextMenu={(e) => latest && openMenu(e, latest)}
                       className={
                         'flex cursor-pointer gap-2 px-3 py-2.5 transition-colors ' +
                         (single && latest?.id === selectedMessageId
@@ -530,6 +719,7 @@ export function MailView(): ReactNode {
                           <div
                             key={m.id}
                             onClick={() => void selectMessage(m.id)}
+                            onContextMenu={(e) => openMenu(e, m)}
                             className={
                               'flex cursor-pointer items-center gap-2 border-t border-line/60 py-1.5 pl-7 pr-3 ' +
                               (m.id === selectedMessageId
@@ -567,6 +757,7 @@ export function MailView(): ReactNode {
               <div
                 key={m.id}
                 onClick={() => void selectMessage(m.id)}
+                onContextMenu={(e) => openMenu(e, m)}
                 className={
                   'group flex cursor-pointer gap-2 border-b border-line/70 px-3 py-2.5 transition-colors ' +
                   (m.isImportant ? 'border-l-2 border-l-accent ' : 'border-l-2 border-l-transparent ') +
@@ -641,6 +832,8 @@ export function MailView(): ReactNode {
 
       <Reader onReply={openReply} />
 
+      {layout.dockOpen && <AppDock />}
+
       {composeState.open && activeAccountId && (
         <Compose
           accountId={activeAccountId}
@@ -652,6 +845,121 @@ export function MailView(): ReactNode {
       )}
       {showAdd && <AccountSetup onClose={() => setShowAdd(false)} />}
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+
+      {menu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setMenu(null)
+            }}
+          />
+          <div
+            className="fixed z-50 w-52 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-2xl"
+            style={{ left: menu.x, top: menu.y }}
+          >
+            {menu.mode === 'main' ? (
+              <>
+                <MenuItem
+                  onClick={() => {
+                    void selectMessage(menu.message.id)
+                    setMenu(null)
+                  }}
+                >
+                  Open
+                </MenuItem>
+                <MenuItem onClick={() => menuRun(menu.message.isRead ? 'markUnread' : 'markRead')}>
+                  {menu.message.isRead ? 'Mark as unread' : 'Mark as read'}
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    void toggleImportant(menu.message)
+                    setMenu(null)
+                  }}
+                >
+                  {menu.message.isImportant ? 'Remove important' : 'Mark as important'}
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    void toggleFlag(menu.message)
+                    setMenu(null)
+                  }}
+                >
+                  {menu.message.isFlagged ? 'Unstar' : 'Star'}
+                </MenuItem>
+                <MenuDivider />
+                <MenuItem onClick={() => menuRun('archive')}>Archive</MenuItem>
+                <MenuItem onClick={() => setMenu({ ...menu, mode: 'move' })}>Move to folder ›</MenuItem>
+                <MenuItem danger onClick={() => menuRun('trash')}>
+                  Delete
+                </MenuItem>
+              </>
+            ) : (
+              <>
+                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>‹ Back</MenuItem>
+                <MenuDivider />
+                <div className="max-h-64 overflow-y-auto">
+                  {folders.map((folder) => (
+                    <MenuItem key={folder.id} onClick={() => menuRun('move', folder.id)}>
+                      {folder.name}
+                    </MenuItem>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {folderMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setFolderMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setFolderMenu(null)
+            }}
+          />
+          <div
+            className="fixed z-50 w-52 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-2xl"
+            style={{ left: folderMenu.x, top: folderMenu.y }}
+          >
+            <MenuItem
+              onClick={() => {
+                void syncFolder(folderMenu.folder.id)
+                setFolderMenu(null)
+              }}
+            >
+              Sync now
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                void markFolderRead(folderMenu.folder.id)
+                setFolderMenu(null)
+              }}
+            >
+              Mark all as read
+            </MenuItem>
+            {folderMenu.folder.specialUse === 'trash' && (
+              <>
+                <MenuDivider />
+                <MenuItem
+                  danger
+                  onClick={() => {
+                    void emptyFolder(folderMenu.folder.id)
+                    setFolderMenu(null)
+                  }}
+                >
+                  Empty Trash
+                </MenuItem>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

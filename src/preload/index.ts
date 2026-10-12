@@ -107,6 +107,8 @@ const api: CloverApi = {
       ipcRenderer.invoke(IpcChannels.mail.moveMessage, messageId, targetFolderId),
     deleteMessage: (messageId) => ipcRenderer.invoke(IpcChannels.mail.deleteMessage, messageId),
     bulkAction: (input) => ipcRenderer.invoke(IpcChannels.mail.bulkAction, input),
+    emptyFolder: (folderId) => ipcRenderer.invoke(IpcChannels.mail.emptyFolder, folderId),
+    markFolderRead: (folderId) => ipcRenderer.invoke(IpcChannels.mail.markFolderRead, folderId),
     sendMessage: (input) => ipcRenderer.invoke(IpcChannels.mail.sendMessage, input),
     downloadAttachment: (attachmentId) =>
       ipcRenderer.invoke(IpcChannels.mail.downloadAttachment, attachmentId),

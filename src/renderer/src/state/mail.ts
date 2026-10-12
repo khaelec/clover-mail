@@ -52,6 +52,10 @@ interface MailState {
   selectAll: () => void
   clearSelection: () => void
   bulk: (action: BulkActionType, targetFolderId?: string) => Promise<void>
+  bulkIds: (ids: string[], action: BulkActionType, targetFolderId?: string) => Promise<void>
+  emptyFolder: (folderId: string) => Promise<void>
+  markFolderRead: (folderId: string) => Promise<void>
+  syncFolder: (folderId: string) => Promise<void>
   setThreaded: (value: boolean) => Promise<void>
   toggleThread: (threadId: string) => void
   move: (messageId: string, targetFolderId: string) => Promise<void>
@@ -263,10 +267,37 @@ export const useMail = create<MailState>((set, get) => {
     clearSelection: () => set({ selectedIds: [] }),
 
     bulk: async (action, targetFolderId) => {
-      const messageIds = get().selectedIds
-      if (messageIds.length === 0) return
-      await window.clover.mail.bulkAction({ messageIds, action, targetFolderId })
+      await get().bulkIds(get().selectedIds, action, targetFolderId)
+    },
+
+    bulkIds: async (ids, action, targetFolderId) => {
+      if (ids.length === 0) return
+      await window.clover.mail.bulkAction({ messageIds: ids, action, targetFolderId })
       set({ selectedIds: [], selectedMessageId: null, detail: null })
+      await reloadFolder()
+      await reloadFolders()
+    },
+
+    emptyFolder: async (folderId) => {
+      await window.clover.mail.emptyFolder(folderId)
+      set({ selectedMessageId: null, detail: null })
+      await reloadFolder()
+      await reloadFolders()
+    },
+
+    markFolderRead: async (folderId) => {
+      await window.clover.mail.markFolderRead(folderId)
+      await reloadFolder()
+      await reloadFolders()
+    },
+
+    syncFolder: async (folderId) => {
+      set({ syncing: true, status: 'Syncing folder…' })
+      try {
+        await window.clover.mail.syncFolder(folderId)
+      } finally {
+        set({ syncing: false, status: null })
+      }
       await reloadFolder()
       await reloadFolders()
     },

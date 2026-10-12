@@ -2,6 +2,8 @@ import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { moveMessage, setFlags } from './messages'
+import { withImap } from './connection'
+import { removeFromIndex } from './search'
 import type { BulkActionInput, BulkActionResult } from '@shared/mail'
 
 function specialFolderId(accountId: string, use: string): string | undefined {
@@ -64,4 +66,55 @@ export async function bulkAction(input: BulkActionInput): Promise<BulkActionResu
   }
 
   return result
+}
+
+/** Permanently delete every message in a folder (e.g. Empty Trash). */
+export async function emptyFolder(folderId: string): Promise<{ deleted: number }> {
+  const db = getDb()
+  const folder = db.select().from(folders).where(eq(folders.id, folderId)).get()
+  if (!folder) return { deleted: 0 }
+
+  const rows = db
+    .select({ id: messages.id, uid: messages.uid })
+    .from(messages)
+    .where(eq(messages.folderId, folderId))
+    .all()
+  if (rows.length === 0) return { deleted: 0 }
+
+  await withImap(folder.accountId, async (client) => {
+    await client.mailboxOpen(folder.remotePath)
+    await client.messageDelete(
+      rows.map((r) => r.uid),
+      { uid: true }
+    )
+  })
+
+  for (const row of rows) removeFromIndex(row.id)
+  db.delete(messages).where(eq(messages.folderId, folderId)).run()
+  return { deleted: rows.length }
+}
+
+/** Mark every message in a folder as read. */
+export async function markFolderRead(folderId: string): Promise<number> {
+  const db = getDb()
+  const folder = db.select().from(folders).where(eq(folders.id, folderId)).get()
+  if (!folder) return 0
+
+  const rows = db
+    .select({ uid: messages.uid })
+    .from(messages)
+    .where(eq(messages.folderId, folderId))
+    .all()
+  if (rows.length === 0) return 0
+
+  await withImap(folder.accountId, async (client) => {
+    await client.mailboxOpen(folder.remotePath)
+    await client.messageFlagsAdd(
+      rows.map((r) => r.uid),
+      ['\\Seen'],
+      { uid: true }
+    )
+  })
+  db.update(messages).set({ isRead: true }).where(eq(messages.folderId, folderId)).run()
+  return rows.length
 }

@@ -4,12 +4,18 @@ export interface LayoutSettings {
   foldersWidth: number
   listWidth: number
   showFolders: boolean
+  dockOpen: boolean
+  dockWidth: number
+  dockAppId: string | null
 }
 
 export const DEFAULT_LAYOUT: LayoutSettings = {
   foldersWidth: 224,
   listWidth: 360,
-  showFolders: true
+  showFolders: true,
+  dockOpen: false,
+  dockWidth: 420,
+  dockAppId: null
 }
 
 const KEY = 'mail.layout'
