@@ -8,6 +8,7 @@ import { dialog, shell } from 'electron'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { attachments, folders, messageBodies, messages } from '../db/schema'
+import { protocolFor } from './accounts'
 import { withImap } from './connection'
 import { indexMessage, removeFromIndex } from './search'
 import { applyAssessment } from './spam'
@@ -254,7 +255,13 @@ export async function setFlags(
   messageId: string,
   flags: { seen?: boolean; flagged?: boolean; important?: boolean }
 ): Promise<void> {
-  if (flags.seen !== undefined || flags.flagged !== undefined) {
+  const db = getDb()
+  const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
+  if (
+    row &&
+    protocolFor(row.accountId) === 'imap' &&
+    (flags.seen !== undefined || flags.flagged !== undefined)
+  ) {
     await withMessageMailbox(messageId, async (client, uid) => {
       if (flags.seen !== undefined) {
         if (flags.seen) await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true })
@@ -267,7 +274,6 @@ export async function setFlags(
     })
   }
 
-  const db = getDb()
   const set: { isRead?: boolean; isFlagged?: boolean; isImportant?: boolean } = {}
   if (flags.seen !== undefined) set.isRead = flags.seen
   if (flags.flagged !== undefined) set.isFlagged = flags.flagged
@@ -281,6 +287,13 @@ export async function moveMessage(messageId: string, targetFolderId: string): Pr
   const db = getDb()
   const target = db.select().from(folders).where(eq(folders.id, targetFolderId)).get()
   if (!target) return
+
+  const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
+  if (row && protocolFor(row.accountId) !== 'imap') {
+    db.update(messages).set({ folderId: targetFolderId }).where(eq(messages.id, messageId)).run()
+    return
+  }
+
   await withMessageMailbox(messageId, async (client, uid) => {
     await client.messageMove(String(uid), target.remotePath, { uid: true })
   })
@@ -289,10 +302,13 @@ export async function moveMessage(messageId: string, targetFolderId: string): Pr
 }
 
 export async function deleteMessage(messageId: string): Promise<void> {
-  await withMessageMailbox(messageId, async (client, uid) => {
-    await client.messageDelete(String(uid), { uid: true })
-  })
   const db = getDb()
+  const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
+  if (row && protocolFor(row.accountId) === 'imap') {
+    await withMessageMailbox(messageId, async (client, uid) => {
+      await client.messageDelete(String(uid), { uid: true })
+    })
+  }
   db.delete(messages).where(eq(messages.id, messageId)).run()
   removeFromIndex(messageId)
 }

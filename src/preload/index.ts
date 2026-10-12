@@ -205,6 +205,8 @@ const api: CloverApi = {
     createSavedSearch: (name, query) =>
       ipcRenderer.invoke(IpcChannels.mail.createSavedSearch, name, query),
     deleteSavedSearch: (id) => ipcRenderer.invoke(IpcChannels.mail.deleteSavedSearch, id),
+    importMbox: (path) => ipcRenderer.invoke(IpcChannels.mail.importMbox, path),
+    pickImportMbox: () => ipcRenderer.invoke(IpcChannels.mail.pickImportMbox),
     onEvent: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
         cb(event as Parameters<typeof cb>[0])

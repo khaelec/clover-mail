@@ -32,6 +32,8 @@ import {
   removeLabelFromMessage
 } from '@main/mail/labels'
 import { createSavedSearch, deleteSavedSearch, listSavedSearches } from '@main/mail/savedSearches'
+import { importMboxFile, pickAndImportMbox } from '@main/mail/importMail'
+import { testPop3 } from '@main/mail/pop3'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
 import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
@@ -90,13 +92,19 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     IpcChannels.mail.testConnection,
     async (_e, input: CreateAccountInput): Promise<ConnectionTestResult> => {
       const result: ConnectionTestResult = { ok: false }
+      const isPop = input.protocol === 'pop3'
       try {
-        result.imap = await testImap(input.incoming, {
-          user: input.incoming.username,
-          pass: input.password
-        })
+        result.imap = isPop
+          ? await testPop3(input.incoming, {
+              user: input.incoming.username,
+              pass: input.password
+            })
+          : await testImap(input.incoming, {
+              user: input.incoming.username,
+              pass: input.password
+            })
       } catch (error) {
-        result.error = `IMAP: ${(error as Error).message}`
+        result.error = `${isPop ? 'POP3' : 'IMAP'}: ${(error as Error).message}`
         return result
       }
       try {
@@ -287,6 +295,8 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     createSavedSearch(name, query)
   )
   ipcMain.handle(IpcChannels.mail.deleteSavedSearch, (_e, id: string) => deleteSavedSearch(id))
+  ipcMain.handle(IpcChannels.mail.importMbox, (_e, path: string) => importMboxFile(path))
+  ipcMain.handle(IpcChannels.mail.pickImportMbox, () => pickAndImportMbox())
 
   startAllIdle(emit)
 }

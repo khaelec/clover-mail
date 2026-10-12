@@ -17,6 +17,7 @@ export const accounts = sqliteTable('accounts', {
   displayName: text('display_name'),
   color: text('color'),
   isEnabled: integer('is_enabled', { mode: 'boolean' }).notNull().default(true),
+  isLocal: integer('is_local', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at').notNull()
 })
 
@@ -112,7 +113,8 @@ export const messages = sqliteTable(
     spamScore: integer('spam_score').notNull().default(0),
     spamReasons: text('spam_reasons'),
     isImportant: integer('is_important', { mode: 'boolean' }).notNull().default(false),
-    snoozedUntil: integer('snoozed_until')
+    snoozedUntil: integer('snoozed_until'),
+    pop3Uidl: text('pop3_uidl')
   },
   (table) => [
     uniqueIndex('ux_messages_account_folder_uid').on(table.accountId, table.folderId, table.uid),

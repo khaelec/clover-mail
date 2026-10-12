@@ -3,8 +3,9 @@ import { randomUUID } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
-import { getAccountById } from './accounts'
+import { getAccountById, protocolFor } from './accounts'
 import { buildAccountClient } from './auth'
+import { fetchPop3 } from './pop3'
 import { indexMessage } from './search'
 import { applyAssessment } from './spam'
 import { applyRules } from './rules'
@@ -279,6 +280,15 @@ async function syncOneMailbox(
 }
 
 export async function syncAccount(accountId: string, emit: Emit): Promise<SyncResult> {
+  const protocol = protocolFor(accountId)
+  if (protocol === 'local') {
+    emit({ type: 'sync:done', accountId, fetched: 0 })
+    return { folders: 0, fetched: 0 }
+  }
+  if (protocol === 'pop3') {
+    return fetchPop3(accountId, emit)
+  }
+
   const account = getAccountById(accountId)
   if (!account) throw new Error('Account not found')
 
@@ -359,6 +369,11 @@ export async function syncFolder(folderId: string, emit: Emit): Promise<SyncResu
   const db = getDb()
   const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
   if (!folderRow) throw new Error('Folder not found')
+
+  if (protocolFor(folderRow.accountId) !== 'imap') {
+    emit({ type: 'sync:done', accountId: folderRow.accountId, fetched: 0 })
+    return { folders: 1, fetched: 0 }
+  }
 
   const client = await buildAccountClient(folderRow.accountId)
   await client.connect()

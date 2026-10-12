@@ -90,6 +90,8 @@ export const IpcChannels = {
     listSavedSearches: 'mail:list-saved-searches',
     createSavedSearch: 'mail:create-saved-search',
     deleteSavedSearch: 'mail:delete-saved-search',
+    importMbox: 'mail:import-mbox',
+    pickImportMbox: 'mail:pick-import-mbox',
     events: 'mail:events'
   },
   apps: {

@@ -354,5 +354,12 @@ export const migrations: Migration[] = [
         PRIMARY KEY (event_id, occurrence_start)
       );
     `
+  },
+  {
+    id: '0015_pop3_and_local_accounts',
+    sql: `
+      ALTER TABLE accounts ADD COLUMN is_local INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE messages ADD COLUMN pop3_uidl TEXT;
+    `
   }
 ]

@@ -2,7 +2,7 @@ import type { ImapFlow } from 'imapflow'
 import { and, eq, desc } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
-import { getAccountById, listAccounts } from './accounts'
+import { getAccountById, listAccounts, protocolFor } from './accounts'
 import { buildAccountClient } from './auth'
 import { syncFolder } from './sync'
 import { isThreadMuted } from './threadSettings'
@@ -100,7 +100,9 @@ export function stopIdle(accountId: string): void {
 }
 
 export function startAllIdle(emit: Emit): void {
-  for (const account of listAccounts()) startIdle(account.id, emit)
+  for (const account of listAccounts()) {
+    if (protocolFor(account.id) === 'imap') startIdle(account.id, emit)
+  }
 }
 
 export function stopAllIdle(): void {

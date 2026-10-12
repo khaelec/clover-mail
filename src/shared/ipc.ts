@@ -121,6 +121,8 @@ export interface MailApi {
   listSavedSearches: () => Promise<import('./mail').SavedSearch[]>
   createSavedSearch: (name: string, query: string) => Promise<import('./mail').SavedSearch>
   deleteSavedSearch: (id: string) => Promise<void>
+  importMbox: (path: string) => Promise<{ imported: number; skipped: number }>
+  pickImportMbox: () => Promise<{ imported: number; skipped: number } | null>
   onEvent: (cb: (event: MailEvent) => void) => () => void
 }
 

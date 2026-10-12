@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import type { CreateAccountInput, EndpointInput, Security } from '@shared/mail'
+import type { CreateAccountInput, EndpointInput, IncomingProtocol, Security } from '@shared/mail'
 import { useMail } from '../state/mail'
 import { IconClose, IconRefresh } from './icons'
 
@@ -84,6 +84,7 @@ export function AccountSetup({ onClose }: { onClose: () => void }): ReactNode {
   const [displayName, setDisplayName] = useState('')
   const [incoming, setIncoming] = useState<EndpointInput>({ host: '', port: 993, security: 'ssl', username: '' })
   const [outgoing, setOutgoing] = useState<EndpointInput>({ host: '', port: 465, security: 'ssl', username: '' })
+  const [protocol, setProtocol] = useState<IncomingProtocol>('imap')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [isError, setIsError] = useState(false)
@@ -145,6 +146,7 @@ export function AccountSetup({ onClose }: { onClose: () => void }): ReactNode {
       email: email.trim(),
       displayName: displayName.trim() || undefined,
       password,
+      protocol,
       incoming: { ...incoming, username: incoming.username || email.trim() },
       outgoing: { ...outgoing, username: outgoing.username || email.trim() }
     }
@@ -216,7 +218,23 @@ export function AccountSetup({ onClose }: { onClose: () => void }): ReactNode {
           <Field label="Password / app password" value={password} onChange={setPassword} type="password" />
 
           <div className="rounded-xl border border-line bg-canvas/40 p-3">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Incoming (IMAP)</div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                Incoming
+              </span>
+              <select
+                value={protocol}
+                onChange={(e) => {
+                  const next = e.target.value as IncomingProtocol
+                  setProtocol(next)
+                  setIncoming((prev) => ({ ...prev, port: next === 'pop3' ? 995 : 993 }))
+                }}
+                className="rounded-md border border-line bg-canvas/60 px-2 py-1 text-[11px] text-ink outline-none focus:border-accent"
+              >
+                <option value="imap">IMAP</option>
+                <option value="pop3">POP3</option>
+              </select>
+            </div>
             <div className="grid grid-cols-[1fr_90px_120px] gap-2">
               <Field label="Server" value={incoming.host} onChange={(v) => setIncoming({ ...incoming, host: v })} />
               <Field

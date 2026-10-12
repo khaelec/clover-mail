@@ -39,7 +39,8 @@ function makeSummary(
       host: incoming.host,
       port: incoming.port,
       security: incoming.security as EndpointInput['security'],
-      username: incoming.username
+      username: incoming.username,
+      protocol: (incoming.protocol as EndpointInput['protocol']) ?? 'imap'
     },
     outgoing: {
       host: outgoing.host,
@@ -68,12 +69,66 @@ export function secretRefFor(accountId: string): string {
   return `account:${accountId}:password`
 }
 
+function localSummary(account: typeof accounts.$inferSelect): AccountSummary {
+  const blank: EndpointInput = {
+    host: '',
+    port: 0,
+    security: 'none',
+    username: account.email,
+    protocol: 'local'
+  }
+  return {
+    id: account.id,
+    email: account.email,
+    displayName: account.displayName,
+    color: account.color,
+    isEnabled: account.isEnabled,
+    authType: 'password',
+    incoming: blank,
+    outgoing: { ...blank }
+  }
+}
+
+export function protocolFor(accountId: string): 'imap' | 'pop3' | 'local' {
+  const db = getDb()
+  const account = db.select().from(accounts).where(eq(accounts.id, accountId)).get()
+  if (!account) return 'imap'
+  if (account.isLocal) return 'local'
+  const incoming = db
+    .select()
+    .from(incomingSettings)
+    .where(eq(incomingSettings.accountId, accountId))
+    .get()
+  return incoming?.protocol === 'pop3' ? 'pop3' : 'imap'
+}
+
+/** Create (or return) a local, server-less mailbox account used for imports. */
+export function ensureLocalAccount(email: string, displayName: string): AccountSummary {
+  const db = getDb()
+  const existing = db.select().from(accounts).where(eq(accounts.email, email)).get()
+  if (existing) return localSummary(existing)
+  const id = randomUUID()
+  db.insert(accounts)
+    .values({
+      id,
+      email,
+      displayName,
+      color: COLORS[listAccounts().length % COLORS.length],
+      isEnabled: true,
+      isLocal: true,
+      createdAt: Date.now()
+    })
+    .run()
+  return localSummary(db.select().from(accounts).where(eq(accounts.id, id)).get()!)
+}
+
 export function listAccounts(): AccountSummary[] {
   const rows = getDb().select().from(accounts).orderBy(asc(accounts.createdAt)).all()
   const out: AccountSummary[] = []
   for (const row of rows) {
     const { incoming, outgoing } = settingsFor(row.id)
     if (incoming && outgoing) out.push(makeSummary(row, incoming, outgoing))
+    else if (row.isLocal) out.push(localSummary(row))
   }
   return out
 }
@@ -82,7 +137,7 @@ export function getAccountById(id: string): AccountSummary | null {
   const row = getDb().select().from(accounts).where(eq(accounts.id, id)).get()
   if (!row) return null
   const { incoming, outgoing } = settingsFor(id)
-  if (!incoming || !outgoing) return null
+  if (!incoming || !outgoing) return row.isLocal ? localSummary(row) : null
   return makeSummary(row, incoming, outgoing)
 }
 
@@ -112,7 +167,7 @@ export function createAccount(input: CreateAccountInput): AccountSummary {
     .values({
       id: randomUUID(),
       accountId: id,
-      protocol: 'imap',
+      protocol: input.protocol ?? 'imap',
       host: input.incoming.host,
       port: input.incoming.port,
       security: input.incoming.security,

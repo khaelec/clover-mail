@@ -15,6 +15,7 @@ export interface EndpointInput {
   port: number
   security: Security
   username: string
+  protocol?: IncomingProtocol | 'local'
 }
 
 export interface AccountInput {
@@ -26,6 +27,7 @@ export interface AccountInput {
 
 export interface CreateAccountInput extends AccountInput {
   password: string
+  protocol?: IncomingProtocol
 }
 
 export interface AccountSummary {

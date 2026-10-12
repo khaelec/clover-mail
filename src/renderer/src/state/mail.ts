@@ -72,6 +72,7 @@ interface MailState {
   loadSavedSearches: () => Promise<void>
   createSavedSearch: (name: string, query: string) => Promise<void>
   deleteSavedSearch: (id: string) => Promise<void>
+  importMbox: () => Promise<void>
   unreadOnly: boolean
   setUnreadOnly: (value: boolean) => void
   setThreaded: (value: boolean) => Promise<void>
@@ -483,6 +484,16 @@ export const useMail = create<MailState>((set, get) => {
     deleteSavedSearch: async (id) => {
       await window.clover.mail.deleteSavedSearch(id)
       await get().loadSavedSearches()
+    },
+
+    importMbox: async () => {
+      const result = await window.clover.mail.pickImportMbox()
+      if (!result) return
+      set({ status: `Imported ${result.imported} messages` })
+      await get().refreshAccounts()
+      setTimeout(() => {
+        if (get().status?.startsWith('Imported')) set({ status: null })
+      }, 5000)
     },
     setThreaded: async (value) => {
       set({ threaded: value })

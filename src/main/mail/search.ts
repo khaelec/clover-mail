@@ -1,6 +1,7 @@
 import { and, eq, gt, inArray, like, lt, or, type SQL } from 'drizzle-orm'
 import { getDb, getRawDb } from '../db'
 import { folders, labels, messageBodies, messageLabels, messages } from '../db/schema'
+import { protocolFor } from './accounts'
 import { withImap } from './connection'
 import { upsertMessage } from './sync'
 import { toMessageSummary } from './mappers'
@@ -209,6 +210,7 @@ export function searchMessages(query: string, accountId?: string): MessageSummar
  * Matches are upserted locally so they can be opened normally.
  */
 export async function searchServer(accountId: string, query: string): Promise<MessageSummary[]> {
+  if (protocolFor(accountId) !== 'imap') return []
   const parsed = parseSearch(query)
   const clauses: Record<string, string>[] = []
   if (parsed.text) clauses.push({ body: parsed.text })

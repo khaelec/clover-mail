@@ -3,6 +3,7 @@ import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { moveMessage, setFlags } from './messages'
 import { withImap } from './connection'
+import { protocolFor } from './accounts'
 import { removeFromIndex } from './search'
 import type { BulkActionInput, BulkActionResult } from '@shared/mail'
 
@@ -81,13 +82,15 @@ export async function emptyFolder(folderId: string): Promise<{ deleted: number }
     .all()
   if (rows.length === 0) return { deleted: 0 }
 
-  await withImap(folder.accountId, async (client) => {
-    await client.mailboxOpen(folder.remotePath)
-    await client.messageDelete(
-      rows.map((r) => r.uid),
-      { uid: true }
-    )
-  })
+  if (protocolFor(folder.accountId) === 'imap') {
+    await withImap(folder.accountId, async (client) => {
+      await client.mailboxOpen(folder.remotePath)
+      await client.messageDelete(
+        rows.map((r) => r.uid),
+        { uid: true }
+      )
+    })
+  }
 
   for (const row of rows) removeFromIndex(row.id)
   db.delete(messages).where(eq(messages.folderId, folderId)).run()
@@ -107,14 +110,16 @@ export async function markFolderRead(folderId: string): Promise<number> {
     .all()
   if (rows.length === 0) return 0
 
-  await withImap(folder.accountId, async (client) => {
-    await client.mailboxOpen(folder.remotePath)
-    await client.messageFlagsAdd(
-      rows.map((r) => r.uid),
-      ['\\Seen'],
-      { uid: true }
-    )
-  })
+  if (protocolFor(folder.accountId) === 'imap') {
+    await withImap(folder.accountId, async (client) => {
+      await client.mailboxOpen(folder.remotePath)
+      await client.messageFlagsAdd(
+        rows.map((r) => r.uid),
+        ['\\Seen'],
+        { uid: true }
+      )
+    })
+  }
   db.update(messages).set({ isRead: true }).where(eq(messages.folderId, folderId)).run()
   return rows.length
 }
@@ -136,14 +141,16 @@ export async function deleteSpam(accountId: string): Promise<{ deleted: number }
     byFolder.set(row.folderId, list)
   }
 
-  await withImap(accountId, async (client) => {
-    for (const [folderId, uids] of byFolder) {
-      const folder = db.select().from(folders).where(eq(folders.id, folderId)).get()
-      if (!folder) continue
-      await client.mailboxOpen(folder.remotePath)
-      await client.messageDelete(uids, { uid: true })
-    }
-  })
+  if (protocolFor(accountId) === 'imap') {
+    await withImap(accountId, async (client) => {
+      for (const [folderId, uids] of byFolder) {
+        const folder = db.select().from(folders).where(eq(folders.id, folderId)).get()
+        if (!folder) continue
+        await client.mailboxOpen(folder.remotePath)
+        await client.messageDelete(uids, { uid: true })
+      }
+    })
+  }
 
   for (const row of rows) removeFromIndex(row.id)
   db.delete(messages)

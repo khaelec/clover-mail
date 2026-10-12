@@ -90,6 +90,23 @@ export function SettingsView(): ReactNode {
   const [backupAttachments, setBackupAttachments] = useState(false)
   const [backupBusy, setBackupBusy] = useState(false)
   const [backupMsg, setBackupMsg] = useState('')
+  const [importBusy, setImportBusy] = useState(false)
+  const [importMsg, setImportMsg] = useState('')
+
+  async function runImportMbox(): Promise<void> {
+    setImportBusy(true)
+    setImportMsg('')
+    try {
+      const result = await window.clover.mail.pickImportMbox()
+      setImportMsg(
+        result ? `Imported ${result.imported} messages (${result.skipped} skipped).` : 'Cancelled'
+      )
+    } catch (error) {
+      setImportMsg((error as Error).message)
+    } finally {
+      setImportBusy(false)
+    }
+  }
 
   async function runExport(): Promise<void> {
     setBackupBusy(true)
@@ -462,6 +479,22 @@ export function SettingsView(): ReactNode {
 
           {tab === 'mail' && (
           <>
+          <Card title="Import mail">
+            <p className="text-[12px] text-muted">
+              Import messages from an .mbox file (Thunderbird, Apple Mail, Gmail Takeout, …) into a
+              local &ldquo;Imported Mail&rdquo; account. Original .pst files aren&apos;t supported.
+            </p>
+            <button
+              type="button"
+              disabled={importBusy}
+              onClick={() => void runImportMbox()}
+              className="mt-3 rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-accent-ink disabled:opacity-50"
+            >
+              {importBusy ? 'Importing…' : 'Import .mbox file'}
+            </button>
+            {importMsg && <p className="mt-2 text-[12px] text-muted">{importMsg}</p>}
+          </Card>
+
           <Card title="Signature">
             <div className="space-y-3">
               {accounts.length === 0 ? (
