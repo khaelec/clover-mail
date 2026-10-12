@@ -95,7 +95,8 @@ export const messages = sqliteTable(
     threadId: text('thread_id'),
     isSpam: integer('is_spam', { mode: 'boolean' }).notNull().default(false),
     spamScore: integer('spam_score').notNull().default(0),
-    spamReasons: text('spam_reasons')
+    spamReasons: text('spam_reasons'),
+    isImportant: integer('is_important', { mode: 'boolean' }).notNull().default(false)
   },
   (table) => [
     uniqueIndex('ux_messages_account_folder_uid').on(table.accountId, table.folderId, table.uid),

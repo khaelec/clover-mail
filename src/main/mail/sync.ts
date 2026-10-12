@@ -126,6 +126,24 @@ function hasAttachment(node: unknown): boolean {
   return false
 }
 
+function resolveThreadId(
+  accountId: string,
+  id: string,
+  messageId: string | null,
+  inReplyTo: string | null
+): string {
+  if (inReplyTo) {
+    const parent = getDb()
+      .select()
+      .from(messages)
+      .where(and(eq(messages.accountId, accountId), eq(messages.messageId, inReplyTo)))
+      .get()
+    if (parent?.threadId) return parent.threadId
+    return inReplyTo
+  }
+  return messageId ?? id
+}
+
 function upsertMessage(accountId: string, folderId: string, msg: FetchMessageObject): void {
   const db = getDb()
   const uid = msg.uid
@@ -156,7 +174,7 @@ function upsertMessage(accountId: string, folderId: string, msg: FetchMessageObj
     isAnswered: flags.has('\\Answered'),
     isDraft: flags.has('\\Draft'),
     hasAttachments: hasAttachment(msg.bodyStructure),
-    threadId: env.inReplyTo ?? env.messageId ?? id
+    threadId: resolveThreadId(accountId, id, env.messageId ?? null, env.inReplyTo ?? null)
   }
 
   db.insert(messages)

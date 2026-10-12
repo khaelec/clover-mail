@@ -1,9 +1,10 @@
 import DOMPurify from 'dompurify'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { SETTINGS_KEYS } from '@shared/theme'
+import { useTheme } from '../theme/theme'
 import { useMail } from '../state/mail'
 import { useAi } from '../state/ai'
-import { IconFlag, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
+import { IconFlag, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
 
 function formatDate(value: number | null): string {
   if (!value) return ''
@@ -45,11 +46,14 @@ function blockRemoteImages(html: string): { html: string; blocked: number } {
 }
 
 export function Reader({ onReply }: { onReply: () => void }): ReactNode {
-  const { detail, toggleFlag, remove, markSpam, markNotSpam, blockSender, allowSender } = useMail()
+  const { detail, toggleFlag, toggleImportant, remove, markSpam, markNotSpam, blockSender, allowSender } =
+    useMail()
   const [allowRemote, setAllowRemote] = useState(false)
   const [trusted, setTrusted] = useState<string[]>([])
   const [blockEnabled, setBlockEnabled] = useState(true)
   const [calendarNotice, setCalendarNotice] = useState<string | null>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const effective = useTheme((s) => s.effective)
 
   useEffect(() => {
     void (async () => {
@@ -72,6 +76,33 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
     if (!shouldBlock) return { html: sanitized, blocked: 0 }
     return blockRemoteImages(sanitized)
   }, [detail, shouldBlock])
+
+  function sizeFrame(): void {
+    const frame = iframeRef.current
+    const doc = frame?.contentDocument
+    if (frame && doc) {
+      frame.style.height = `${doc.documentElement.scrollHeight}px`
+    }
+  }
+
+  useEffect(() => {
+    const frame = iframeRef.current
+    if (!frame) return
+    const dark = effective === 'dark'
+    const css = [
+      'html,body{margin:0;padding:0;background:transparent}',
+      `body{font-family:Inter,'Segoe UI',system-ui,sans-serif;font-size:13.5px;line-height:1.6;padding:20px 24px;word-break:break-word;overflow-wrap:anywhere;color:${dark ? '#e9eef4' : '#10151c'}}`,
+      'img{max-width:100%;height:auto}',
+      `a{color:${dark ? '#5ea9ff' : '#2563eb'}}`,
+      `blockquote{border-left:3px solid ${dark ? '#3a4653' : '#d7dbe0'};margin:.5rem 0;padding-left:.75rem;color:${dark ? '#9aa7b4' : '#5b6572'}}`,
+      'table{max-width:100%;border-collapse:collapse}',
+      'pre{white-space:pre-wrap;word-break:break-word}',
+      dark
+        ? 'html{filter:invert(1) hue-rotate(180deg)} img,video,svg,canvas,[style*="background-image"]{filter:invert(1) hue-rotate(180deg)}'
+        : ''
+    ].join('')
+    frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>${css}</style></head><body>${rendered.html ?? ''}</body></html>`
+  }, [rendered.html, effective])
 
   async function alwaysAllowSender(): Promise<void> {
     const next = Array.from(new Set([...trusted, sender]))
@@ -126,6 +157,14 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
             className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted hover:text-amber-400"
           >
             <IconFlag className={detail.isFlagged ? 'text-amber-400' : ''} />
+          </button>
+          <button
+            type="button"
+            title="Mark important"
+            onClick={() => void toggleImportant(detail)}
+            className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted hover:text-accent"
+          >
+            <IconImportance className={detail.isImportant ? 'text-accent' : ''} />
           </button>
           <button
             type="button"
@@ -271,9 +310,12 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
         )}
 
         {rendered.html ? (
-          <div
-            className="prose-clover px-6 py-5 text-[13.5px] leading-relaxed text-ink/90"
-            dangerouslySetInnerHTML={{ __html: rendered.html }}
+          <iframe
+            ref={iframeRef}
+            title="message-body"
+            onLoad={sizeFrame}
+            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            className="w-full border-0 bg-transparent"
           />
         ) : detail.textPlain ? (
           <pre className="whitespace-pre-wrap px-6 py-5 font-sans text-[13.5px] leading-relaxed text-ink/90">

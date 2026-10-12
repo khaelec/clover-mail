@@ -1,12 +1,12 @@
 import { simpleParser } from 'mailparser'
 import { randomUUID } from 'node:crypto'
 import { copyFileSync } from 'node:fs'
+import type { ImapFlow } from 'imapflow'
 import { dialog } from 'electron'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { attachments, folders, messageBodies, messages } from '../db/schema'
-import { getAccountById, getAccountPassword } from './accounts'
-import { buildImapClient } from './imap'
+import { withImap } from './connection'
 import { indexMessage, removeFromIndex } from './search'
 import { applyAssessment } from './spam'
 import { attachmentAbsolutePath, readAttachmentDataUrl, saveAttachment } from './storage'
@@ -68,14 +68,8 @@ async function fetchAndStoreBody(messageId: string): Promise<void> {
   if (!row) return
   const folderRow = db.select().from(folders).where(eq(folders.id, row.folderId)).get()
   if (!folderRow) return
-  const account = getAccountById(row.accountId)
-  if (!account) return
-  const password = getAccountPassword(row.accountId)
-  if (!password) return
 
-  const client = buildImapClient(account.incoming, password)
-  await client.connect()
-  try {
+  await withImap(row.accountId, async (client) => {
     await client.mailboxOpen(folderRow.remotePath, { readOnly: true })
     const fetched = await client.fetchOne(String(row.uid), { source: true }, { uid: true })
     if (!fetched || !fetched.source) return
@@ -126,9 +120,7 @@ async function fetchAndStoreBody(messageId: string): Promise<void> {
 
     indexMessage(messageId)
     applyAssessment(messageId)
-  } finally {
-    await client.logout().catch(() => undefined)
-  }
+  })
 }
 
 export async function getMessageDetail(messageId: string): Promise<MessageDetail | null> {
@@ -176,49 +168,44 @@ export async function downloadAttachment(
   return { saved: true, path: result.filePath }
 }
 
-async function withMailbox<T>(
+async function withMessageMailbox<T>(
   messageId: string,
-  fn: (client: Awaited<ReturnType<typeof buildImapClient>>, uid: number, remotePath: string) => Promise<T>
+  fn: (client: ImapFlow, uid: number, remotePath: string) => Promise<T>
 ): Promise<T | null> {
   const db = getDb()
   const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
   if (!row) return null
   const folderRow = db.select().from(folders).where(eq(folders.id, row.folderId)).get()
   if (!folderRow) return null
-  const account = getAccountById(row.accountId)
-  if (!account) return null
-  const password = getAccountPassword(row.accountId)
-  if (!password) return null
 
-  const client = buildImapClient(account.incoming, password)
-  await client.connect()
-  try {
+  return withImap(row.accountId, async (client) => {
     await client.mailboxOpen(folderRow.remotePath)
-    return await fn(client, row.uid, folderRow.remotePath)
-  } finally {
-    await client.logout().catch(() => undefined)
-  }
+    return fn(client, row.uid, folderRow.remotePath)
+  })
 }
 
 export async function setFlags(
   messageId: string,
-  flags: { seen?: boolean; flagged?: boolean }
+  flags: { seen?: boolean; flagged?: boolean; important?: boolean }
 ): Promise<void> {
-  await withMailbox(messageId, async (client, uid) => {
-    if (flags.seen !== undefined) {
-      if (flags.seen) await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true })
-      else await client.messageFlagsRemove(String(uid), ['\\Seen'], { uid: true })
-    }
-    if (flags.flagged !== undefined) {
-      if (flags.flagged) await client.messageFlagsAdd(String(uid), ['\\Flagged'], { uid: true })
-      else await client.messageFlagsRemove(String(uid), ['\\Flagged'], { uid: true })
-    }
-  })
+  if (flags.seen !== undefined || flags.flagged !== undefined) {
+    await withMessageMailbox(messageId, async (client, uid) => {
+      if (flags.seen !== undefined) {
+        if (flags.seen) await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true })
+        else await client.messageFlagsRemove(String(uid), ['\\Seen'], { uid: true })
+      }
+      if (flags.flagged !== undefined) {
+        if (flags.flagged) await client.messageFlagsAdd(String(uid), ['\\Flagged'], { uid: true })
+        else await client.messageFlagsRemove(String(uid), ['\\Flagged'], { uid: true })
+      }
+    })
+  }
 
   const db = getDb()
-  const set: { isRead?: boolean; isFlagged?: boolean } = {}
+  const set: { isRead?: boolean; isFlagged?: boolean; isImportant?: boolean } = {}
   if (flags.seen !== undefined) set.isRead = flags.seen
   if (flags.flagged !== undefined) set.isFlagged = flags.flagged
+  if (flags.important !== undefined) set.isImportant = flags.important
   if (Object.keys(set).length) {
     db.update(messages).set(set).where(eq(messages.id, messageId)).run()
   }
@@ -228,7 +215,7 @@ export async function moveMessage(messageId: string, targetFolderId: string): Pr
   const db = getDb()
   const target = db.select().from(folders).where(eq(folders.id, targetFolderId)).get()
   if (!target) return
-  await withMailbox(messageId, async (client, uid) => {
+  await withMessageMailbox(messageId, async (client, uid) => {
     await client.messageMove(String(uid), target.remotePath, { uid: true })
   })
   db.delete(messages).where(eq(messages.id, messageId)).run()
@@ -236,7 +223,7 @@ export async function moveMessage(messageId: string, targetFolderId: string): Pr
 }
 
 export async function deleteMessage(messageId: string): Promise<void> {
-  await withMailbox(messageId, async (client, uid) => {
+  await withMessageMailbox(messageId, async (client, uid) => {
     await client.messageDelete(String(uid), { uid: true })
   })
   const db = getDb()

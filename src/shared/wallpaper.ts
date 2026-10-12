@@ -42,3 +42,20 @@ export const SETTINGS_KEY_WALLPAPER = 'wallpaper.settings'
 export function mediaUrl(path: string): string {
   return `clover-media://media/?path=${encodeURIComponent(path)}`
 }
+
+export interface WeWallpaper {
+  id: string
+  title: string
+  type: string
+  supported: boolean
+  kind: 'video' | 'html' | null
+  path: string
+  preview: string | null
+  source: 'workshop' | 'project'
+}
+
+export interface WeDetection {
+  installed: boolean
+  dirs: string[]
+  wallpapers: WeWallpaper[]
+}

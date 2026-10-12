@@ -3,6 +3,8 @@ export type IncomingProtocol = 'imap' | 'pop3'
 
 /** Synthetic (local) folder id for spam-classified messages. */
 export const JUNK_FOLDER_ID = 'junk'
+/** Synthetic (local) folder id for user-marked important messages. */
+export const IMPORTANT_FOLDER_ID = 'important'
 
 export interface EndpointInput {
   host: string
@@ -65,6 +67,7 @@ export interface MessageSummary {
   hasAttachments: boolean
   spamScore: number
   isSpam: boolean
+  isImportant: boolean
 }
 
 export interface AttachmentSummary {
@@ -174,4 +177,31 @@ export interface RuleInput {
 export interface ApplyRulesResult {
   matched: number
   moved: number
+}
+
+export type BulkActionType = 'archive' | 'trash' | 'markRead' | 'markUnread' | 'markImportant' | 'markNotImportant' | 'move'
+
+export interface BulkActionInput {
+  messageIds: string[]
+  action: BulkActionType
+  targetFolderId?: string
+}
+
+export interface BulkActionResult {
+  moved: number
+  updated: number
+  failed: number
+}
+
+export interface ThreadSummary {
+  threadId: string
+  subject: string | null
+  fromName: string | null
+  fromEmail: string | null
+  messageCount: number
+  unreadCount: number
+  hasAttachments: boolean
+  isImportant: boolean
+  lastDate: number | null
+  messages: MessageSummary[]
 }

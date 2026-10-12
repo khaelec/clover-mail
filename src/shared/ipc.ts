@@ -3,6 +3,8 @@ import type {
   AccountInput,
   AccountSummary,
   ApplyRulesResult,
+  BulkActionInput,
+  BulkActionResult,
   ComposeInput,
   ConnectionTestResult,
   CreateAccountInput,
@@ -49,8 +51,11 @@ export interface MailApi {
   syncFolder: (folderId: string) => Promise<SyncResult>
   listFolders: (accountId: string) => Promise<FolderSummary[]>
   listMessages: (folderId: string, limit?: number, offset?: number) => Promise<MessageSummary[]>
+  listThreads: (folderId: string, limit?: number) => Promise<import('./mail').ThreadSummary[]>
   listJunk: (accountId: string) => Promise<MessageSummary[]>
   spamCount: (accountId: string) => Promise<number>
+  listImportant: (accountId: string) => Promise<MessageSummary[]>
+  importantCount: (accountId: string) => Promise<number>
   markSpam: (messageId: string) => Promise<void>
   markNotSpam: (messageId: string) => Promise<void>
   blockSender: (accountId: string, email: string) => Promise<void>
@@ -62,9 +67,10 @@ export interface MailApi {
   deleteRule: (ruleId: string) => Promise<void>
   applyRules: (accountId: string) => Promise<ApplyRulesResult>
   getMessage: (messageId: string) => Promise<MessageDetail | null>
-  setFlags: (messageId: string, flags: { seen?: boolean; flagged?: boolean }) => Promise<void>
+  setFlags: (messageId: string, flags: { seen?: boolean; flagged?: boolean; important?: boolean }) => Promise<void>
   moveMessage: (messageId: string, targetFolderId: string) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
+  bulkAction: (input: BulkActionInput) => Promise<BulkActionResult>
   sendMessage: (input: ComposeInput) => Promise<void>
   downloadAttachment: (attachmentId: string) => Promise<{ saved: boolean; path?: string }>
   search: (query: string, accountId?: string) => Promise<MessageSummary[]>
@@ -110,6 +116,7 @@ export interface WallpaperApi {
   pickFile: (kind: string) => Promise<string | null>
   pickFolder: () => Promise<string | null>
   listFolder: (path: string) => Promise<string[]>
+  detectEngine: () => Promise<import('./wallpaper').WeDetection>
 }
 
 export interface CloverApi {

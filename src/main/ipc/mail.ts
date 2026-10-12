@@ -2,6 +2,7 @@ import { ipcMain, type BrowserWindow } from 'electron'
 import { IpcChannels } from '@shared/channels'
 import type {
   AccountInput,
+  BulkActionInput,
   ComposeInput,
   ConnectionTestResult,
   CreateAccountInput,
@@ -12,12 +13,13 @@ import * as accountService from '@main/mail/accounts'
 import { testImap } from '@main/mail/imap'
 import { testSmtp } from '@main/mail/smtp'
 import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@main/mail/sync'
-import { listFolders, listJunk, listMessages, spamCount } from '@main/mail/queries'
+import { listFolders, listImportant, listJunk, listMessages, listThreads, importantCount, spamCount } from '@main/mail/queries'
 import { deleteMessage, downloadAttachment, getMessageDetail, moveMessage, setFlags } from '@main/mail/messages'
 import { sendMessage } from '@main/mail/send'
 import { searchMessages } from '@main/mail/search'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder } from '@main/mail/folders'
+import { bulkAction } from '@main/mail/bulk'
 import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
 
 export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
@@ -66,8 +68,15 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     IpcChannels.mail.listMessages,
     (_e, folderId: string, limit?: number, offset?: number) => listMessages(folderId, limit, offset)
   )
+  ipcMain.handle(IpcChannels.mail.listThreads, (_e, folderId: string, limit?: number) =>
+    listThreads(folderId, limit)
+  )
   ipcMain.handle(IpcChannels.mail.listJunk, (_e, accountId: string) => listJunk(accountId))
   ipcMain.handle(IpcChannels.mail.spamCount, (_e, accountId: string) => spamCount(accountId))
+  ipcMain.handle(IpcChannels.mail.listImportant, (_e, accountId: string) => listImportant(accountId))
+  ipcMain.handle(IpcChannels.mail.importantCount, (_e, accountId: string) =>
+    importantCount(accountId)
+  )
   ipcMain.handle(IpcChannels.mail.markSpam, (_e, messageId: string) => markSpam(messageId))
   ipcMain.handle(IpcChannels.mail.markNotSpam, (_e, messageId: string) => markNotSpam(messageId))
   ipcMain.handle(IpcChannels.mail.blockSender, (_e, accountId: string, email: string) =>
@@ -94,7 +103,7 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   )
   ipcMain.handle(
     IpcChannels.mail.setFlags,
-    (_e, messageId: string, flags: { seen?: boolean; flagged?: boolean }) =>
+    (_e, messageId: string, flags: { seen?: boolean; flagged?: boolean; important?: boolean }) =>
       setFlags(messageId, flags)
   )
   ipcMain.handle(IpcChannels.mail.moveMessage, (_e, messageId: string, targetFolderId: string) =>
@@ -103,6 +112,7 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.deleteMessage, (_e, messageId: string) =>
     deleteMessage(messageId)
   )
+  ipcMain.handle(IpcChannels.mail.bulkAction, (_e, input: BulkActionInput) => bulkAction(input))
   ipcMain.handle(IpcChannels.mail.sendMessage, (_e, input: ComposeInput) => sendMessage(input))
   ipcMain.handle(IpcChannels.mail.downloadAttachment, (_e, attachmentId: string) =>
     downloadAttachment(attachmentId)

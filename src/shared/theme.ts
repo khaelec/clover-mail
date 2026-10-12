@@ -18,5 +18,6 @@ export const SETTINGS_KEYS = {
   themeMode: 'theme.mode',
   themeAccent: 'theme.accent',
   blockRemoteImages: 'privacy.blockRemoteImages',
-  trustedSenders: 'privacy.trustedSenders'
+  trustedSenders: 'privacy.trustedSenders',
+  threadedView: 'mail.threaded'
 } as const

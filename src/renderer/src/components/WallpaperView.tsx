@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react'
-import type { WallpaperFit, WallpaperKind } from '@shared/wallpaper'
+import { useEffect, useState, type ReactNode } from 'react'
+import type { WallpaperFit, WallpaperKind, WeDetection } from '@shared/wallpaper'
+import { mediaUrl } from '@shared/wallpaper'
 import { useWallpaper } from '../state/wallpaper'
-import { IconWallpaper } from './icons'
+import { IconRefresh, IconWallpaper } from './icons'
 
 const KINDS: { value: WallpaperKind; label: string }[] = [
   { value: 'none', label: 'None' },
@@ -54,9 +55,25 @@ export function WallpaperView(): ReactNode {
   const settings = useWallpaper((s) => s.settings)
   const patch = useWallpaper((s) => s.patch)
   const [urlDraft, setUrlDraft] = useState(settings.sourceUrl)
+  const [we, setWe] = useState<WeDetection | null>(null)
+  const [weLoading, setWeLoading] = useState(false)
 
   const needsFile = ['video', 'gif', 'image'].includes(settings.kind)
   const isHtml = settings.kind === 'html' || settings.kind === 'wallpaper-engine'
+
+  async function detectWe(): Promise<void> {
+    setWeLoading(true)
+    try {
+      setWe(await window.clover.wallpaper.detectEngine())
+    } finally {
+      setWeLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (settings.kind === 'wallpaper-engine' && we === null && !weLoading) void detectWe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.kind])
 
   async function chooseFile(): Promise<void> {
     const path = await window.clover.wallpaper.pickFile(settings.kind)
@@ -139,11 +156,78 @@ export function WallpaperView(): ReactNode {
                   </button>
                 </Row>
                 {settings.kind === 'wallpaper-engine' && (
-                  <p className="text-[11px] leading-relaxed text-muted">
-                    Wallpaper Engine integration is best-effort: point this at a Wallpaper Engine{' '}
-                    <em>web</em> wallpaper&apos;s HTML file or its underlying video file. We render it
-                    directly instead of controlling the WE desktop.
-                  </p>
+                  <div className="mt-2 rounded-xl border border-line bg-canvas/40 p-3">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-[12px] font-medium text-ink">Wallpaper Engine library</span>
+                      {we?.installed && (
+                        <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-500">
+                          detected
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void detectWe()}
+                        className="ml-auto flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:text-accent"
+                      >
+                        <IconRefresh className={weLoading ? 'h-3 w-3 animate-spin' : 'h-3 w-3'} />
+                        Rescan
+                      </button>
+                    </div>
+
+                    {weLoading && <p className="text-[11px] text-muted">Scanning Steam…</p>}
+                    {!weLoading && we && !we.installed && (
+                      <p className="text-[11px] text-muted">
+                        Wallpaper Engine not found (Steam install not detected). Use the manual file/URL above.
+                      </p>
+                    )}
+                    {!weLoading && we && we.installed && we.wallpapers.length === 0 && (
+                      <p className="text-[11px] text-muted">Found Wallpaper Engine, but no video/web wallpapers to load.</p>
+                    )}
+                    {!weLoading && we && we.wallpapers.length > 0 && (
+                      <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+                        {we.wallpapers.map((w) => {
+                          const selected = settings.source === w.path && w.path !== ''
+                          return (
+                            <button
+                              key={`${w.source}-${w.id}`}
+                              type="button"
+                              disabled={!w.supported}
+                              title={w.supported ? w.title : `${w.title} (${w.type} — not supported)`}
+                              onClick={() => w.kind && void patch({ kind: w.kind, source: w.path, sourceUrl: '' })}
+                              className={
+                                'overflow-hidden rounded-lg border text-left transition-colors ' +
+                                (selected
+                                  ? 'border-accent'
+                                  : w.supported
+                                    ? 'border-line hover:border-accent/60'
+                                    : 'border-line opacity-50')
+                              }
+                            >
+                              <div className="aspect-video w-full bg-black/20">
+                                {w.preview ? (
+                                  <img src={mediaUrl(w.preview)} className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="grid h-full w-full place-items-center text-[10px] text-muted">
+                                    {w.type}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-1.5">
+                                <div className="truncate text-[11px] text-ink">{w.title}</div>
+                                <div className="text-[10px] text-muted">
+                                  {w.supported ? w.kind : `${w.type} · unsupported`}
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <p className="mt-2 text-[10px] leading-relaxed text-muted">
+                      Video and web wallpapers load directly. Scene (.pkg) and application wallpapers are proprietary
+                      and can't be embedded.
+                    </p>
+                  </div>
                 )}
               </>
             )}

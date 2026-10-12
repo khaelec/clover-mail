@@ -7,6 +7,10 @@ const wpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clover-wp-'))
 fs.writeFileSync(path.join(wpDir, 'a.png'), Buffer.from([0]))
 fs.writeFileSync(path.join(wpDir, 'b.txt'), 'x')
 
+// Use an isolated database so this test never touches the real account data.
+const testUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'clover-it-'))
+app.setPath('userData', testUserData)
+
 // Boot the real built main process: registers all IPC handlers and creates the window.
 require(path.join(__dirname, '..', 'out', 'main', 'index.js'))
 
@@ -95,8 +99,12 @@ app.whenReady().then(async () => {
       const wp = await window.clover.settings.get('wallpaper.settings')
       const wpFiles = await window.clover.wallpaper.listFolder(${JSON.stringify(wpDir)})
 
+      const threads = await api.listThreads(created.id)
+      const important = await api.listImportant(created.id)
+      const impCount = await api.importantCount(created.id)
+      const bulk = await api.bulkAction({ messageIds: [], action: 'archive' })
+
       await api.deleteAccount(created.id)
-      for (const stale of await api.listAccounts()) await api.deleteAccount(stale.id)
       const after = await api.listAccounts()
       return JSON.stringify({
         before: before.length,
@@ -123,6 +131,10 @@ app.whenReady().then(async () => {
         mcpPort: mcpStart.port,
         wallpaperKind: wp.kind,
         wallpaperImages: wpFiles.length,
+        threads: threads.length,
+        important: important.length,
+        importantCount: impCount,
+        bulkFailed: bulk.failed,
         accountsAfterDelete: after.length
       })
     })()`)

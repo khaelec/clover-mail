@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { folders } from '../db/schema'
 import { getAccountById, getAccountPassword } from './accounts'
 import { buildTransport } from './smtp'
-import { buildImapClient } from './imap'
+import { withImap } from './connection'
 import type { ComposeInput } from '@shared/mail'
 
 export async function sendMessage(input: ComposeInput): Promise<void> {
@@ -41,13 +41,9 @@ export async function sendMessage(input: ComposeInput): Promise<void> {
       .all()
       .find((f) => f.specialUse === 'sent')
     if (sentFolder && raw) {
-      const client = buildImapClient(account.incoming, password)
-      await client.connect()
-      try {
-        await client.append(sentFolder.remotePath, raw, ['\\Seen'])
-      } finally {
-        await client.logout().catch(() => undefined)
-      }
+      await withImap(input.accountId, async (client) => {
+        await client.append(sentFolder.remotePath, raw as Buffer, ['\\Seen'])
+      })
     }
   } catch {
     // Ignore: the message was sent; filing it is non-critical.

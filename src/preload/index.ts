@@ -50,7 +50,8 @@ const api: CloverApi = {
   wallpaper: {
     pickFile: (kind) => ipcRenderer.invoke(IpcChannels.wallpaper.pickFile, kind),
     pickFolder: () => ipcRenderer.invoke(IpcChannels.wallpaper.pickFolder),
-    listFolder: (path) => ipcRenderer.invoke(IpcChannels.wallpaper.listFolder, path)
+    listFolder: (path) => ipcRenderer.invoke(IpcChannels.wallpaper.listFolder, path),
+    detectEngine: () => ipcRenderer.invoke(IpcChannels.wallpaper.detectEngine)
   },
   settings: {
     getAll: () => ipcRenderer.invoke(IpcChannels.settingsGetAll),
@@ -81,8 +82,12 @@ const api: CloverApi = {
     listFolders: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listFolders, accountId),
     listMessages: (folderId, limit, offset) =>
       ipcRenderer.invoke(IpcChannels.mail.listMessages, folderId, limit, offset),
+    listThreads: (folderId, limit) =>
+      ipcRenderer.invoke(IpcChannels.mail.listThreads, folderId, limit),
     listJunk: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listJunk, accountId),
     spamCount: (accountId) => ipcRenderer.invoke(IpcChannels.mail.spamCount, accountId),
+    listImportant: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listImportant, accountId),
+    importantCount: (accountId) => ipcRenderer.invoke(IpcChannels.mail.importantCount, accountId),
     markSpam: (messageId) => ipcRenderer.invoke(IpcChannels.mail.markSpam, messageId),
     markNotSpam: (messageId) => ipcRenderer.invoke(IpcChannels.mail.markNotSpam, messageId),
     blockSender: (accountId, email) =>
@@ -101,6 +106,7 @@ const api: CloverApi = {
     moveMessage: (messageId, targetFolderId) =>
       ipcRenderer.invoke(IpcChannels.mail.moveMessage, messageId, targetFolderId),
     deleteMessage: (messageId) => ipcRenderer.invoke(IpcChannels.mail.deleteMessage, messageId),
+    bulkAction: (input) => ipcRenderer.invoke(IpcChannels.mail.bulkAction, input),
     sendMessage: (input) => ipcRenderer.invoke(IpcChannels.mail.sendMessage, input),
     downloadAttachment: (attachmentId) =>
       ipcRenderer.invoke(IpcChannels.mail.downloadAttachment, attachmentId),

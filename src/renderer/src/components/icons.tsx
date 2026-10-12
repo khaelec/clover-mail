@@ -224,6 +224,38 @@ export const IconFilter = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconArchive = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <rect x="3" y="4" width="18" height="4" rx="1" />
+    <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4" />
+  </Base>
+)
+
+export const IconImportance = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M6 3h12v18l-6-4-6 4z" />
+  </Base>
+)
+
+export const IconCheckSquare = (p: IconProps): ReactNode => (
+  <Base strokeWidth={2} {...p}>
+    <path d="M4 12.5 9 17.5 20 6.5" />
+  </Base>
+)
+
+export const IconThreads = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M4 6h16M6 6v13M6 10h6a4 4 0 0 1 4 4v5" />
+  </Base>
+)
+
+export const IconLayout = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M9 4v16M15 4v16" />
+  </Base>
+)
+
 export function CloverMark({ className }: { className?: string }): ReactNode {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" className={className} aria-hidden="true">

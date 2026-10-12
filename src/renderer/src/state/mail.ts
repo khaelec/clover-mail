@@ -1,15 +1,18 @@
 import { create } from 'zustand'
-import { JUNK_FOLDER_ID } from '@shared/mail'
+import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID } from '@shared/mail'
+import { SETTINGS_KEYS } from '@shared/theme'
 import type {
   AccountSummary,
   ApplyRulesResult,
+  BulkActionType,
   ComposeInput,
   CreateAccountInput,
   FolderSummary,
   MessageDetail,
   MessageSummary,
   Rule,
-  RuleInput
+  RuleInput,
+  ThreadSummary
 } from '@shared/mail'
 
 interface MailState {
@@ -27,7 +30,12 @@ interface MailState {
   status: string | null
   error: string | null
   spamCount: number
+  importantCount: number
   rules: Rule[]
+  selectedIds: string[]
+  threaded: boolean
+  threads: ThreadSummary[]
+  expandedThreadIds: string[]
 
   init: () => Promise<void>
   refreshAccounts: () => Promise<void>
@@ -39,6 +47,13 @@ interface MailState {
   clearSearch: () => void
   toggleRead: (message: MessageSummary) => Promise<void>
   toggleFlag: (message: MessageSummary) => Promise<void>
+  toggleImportant: (message: MessageSummary) => Promise<void>
+  toggleSelect: (messageId: string) => void
+  selectAll: () => void
+  clearSelection: () => void
+  bulk: (action: BulkActionType, targetFolderId?: string) => Promise<void>
+  setThreaded: (value: boolean) => Promise<void>
+  toggleThread: (threadId: string) => void
   move: (messageId: string, targetFolderId: string) => Promise<void>
   remove: (messageId: string) => Promise<void>
   send: (input: ComposeInput) => Promise<void>
@@ -65,21 +80,32 @@ export const useMail = create<MailState>((set, get) => {
     const accountId = get().activeAccountId
     if (!folderId || !accountId) return
     set({ loadingMessages: true })
-    const messages =
-      folderId === JUNK_FOLDER_ID
-        ? await window.clover.mail.listJunk(accountId)
-        : await window.clover.mail.listMessages(folderId)
-    set({ messages, loadingMessages: false })
+
+    const synthetic = folderId === JUNK_FOLDER_ID || folderId === IMPORTANT_FOLDER_ID
+    if (synthetic) {
+      const messages =
+        folderId === JUNK_FOLDER_ID
+          ? await window.clover.mail.listJunk(accountId)
+          : await window.clover.mail.listImportant(accountId)
+      set({ messages, threads: [], loadingMessages: false })
+    } else if (get().threaded) {
+      const threads = await window.clover.mail.listThreads(folderId)
+      set({ threads, messages: [], loadingMessages: false })
+    } else {
+      const messages = await window.clover.mail.listMessages(folderId)
+      set({ messages, threads: [], loadingMessages: false })
+    }
   }
 
   async function reloadFolders(): Promise<void> {
     const accountId = get().activeAccountId
     if (!accountId) return
-    const [folders, spamCount] = await Promise.all([
+    const [folders, spamCount, importantCount] = await Promise.all([
       window.clover.mail.listFolders(accountId),
-      window.clover.mail.spamCount(accountId)
+      window.clover.mail.spamCount(accountId),
+      window.clover.mail.importantCount(accountId)
     ])
-    set({ folders, spamCount })
+    set({ folders, spamCount, importantCount })
   }
 
   return {
@@ -97,11 +123,15 @@ export const useMail = create<MailState>((set, get) => {
     status: null,
     error: null,
     spamCount: 0,
+    importantCount: 0,
     rules: [],
+    selectedIds: [],
+    threaded: true,
+    threads: [],
+    expandedThreadIds: [],
 
     init: async () => {
-      window.clover.mail.onEvent((event) => {
-        if (event.type === 'sync:folder') {
+      window.clover.mail.onEvent((event) => {        if (event.type === 'sync:folder') {
           set({ status: `Scanning ${event.folderName ?? ''}…` })
         } else if (event.type === 'sync:progress') {
           set({
@@ -117,6 +147,8 @@ export const useMail = create<MailState>((set, get) => {
       })
 
       await get().refreshAccounts()
+      const settings = await window.clover.settings.getAll()
+      set({ threaded: settings[SETTINGS_KEYS.threadedView] !== false })
       const first = get().accounts[0]
       if (first) await get().selectAccount(first.id)
     },
@@ -195,6 +227,62 @@ export const useMail = create<MailState>((set, get) => {
         searchResults: get().searchResults
           ? patchMessage(get().searchResults as MessageSummary[], message.id, patch)
           : null
+      })
+    },
+
+    toggleImportant: async (message) => {
+      await window.clover.mail.setFlags(message.id, { important: !message.isImportant })
+      const patch = { isImportant: !message.isImportant }
+      set({
+        messages: patchMessage(get().messages, message.id, patch),
+        searchResults: get().searchResults
+          ? patchMessage(get().searchResults as MessageSummary[], message.id, patch)
+          : null,
+        detail:
+          get().detail?.id === message.id
+            ? { ...(get().detail as MessageDetail), ...patch }
+            : get().detail
+      })
+      void reloadFolders()
+    },
+
+    toggleSelect: (messageId) => {
+      const current = get().selectedIds
+      set({
+        selectedIds: current.includes(messageId)
+          ? current.filter((id) => id !== messageId)
+          : [...current, messageId]
+      })
+    },
+
+    selectAll: () => {
+      const list = get().searchResults ?? get().messages
+      set({ selectedIds: list.map((m) => m.id) })
+    },
+
+    clearSelection: () => set({ selectedIds: [] }),
+
+    bulk: async (action, targetFolderId) => {
+      const messageIds = get().selectedIds
+      if (messageIds.length === 0) return
+      await window.clover.mail.bulkAction({ messageIds, action, targetFolderId })
+      set({ selectedIds: [], selectedMessageId: null, detail: null })
+      await reloadFolder()
+      await reloadFolders()
+    },
+
+    setThreaded: async (value) => {
+      set({ threaded: value })
+      await window.clover.settings.set(SETTINGS_KEYS.threadedView, value)
+      await reloadFolder()
+    },
+
+    toggleThread: (threadId) => {
+      const current = get().expandedThreadIds
+      set({
+        expandedThreadIds: current.includes(threadId)
+          ? current.filter((id) => id !== threadId)
+          : [...current, threadId]
       })
     },
 

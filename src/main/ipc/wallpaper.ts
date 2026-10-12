@@ -2,6 +2,7 @@ import { readdirSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import { dialog, ipcMain } from 'electron'
 import { IpcChannels } from '@shared/channels'
+import { detectWallpaperEngine } from '@main/wallpaper/engine'
 
 const VIDEO = ['mp4', 'webm', 'mkv', 'mov', 'm4v']
 const IMAGE = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif']
@@ -37,4 +38,6 @@ export function registerWallpaperIpc(): void {
       return []
     }
   })
+
+  ipcMain.handle(IpcChannels.wallpaper.detectEngine, () => detectWallpaperEngine())
 }

@@ -1,21 +1,26 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMail } from '../state/mail'
-import { JUNK_FOLDER_ID } from '@shared/mail'
+import { useLayout } from '../state/layout'
+import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID } from '@shared/mail'
 import type { FolderSummary, MessageSummary } from '@shared/mail'
 import { Reader } from './Reader'
 import { Compose } from './Compose'
 import { AccountSetup } from './AccountSetup'
 import { RulesModal } from './RulesModal'
 import {
+  IconArchive,
   IconCompose,
   IconFilter,
   IconFolderPlus,
+  IconImportance,
   IconInbox,
+  IconLayout,
   IconPaperclip,
   IconPlus,
   IconRefresh,
   IconSearch,
   IconStar,
+  IconThreads,
   IconTrash,
   IconShield
 } from './icons'
@@ -37,6 +42,35 @@ function formatListDate(value: number | null): string {
 function folderIcon(folder: FolderSummary): ReactNode {
   if (folder.specialUse === 'trash') return <IconTrash className="h-4 w-4" />
   return <IconInbox className="h-4 w-4" />
+}
+
+function Splitter({
+  onResize,
+  onCommit
+}: {
+  onResize: (deltaX: number) => void
+  onCommit: () => void
+}): ReactNode {
+  return (
+    <div
+      onPointerDown={(e) => {
+        e.preventDefault()
+        let last = e.clientX
+        const move = (ev: PointerEvent): void => {
+          onResize(ev.clientX - last)
+          last = ev.clientX
+        }
+        const up = (): void => {
+          window.removeEventListener('pointermove', move)
+          window.removeEventListener('pointerup', up)
+          onCommit()
+        }
+        window.addEventListener('pointermove', move)
+        window.addEventListener('pointerup', up)
+      }}
+      className="w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-accent/40"
+    />
+  )
 }
 
 function EmptyState({ onAdd }: { onAdd: () => void }): ReactNode {
@@ -77,6 +111,20 @@ export function MailView(): ReactNode {
   const status = useMail((s) => s.status)
   const error = useMail((s) => s.error)
   const spamCount = useMail((s) => s.spamCount)
+  const importantCount = useMail((s) => s.importantCount)
+  const selectedIds = useMail((s) => s.selectedIds)
+  const threaded = useMail((s) => s.threaded)
+  const threads = useMail((s) => s.threads)
+  const expandedThreadIds = useMail((s) => s.expandedThreadIds)
+  const toggleThread = useMail((s) => s.toggleThread)
+  const setThreaded = useMail((s) => s.setThreaded)
+  const layout = useLayout((s) => s.settings)
+  const setLayout = useLayout((s) => s.set)
+  const saveLayout = useLayout((s) => s.save)
+
+  useEffect(() => {
+    void useLayout.getState().load()
+  }, [])
 
   const selectAccount = useMail((s) => s.selectAccount)
   const selectFolder = useMail((s) => s.selectFolder)
@@ -85,6 +133,11 @@ export function MailView(): ReactNode {
   const search = useMail((s) => s.search)
   const clearSearch = useMail((s) => s.clearSearch)
   const toggleFlag = useMail((s) => s.toggleFlag)
+  const toggleImportant = useMail((s) => s.toggleImportant)
+  const toggleSelect = useMail((s) => s.toggleSelect)
+  const selectAll = useMail((s) => s.selectAll)
+  const clearSelection = useMail((s) => s.clearSelection)
+  const bulk = useMail((s) => s.bulk)
   const createFolder = useMail((s) => s.createFolder)
 
   const [showAdd, setShowAdd] = useState(false)
@@ -102,6 +155,8 @@ export function MailView(): ReactNode {
     [accounts, activeAccountId]
   )
   const list = searchResults ?? messages
+  const isSynthetic = activeFolderId === JUNK_FOLDER_ID || activeFolderId === IMPORTANT_FOLDER_ID
+  const showingThreads = threaded && !isSynthetic && !searchResults
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -138,7 +193,11 @@ export function MailView(): ReactNode {
 
   return (
     <div className="flex h-full min-h-0">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-line">
+      {layout.showFolders && (
+      <aside
+        className="flex shrink-0 flex-col border-r border-line"
+        style={{ width: layout.foldersWidth }}
+      >
         <div className="border-b border-line p-2.5">
           {accounts.map((account) => {
             const active = account.id === activeAccountId
@@ -258,6 +317,27 @@ export function MailView(): ReactNode {
               </span>
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => void selectFolder(IMPORTANT_FOLDER_ID)}
+            className={
+              'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
+              (activeFolderId === IMPORTANT_FOLDER_ID
+                ? 'bg-accent/12 font-medium text-accent'
+                : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
+            }
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <IconImportance className="h-4 w-4" />
+              <span className="truncate">Important</span>
+            </span>
+            {importantCount > 0 && (
+              <span className={'shrink-0 text-[11px] ' + (activeFolderId === IMPORTANT_FOLDER_ID ? 'text-accent' : 'text-muted')}>
+                {importantCount}
+              </span>
+            )}
+          </button>
         </div>
 
         <button
@@ -269,8 +349,21 @@ export function MailView(): ReactNode {
           Add account
         </button>
       </aside>
+      )}
 
-      <section className="flex w-[360px] shrink-0 flex-col border-r border-line">
+      {layout.showFolders && (
+        <Splitter
+          onResize={(dx) =>
+            setLayout({ foldersWidth: Math.max(170, Math.min(420, layout.foldersWidth + dx)) })
+          }
+          onCommit={() => void saveLayout()}
+        />
+      )}
+
+      <section
+        className="flex shrink-0 flex-col border-r border-line"
+        style={{ width: layout.listWidth }}
+      >
         <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
           <IconSearch className="h-4 w-4 text-muted" />
           <input
@@ -279,6 +372,31 @@ export function MailView(): ReactNode {
             placeholder="Search mail"
             className="w-full bg-transparent text-[13px] text-ink placeholder:text-muted focus:outline-none"
           />
+          <button
+            type="button"
+            title={threaded ? 'Group by conversation' : 'Show individual messages'}
+            onClick={() => void setThreaded(!threaded)}
+            className={
+              'grid h-7 w-7 place-items-center rounded-md ' +
+              (threaded ? 'text-accent' : 'text-muted hover:text-accent')
+            }
+          >
+            <IconThreads className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            title="Toggle folder pane"
+            onClick={() => {
+              setLayout({ showFolders: !layout.showFolders })
+              void saveLayout()
+            }}
+            className={
+              'grid h-7 w-7 place-items-center rounded-md ' +
+              (layout.showFolders ? 'text-accent' : 'text-muted hover:text-accent')
+            }
+          >
+            <IconLayout className="h-4 w-4" />
+          </button>
           <button
             type="button"
             title="Rules & workflow"
@@ -299,8 +417,134 @@ export function MailView(): ReactNode {
         {status && <div className="border-b border-line px-3.5 py-1 text-[11px] text-muted">{status}</div>}
         {error && <div className="border-b border-line px-3.5 py-1 text-[11px] text-rose-500">{error}</div>}
 
+        {selectedIds.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-line bg-accent/8 px-3 py-2 text-[12px]">
+            <span className="mr-1 font-medium text-accent">{selectedIds.length} selected</span>
+            <button type="button" onClick={() => void bulk('archive')} className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-muted hover:text-ink">
+              <IconArchive className="h-3.5 w-3.5" /> Archive
+            </button>
+            <button type="button" onClick={() => void bulk('trash')} className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-muted hover:text-rose-500">
+              <IconTrash className="h-3.5 w-3.5" /> Delete
+            </button>
+            <button type="button" onClick={() => void bulk('markRead')} className="rounded-md border border-line px-2 py-1 text-muted hover:text-ink">
+              Read
+            </button>
+            <button type="button" onClick={() => void bulk('markUnread')} className="rounded-md border border-line px-2 py-1 text-muted hover:text-ink">
+              Unread
+            </button>
+            <button type="button" onClick={() => void bulk('markImportant')} className="rounded-md border border-line px-2 py-1 text-muted hover:text-accent">
+              Important
+            </button>
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  void bulk('move', e.target.value)
+                  e.target.value = ''
+                }
+              }}
+              defaultValue=""
+              className="rounded-md border border-line bg-canvas/60 px-2 py-1 text-[12px] text-ink outline-none"
+            >
+              <option value="">Move to…</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+            <button type="button" onClick={selectAll} className="rounded-md border border-line px-2 py-1 text-muted hover:text-ink">
+              All
+            </button>
+            <button type="button" onClick={clearSelection} className="ml-auto rounded-md px-2 py-1 text-muted hover:text-ink">
+              Clear
+            </button>
+          </div>
+        ) : null}
+
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {list.length === 0 && (
+          {showingThreads &&
+            (threads.length === 0 ? (
+              <div className="px-4 py-10 text-center text-[12px] text-muted">
+                No messages. Hit sync to fetch.
+              </div>
+            ) : (
+              threads.map((t) => {
+                const expanded = expandedThreadIds.includes(t.threadId)
+                const single = t.messages.length === 1
+                const latest = t.messages[t.messages.length - 1]
+                return (
+                  <div
+                    key={t.threadId}
+                    className={
+                      'border-b border-line/70 ' +
+                      (t.isImportant ? 'border-l-2 border-l-accent' : 'border-l-2 border-l-transparent')
+                    }
+                  >
+                    <div
+                      onClick={() =>
+                        single && latest ? void selectMessage(latest.id) : toggleThread(t.threadId)
+                      }
+                      className={
+                        'flex cursor-pointer gap-2 px-3 py-2.5 transition-colors ' +
+                        (single && latest?.id === selectedMessageId
+                          ? 'bg-accent/8'
+                          : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
+                      }
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          {t.unreadCount > 0 && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
+                          <span className={'truncate text-[13px] ' + (t.unreadCount > 0 ? 'font-semibold text-ink' : 'text-ink/85')}>
+                            {t.fromName || t.fromEmail || '(unknown sender)'}
+                          </span>
+                          {t.messageCount > 1 && (
+                            <span className="shrink-0 rounded-full bg-canvas/70 px-1.5 text-[10px] text-muted ring-1 ring-line">
+                              {t.messageCount}
+                            </span>
+                          )}
+                          {t.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
+                          <span className="ml-auto shrink-0 text-[11px] text-muted">{formatListDate(t.lastDate)}</span>
+                        </div>
+                        <div className={'mt-0.5 truncate text-[13px] ' + (t.unreadCount > 0 ? 'font-medium text-ink' : 'text-muted')}>
+                          {t.subject || '(no subject)'}
+                        </div>
+                        {!expanded && latest?.snippet && (
+                          <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{latest.snippet}</div>
+                        )}
+                      </div>
+                      {t.messageCount > 1 && (
+                        <span className="mt-1 shrink-0 text-[10px] text-muted">{expanded ? '▾' : '▸'}</span>
+                      )}
+                    </div>
+
+                    {expanded && t.messageCount > 1 && (
+                      <div className="bg-canvas/30">
+                        {t.messages.map((m) => (
+                          <div
+                            key={m.id}
+                            onClick={() => void selectMessage(m.id)}
+                            className={
+                              'flex cursor-pointer items-center gap-2 border-t border-line/60 py-1.5 pl-7 pr-3 ' +
+                              (m.id === selectedMessageId
+                                ? 'bg-accent/8'
+                                : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
+                            }
+                          >
+                            <span className={'w-28 shrink-0 truncate text-[11px] ' + (m.isRead ? 'text-muted' : 'font-medium text-ink')}>
+                              {m.fromName || m.fromEmail}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-[12px] text-ink/80">{m.snippet || ''}</span>
+                            <span className="shrink-0 text-[10px] text-muted">{formatListDate(m.dateUtc)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            ))}
+
+          {!showingThreads && list.length === 0 && (
             <div className="px-4 py-10 text-center text-[12px] text-muted">
               {searchQuery
                 ? 'No results.'
@@ -309,45 +553,81 @@ export function MailView(): ReactNode {
                   : 'Select a folder.'}
             </div>
           )}
-          {list.map((m: MessageSummary) => {
+          {!showingThreads && list.map((m: MessageSummary) => {
             const active = m.id === selectedMessageId
+            const selected = selectedIds.includes(m.id)
             return (
-              <button
+              <div
                 key={m.id}
-                type="button"
                 onClick={() => void selectMessage(m.id)}
                 className={
-                  'block w-full border-b border-line/70 px-3.5 py-3 text-left transition-colors ' +
+                  'group flex cursor-pointer gap-2 border-b border-line/70 px-3 py-2.5 transition-colors ' +
+                  (m.isImportant ? 'border-l-2 border-l-accent ' : 'border-l-2 border-l-transparent ') +
                   (active ? 'bg-accent/8' : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
                 }
               >
-                <div className="flex items-center gap-2">
-                  {!m.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
-                  <span className={'truncate text-[13px] ' + (m.isRead ? 'text-ink/85' : 'font-semibold text-ink')}>
-                    {m.fromName || m.fromEmail || '(unknown sender)'}
-                  </span>
-                  {m.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      void toggleFlag(m)
-                    }}
-                    className="ml-auto shrink-0"
-                  >
-                    <IconStar className={'h-3.5 w-3.5 ' + (m.isFlagged ? 'text-amber-400' : 'text-muted/50 hover:text-amber-400')} />
-                  </button>
-                  <span className="shrink-0 text-[11px] text-muted">{formatListDate(m.dateUtc)}</span>
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => toggleSelect(m.id)}
+                  className={
+                    'mt-1 h-3.5 w-3.5 shrink-0 accent-[var(--accent)] transition-opacity ' +
+                    (selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+                  }
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    {!m.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
+                    <span className={'truncate text-[13px] ' + (m.isRead ? 'text-ink/85' : 'font-semibold text-ink')}>
+                      {m.fromName || m.fromEmail || '(unknown sender)'}
+                    </span>
+                    {m.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
+                    <span className="ml-auto flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        title="Mark important"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void toggleImportant(m)
+                        }}
+                        className="grid h-5 w-5 place-items-center"
+                      >
+                        <IconImportance
+                          className={'h-3.5 w-3.5 ' + (m.isImportant ? 'text-accent' : 'text-muted/40 hover:text-accent')}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        title="Star"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void toggleFlag(m)
+                        }}
+                        className="grid h-5 w-5 place-items-center"
+                      >
+                        <IconStar
+                          className={'h-3.5 w-3.5 ' + (m.isFlagged ? 'text-amber-400' : 'text-muted/40 hover:text-amber-400')}
+                        />
+                      </button>
+                      <span className="text-[11px] text-muted">{formatListDate(m.dateUtc)}</span>
+                    </span>
+                  </div>
+                  <div className={'mt-0.5 truncate text-[13px] ' + (m.isRead ? 'text-muted' : 'font-medium text-ink')}>
+                    {m.subject || '(no subject)'}
+                  </div>
+                  {m.snippet && <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{m.snippet}</div>}
                 </div>
-                <div className={'mt-0.5 truncate text-[13px] ' + (m.isRead ? 'text-muted' : 'font-medium text-ink')}>
-                  {m.subject || '(no subject)'}
-                </div>
-                {m.snippet && <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{m.snippet}</div>}
-              </button>
+              </div>
             )
           })}
         </div>
       </section>
+
+      <Splitter
+        onResize={(dx) => setLayout({ listWidth: Math.max(260, Math.min(680, layout.listWidth + dx)) })}
+        onCommit={() => void saveLayout()}
+      />
 
       <Reader onReply={openReply} />
 

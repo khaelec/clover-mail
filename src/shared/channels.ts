@@ -19,8 +19,11 @@ export const IpcChannels = {
     syncFolder: 'mail:sync-folder',
     listFolders: 'mail:list-folders',
     listMessages: 'mail:list-messages',
+    listThreads: 'mail:list-threads',
     listJunk: 'mail:list-junk',
     spamCount: 'mail:spam-count',
+    listImportant: 'mail:list-important',
+    importantCount: 'mail:important-count',
     markSpam: 'mail:mark-spam',
     markNotSpam: 'mail:mark-not-spam',
     blockSender: 'mail:block-sender',
@@ -35,6 +38,7 @@ export const IpcChannels = {
     setFlags: 'mail:set-flags',
     moveMessage: 'mail:move-message',
     deleteMessage: 'mail:delete-message',
+    bulkAction: 'mail:bulk-action',
     sendMessage: 'mail:send-message',
     downloadAttachment: 'mail:download-attachment',
     search: 'mail:search',
@@ -75,7 +79,8 @@ export const IpcChannels = {
   wallpaper: {
     pickFile: 'wallpaper:pick-file',
     pickFolder: 'wallpaper:pick-folder',
-    listFolder: 'wallpaper:list-folder'
+    listFolder: 'wallpaper:list-folder',
+    detectEngine: 'wallpaper:detect-engine'
   }
 } as const
 
