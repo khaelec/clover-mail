@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { TitleBar } from './components/TitleBar'
 import { Sidebar, type SectionId } from './components/Sidebar'
 import { MailView } from './components/MailView'
 import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
 import { IconCalendar, IconGrid, IconSparkles, IconWallpaper } from './components/icons'
+import { useMail } from './state/mail'
 
 /**
  * Placeholder background layer. In Phase 3 this becomes the real live-wallpaper
@@ -89,6 +90,10 @@ function renderSection(section: SectionId): ReactNode {
 
 export function App(): ReactNode {
   const [section, setSection] = useState<SectionId>('mail')
+
+  useEffect(() => {
+    void useMail.getState().init()
+  }, [])
 
   return (
     <div className="flex h-full flex-col bg-canvas text-ink">

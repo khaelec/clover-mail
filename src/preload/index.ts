@@ -22,6 +22,32 @@ const api: CloverApi = {
       ipcRenderer.on(IpcChannels.windowMaximizedChanged, listener)
       return () => ipcRenderer.removeListener(IpcChannels.windowMaximizedChanged, listener)
     }
+  },
+  mail: {
+    listAccounts: () => ipcRenderer.invoke(IpcChannels.mail.listAccounts),
+    createAccount: (input) => ipcRenderer.invoke(IpcChannels.mail.createAccount, input),
+    updateAccount: (id, input) => ipcRenderer.invoke(IpcChannels.mail.updateAccount, id, input),
+    deleteAccount: (id) => ipcRenderer.invoke(IpcChannels.mail.deleteAccount, id),
+    testConnection: (input) => ipcRenderer.invoke(IpcChannels.mail.testConnection, input),
+    syncAccount: (accountId) => ipcRenderer.invoke(IpcChannels.mail.syncAccount, accountId),
+    syncFolder: (folderId) => ipcRenderer.invoke(IpcChannels.mail.syncFolder, folderId),
+    listFolders: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listFolders, accountId),
+    listMessages: (folderId, limit, offset) =>
+      ipcRenderer.invoke(IpcChannels.mail.listMessages, folderId, limit, offset),
+    getMessage: (messageId) => ipcRenderer.invoke(IpcChannels.mail.getMessage, messageId),
+    setFlags: (messageId, flags) =>
+      ipcRenderer.invoke(IpcChannels.mail.setFlags, messageId, flags),
+    moveMessage: (messageId, targetFolderId) =>
+      ipcRenderer.invoke(IpcChannels.mail.moveMessage, messageId, targetFolderId),
+    deleteMessage: (messageId) => ipcRenderer.invoke(IpcChannels.mail.deleteMessage, messageId),
+    sendMessage: (input) => ipcRenderer.invoke(IpcChannels.mail.sendMessage, input),
+    search: (query, accountId) => ipcRenderer.invoke(IpcChannels.mail.search, query, accountId),
+    onEvent: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
+        cb(event as Parameters<typeof cb>[0])
+      ipcRenderer.on(IpcChannels.mail.events, listener)
+      return () => ipcRenderer.removeListener(IpcChannels.mail.events, listener)
+    }
   }
 }
 

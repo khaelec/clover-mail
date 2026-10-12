@@ -20,6 +20,7 @@ ipcMain.handle('window:is-maximized', () => false)
 ipcMain.on('window:minimize', () => {})
 ipcMain.on('window:toggle-maximize', () => {})
 ipcMain.on('window:close', () => {})
+ipcMain.handle('mail:list-accounts', () => [])
 
 app.whenReady().then(async () => {
   const win = new BrowserWindow({

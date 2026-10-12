@@ -151,6 +151,53 @@ export const IconCheck = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconPlus = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Base>
+)
+
+export const IconRefresh = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M20 11a8 8 0 0 0-13.7-5.3L4 8" />
+    <path d="M4 4v4h4" />
+    <path d="M4 13a8 8 0 0 0 13.7 5.3L20 16" />
+    <path d="M20 20v-4h-4" />
+  </Base>
+)
+
+export const IconTrash = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13" />
+  </Base>
+)
+
+export const IconPaperclip = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M21 11.5 12.5 20a4.6 4.6 0 0 1-6.5-6.5l8-8a3 3 0 0 1 4.3 4.3l-8 8a1.4 1.4 0 0 1-2-2l7-7" />
+  </Base>
+)
+
+export const IconArrowLeft = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M19 12H5M11 6l-6 6 6 6" />
+  </Base>
+)
+
+export const IconReply = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M9 7 4 12l5 5" />
+    <path d="M4 12h11a5 5 0 0 1 5 5v1" />
+  </Base>
+)
+
+export const IconFlag = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M5 21V4" />
+    <path d="M5 5h12l-2 3 2 3H5" />
+  </Base>
+)
+
 export function CloverMark({ className }: { className?: string }): ReactNode {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" className={className} aria-hidden="true">

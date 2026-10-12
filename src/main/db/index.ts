@@ -64,6 +64,12 @@ export function getDb(): CloverDatabase {
   return db
 }
 
+/** Raw better-sqlite3 handle, for FTS5 and other statements Drizzle does not model. */
+export function getRawDb(): Database.Database {
+  if (!sqlite) throw new Error('Database not initialized. Call initDatabase(dataDir) first.')
+  return sqlite
+}
+
 export function closeDatabase(): void {
   if (sqlite && sqlite.open) {
     sqlite.close()

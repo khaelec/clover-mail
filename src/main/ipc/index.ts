@@ -2,6 +2,7 @@ import { app, ipcMain, type BrowserWindow } from 'electron'
 import { IpcChannels } from '@shared/channels'
 import { AppInfoSchema, type AppInfo } from '@shared/ipc'
 import { getAllSettings, getSetting, setSetting, deleteSetting } from '@main/settings'
+import { registerMailIpc } from './mail'
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.appInfo, (): AppInfo => {
@@ -35,4 +36,6 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     else win.maximize()
   })
   ipcMain.on(IpcChannels.windowClose, () => getWindow()?.close())
+
+  registerMailIpc(getWindow)
 }

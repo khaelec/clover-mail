@@ -1,185 +1,286 @@
-import { useState, type ReactNode } from 'react'
-import { IconCompose, IconInbox, IconSearch, IconSend, IconStar } from './icons'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMail } from '../state/mail'
+import type { FolderSummary, MessageSummary } from '@shared/mail'
+import { Reader } from './Reader'
+import { Compose } from './Compose'
+import { AccountSetup } from './AccountSetup'
+import {
+  IconCompose,
+  IconInbox,
+  IconPaperclip,
+  IconPlus,
+  IconRefresh,
+  IconSearch,
+  IconStar,
+  IconTrash
+} from './icons'
 
-interface SampleMessage {
-  id: number
-  from: string
-  subject: string
-  preview: string
-  time: string
-  unread?: boolean
-  starred?: boolean
+function formatListDate(value: number | null): string {
+  if (!value) return ''
+  const date = new Date(value)
+  const now = new Date()
+  const sameDay = date.toDateString() === now.toDateString()
+  if (sameDay) return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  const sameYear = date.getFullYear() === now.getFullYear()
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' })
+  })
 }
 
-const SAMPLE: SampleMessage[] = [
-  {
-    id: 1,
-    from: 'Ava Thompson',
-    subject: 'Q3 rollout timeline — your sign-off',
-    preview: 'Thanks for pulling the numbers together. I tightened the timeline to four weeks and flagged the two dependencies we discussed…',
-    time: '9:41 AM',
-    unread: true,
-    starred: true
-  },
-  {
-    id: 2,
-    from: 'Cloverfield IT',
-    subject: 'Re: VPN certificate renewal',
-    preview: 'The new profile is live. Please import it before Friday — the old cert expires at midnight…',
-    time: '8:12 AM',
-    unread: true
-  },
-  {
-    id: 3,
-    from: 'Marek Nowak',
-    subject: 'Invoice #4821 — paid ✓',
-    preview: 'Just a heads-up that finance cleared it this morning, so no action needed on your end.',
-    time: 'Yesterday'
-  },
-  {
-    id: 4,
-    from: 'Design weekly',
-    subject: 'Agenda + Figma links for Thursday',
-    preview: 'Draft agenda below. I added a slot for the wallpaper theming review you asked about…',
-    time: 'Yesterday'
-  },
-  {
-    id: 5,
-    from: 'Delta Airlines',
-    subject: 'Your itinerary is confirmed',
-    preview: 'Confirmation code 7QX2PL. Check-in opens 24 hours before departure.',
-    time: 'Mon'
-  },
-  {
-    id: 6,
-    from: 'Calendar',
-    subject: 'Invitation: Roadmap sync (.ics attached)',
-    preview: 'You have been invited to Roadmap sync on Friday at 10:00. Accept or decline below.',
-    time: 'Mon',
-    starred: true
-  }
-]
+function folderIcon(folder: FolderSummary): ReactNode {
+  if (folder.specialUse === 'trash') return <IconTrash className="h-4 w-4" />
+  return <IconInbox className="h-4 w-4" />
+}
 
-function FolderRow({ label, count, active }: { label: string; count?: number; active?: boolean }): ReactNode {
+function EmptyState({ onAdd }: { onAdd: () => void }): ReactNode {
   return (
-    <button
-      type="button"
-      className={
-        'flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
-        (active ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
-      }
-    >
-      <span className="flex items-center gap-2">
-        <IconInbox className="h-4 w-4" />
-        {label}
-      </span>
-      {count !== undefined && (
-        <span className={'text-[11px] ' + (active ? 'text-accent' : 'text-muted')}>{count}</span>
-      )}
-    </button>
+    <div className="flex h-full items-center justify-center p-8">
+      <div className="w-full max-w-md animate-fade-in rounded-3xl border border-line bg-surface/70 p-8 text-center backdrop-blur-xl">
+        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-accent/12 text-accent ring-1 ring-accent/25">
+          <IconInbox className="h-6 w-6" />
+        </div>
+        <h2 className="mt-4 text-lg font-semibold tracking-tight text-ink">Welcome to Clover Mail</h2>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+          Connect an IMAP/SMTP account to get started. Your password is encrypted with Windows DPAPI and
+          never leaves this machine.
+        </p>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-[13px] font-semibold text-accent-ink"
+        >
+          <IconPlus className="h-4 w-4" />
+          Add account
+        </button>
+      </div>
+    </div>
   )
 }
 
 export function MailView(): ReactNode {
-  const [selectedId, setSelectedId] = useState(1)
-  const selected = SAMPLE.find((m) => m.id === selectedId) ?? SAMPLE[0]
+  const accounts = useMail((s) => s.accounts)
+  const activeAccountId = useMail((s) => s.activeAccountId)
+  const folders = useMail((s) => s.folders)
+  const activeFolderId = useMail((s) => s.activeFolderId)
+  const messages = useMail((s) => s.messages)
+  const searchResults = useMail((s) => s.searchResults)
+  const searchQuery = useMail((s) => s.searchQuery)
+  const selectedMessageId = useMail((s) => s.selectedMessageId)
+  const syncing = useMail((s) => s.syncing)
+  const status = useMail((s) => s.status)
+  const error = useMail((s) => s.error)
+
+  const selectAccount = useMail((s) => s.selectAccount)
+  const selectFolder = useMail((s) => s.selectFolder)
+  const selectMessage = useMail((s) => s.selectMessage)
+  const sync = useMail((s) => s.sync)
+  const search = useMail((s) => s.search)
+  const clearSearch = useMail((s) => s.clearSearch)
+  const toggleFlag = useMail((s) => s.toggleFlag)
+
+  const [showAdd, setShowAdd] = useState(false)
+  const [composeState, setComposeState] = useState<{ open: boolean; to?: string; subject?: string; body?: string }>({
+    open: false
+  })
+  const [query, setQuery] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const activeAccount = useMemo(
+    () => accounts.find((a) => a.id === activeAccountId) ?? null,
+    [accounts, activeAccountId]
+  )
+  const list = searchResults ?? messages
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      if (query.trim()) void search(query)
+      else clearSearch()
+    }, 250)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [query, search, clearSearch])
+
+  if (accounts.length === 0) {
+    return (
+      <>
+        <EmptyState onAdd={() => setShowAdd(true)} />
+        {showAdd && <AccountSetup onClose={() => setShowAdd(false)} />}
+      </>
+    )
+  }
+
+  function openReply(): void {
+    const detail = useMail.getState().detail
+    if (!detail) return
+    const to = detail.fromEmail ? `${detail.fromName ? `${detail.fromName} <${detail.fromEmail}>` : detail.fromEmail}` : ''
+    const body = `\n\nOn ${new Date(detail.dateUtc ?? Date.now()).toLocaleString()}, ${detail.fromName || detail.fromEmail} wrote:\n> ${(detail.textPlain ?? '').split('\n').join('\n> ')}`
+    setComposeState({
+      open: true,
+      to,
+      subject: detail.subject?.startsWith('Re:') ? detail.subject : `Re: ${detail.subject ?? ''}`,
+      body
+    })
+  }
 
   return (
     <div className="flex h-full min-h-0">
-      <aside className="flex w-52 shrink-0 flex-col gap-1 border-r border-line p-2.5">
+      <aside className="flex w-56 shrink-0 flex-col border-r border-line">
+        <div className="border-b border-line p-2.5">
+          {accounts.map((account) => {
+            const active = account.id === activeAccountId
+            return (
+              <button
+                key={account.id}
+                type="button"
+                onClick={() => void selectAccount(account.id)}
+                className={
+                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12px] transition-colors ' +
+                  (active ? 'bg-accent/12 text-accent' : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
+                }
+              >
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: account.color ?? 'var(--accent)' }}
+                />
+                <span className="truncate">{account.email}</span>
+              </button>
+            )
+          })}
+        </div>
+
         <button
           type="button"
-          className="mb-2 flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-accent-ink shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99]"
+          onClick={() => setComposeState({ open: true })}
+          className="m-2.5 flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-accent-ink shadow-sm"
         >
           <IconCompose className="h-4 w-4" />
           Compose
         </button>
-        <FolderRow label="Inbox" count={12} active />
-        <FolderRow label="Starred" count={3} />
-        <FolderRow label="Sent" />
-        <FolderRow label="Drafts" count={1} />
-        <FolderRow label="Archive" />
-        <FolderRow label="Trash" />
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
+          {folders.map((folder) => {
+            const active = folder.id === activeFolderId
+            return (
+              <button
+                key={folder.id}
+                type="button"
+                onClick={() => void selectFolder(folder.id)}
+                className={
+                  'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
+                  (active ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
+                }
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  {folderIcon(folder)}
+                  <span className="truncate">{folder.name}</span>
+                </span>
+                {folder.unreadCount > 0 && (
+                  <span className={'shrink-0 text-[11px] ' + (active ? 'text-accent' : 'text-muted')}>
+                    {folder.unreadCount}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-2 border-t border-line px-3.5 py-2.5 text-[12px] text-muted hover:text-ink"
+        >
+          <IconPlus className="h-3.5 w-3.5" />
+          Add account
+        </button>
       </aside>
 
       <section className="flex w-[360px] shrink-0 flex-col border-r border-line">
         <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
           <IconSearch className="h-4 w-4 text-muted" />
           <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search mail"
             className="w-full bg-transparent text-[13px] text-ink placeholder:text-muted focus:outline-none"
           />
+          <button
+            type="button"
+            title="Sync now"
+            onClick={() => void sync()}
+            className="grid h-7 w-7 place-items-center rounded-md text-muted hover:text-accent"
+          >
+            <IconRefresh className={syncing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+          </button>
         </div>
+        {status && <div className="border-b border-line px-3.5 py-1 text-[11px] text-muted">{status}</div>}
+        {error && <div className="border-b border-line px-3.5 py-1 text-[11px] text-rose-500">{error}</div>}
+
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {SAMPLE.map((m) => {
-            const active = m.id === selectedId
+          {list.length === 0 && (
+            <div className="px-4 py-10 text-center text-[12px] text-muted">
+              {searchQuery
+                ? 'No results.'
+                : activeFolderId
+                  ? 'No cached messages. Hit sync to fetch.'
+                  : 'Select a folder.'}
+            </div>
+          )}
+          {list.map((m: MessageSummary) => {
+            const active = m.id === selectedMessageId
             return (
               <button
                 key={m.id}
                 type="button"
-                onClick={() => setSelectedId(m.id)}
+                onClick={() => void selectMessage(m.id)}
                 className={
                   'block w-full border-b border-line/70 px-3.5 py-3 text-left transition-colors ' +
                   (active ? 'bg-accent/8' : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
                 }
               >
                 <div className="flex items-center gap-2">
-                  <span className={'truncate text-[13px] ' + (m.unread ? 'font-semibold text-ink' : 'text-ink/90')}>
-                    {m.from}
+                  {!m.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
+                  <span className={'truncate text-[13px] ' + (m.isRead ? 'text-ink/85' : 'font-semibold text-ink')}>
+                    {m.fromName || m.fromEmail || '(unknown sender)'}
                   </span>
-                  {m.starred && <IconStar className="h-3.5 w-3.5 shrink-0 text-amber-400" />}
-                  <span className="ml-auto shrink-0 text-[11px] text-muted">{m.time}</span>
+                  {m.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void toggleFlag(m)
+                    }}
+                    className="ml-auto shrink-0"
+                  >
+                    <IconStar className={'h-3.5 w-3.5 ' + (m.isFlagged ? 'text-amber-400' : 'text-muted/50 hover:text-amber-400')} />
+                  </button>
+                  <span className="shrink-0 text-[11px] text-muted">{formatListDate(m.dateUtc)}</span>
                 </div>
-                <div className={'mt-0.5 truncate text-[13px] ' + (m.unread ? 'font-medium text-ink' : 'text-muted')}>
-                  {m.subject}
+                <div className={'mt-0.5 truncate text-[13px] ' + (m.isRead ? 'text-muted' : 'font-medium text-ink')}>
+                  {m.subject || '(no subject)'}
                 </div>
-                <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{m.preview}</div>
+                {m.snippet && <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{m.snippet}</div>}
               </button>
             )
           })}
         </div>
       </section>
 
-      <article className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-start gap-3 border-b border-line px-6 py-4">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent to-accent/60 text-[13px] font-semibold text-accent-ink">
-            {selected.from.slice(0, 1)}
-          </div>
-          <div className="min-w-0">
-            <h2 className="truncate text-[15px] font-semibold text-ink">{selected.subject}</h2>
-            <p className="mt-0.5 text-[12px] text-muted">
-              <span className="text-ink/80">{selected.from}</span> · to me · {selected.time}
-            </p>
-          </div>
-          <div className="ml-auto flex gap-1.5">
-            <button className="rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:text-ink">
-              Reply
-            </button>
-            <button className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink">
-              <IconSend className="h-3.5 w-3.5" />
-              Send
-            </button>
-          </div>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 text-[13.5px] leading-relaxed text-ink/90">
-          <p>Hi,</p>
-          <p className="mt-3">
-            {selected.preview} I copied the key dates below so we have a single source of truth
-            while the plans settle.
-          </p>
-          <ul className="mt-3 list-disc space-y-1 pl-5">
-            <li>Kickoff and environment prep — week 1</li>
-            <li>Integration build and review — weeks 2–3</li>
-            <li>Hardening, docs, and handoff — week 4</li>
-          </ul>
-          <p className="mt-3">
-            Happy to walk through any of this live — just grab a slot on my calendar. I've also
-            attached the updated plan and an <span className="text-accent">.ics</span> invite for
-            the kickoff.
-          </p>
-          <p className="mt-3 text-muted">— Sent from Clover Mail</p>
-        </div>
-      </article>
+      <Reader onReply={openReply} />
+
+      {composeState.open && activeAccountId && (
+        <Compose
+          accountId={activeAccountId}
+          initialTo={composeState.to}
+          initialSubject={composeState.subject}
+          initialBody={composeState.body}
+          onClose={() => setComposeState({ open: false })}
+        />
+      )}
+      {showAdd && <AccountSetup onClose={() => setShowAdd(false)} />}
     </div>
   )
 }
