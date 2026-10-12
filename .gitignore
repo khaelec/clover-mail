@@ -1,0 +1,15 @@
+node_modules/
+out/
+dist/
+dist-electron/
+release/
+*.local
+*.log
+.vite/
+.DS_Store
+Thumbs.db
+
+# local databases / caches created at runtime
+*.db
+*.db-shm
+*.db-wal
