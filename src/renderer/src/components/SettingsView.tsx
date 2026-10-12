@@ -93,6 +93,43 @@ export function SettingsView(): ReactNode {
   const [backupMsg, setBackupMsg] = useState('')
   const [importBusy, setImportBusy] = useState(false)
   const [importMsg, setImportMsg] = useState('')
+  const [diagnosticsCopied, setDiagnosticsCopied] = useState(false)
+
+  function diagnosticsText(): string {
+    return [
+      `Clover Mail: ${info?.version ?? '?'}`,
+      `Build: ${info?.isPackaged ? 'installed (packaged)' : 'development'}`,
+      `OS: ${info?.platform ?? ''}`,
+      `Electron: ${info?.electron ?? ''}`,
+      `Chromium: ${info?.chrome ?? ''}`,
+      `Node: ${info?.node ?? ''}`
+    ].join('\n')
+  }
+
+  function openBugReport(): void {
+    const body = [
+      '### What happened',
+      '',
+      '',
+      '### Steps to reproduce',
+      '1. ',
+      '',
+      '### Expected behaviour',
+      '',
+      '',
+      '### Environment',
+      diagnosticsText()
+    ].join('\n')
+    const url = `https://github.com/khaelec/clover-mail/issues/new?body=${encodeURIComponent(body)}`
+    window.open(url)
+  }
+
+  function copyDiagnostics(): void {
+    void window.navigator.clipboard.writeText(diagnosticsText()).then(() => {
+      setDiagnosticsCopied(true)
+      setTimeout(() => setDiagnosticsCopied(false), 2000)
+    })
+  }
 
   async function runImportMbox(): Promise<void> {
     setImportBusy(true)
@@ -1028,6 +1065,30 @@ export function SettingsView(): ReactNode {
             >
               ☕ Buy me a coffee
             </button>
+
+            <div className="mt-4 border-t border-line pt-4">
+              <p className="text-[12px] text-muted">
+                Hit a bug? Open a report on GitHub — it opens the public issue page with your
+                environment filled in. Review it before submitting; issues are public.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={openBugReport}
+                  className="rounded-lg border border-line px-4 py-2 text-[13px] font-medium text-ink hover:border-accent"
+                >
+                  Report a bug
+                </button>
+                <button
+                  type="button"
+                  onClick={copyDiagnostics}
+                  className="rounded-lg border border-line px-4 py-2 text-[13px] text-muted hover:text-ink"
+                >
+                  Copy diagnostics
+                </button>
+                {diagnosticsCopied && <span className="text-[12px] text-muted">Copied</span>}
+              </div>
+            </div>
           </Card>
 
           <Card title="About">
