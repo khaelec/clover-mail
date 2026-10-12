@@ -127,9 +127,11 @@ export function SettingsView(): ReactNode {
             ? 'Ready to install — see the banner'
             : updateStatus === 'none'
               ? 'Up to date'
-              : updateStatus === 'error'
-                ? (updateError ?? 'Could not check')
-                : ''
+              : updateStatus === 'dev'
+                ? 'Updates are disabled in development builds'
+                : updateStatus === 'error'
+                  ? (updateError ?? 'Could not check')
+                  : ''
 
   useEffect(() => {
     void window.clover.appInfo().then(setInfo)

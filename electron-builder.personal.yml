@@ -1,7 +1,7 @@
 appId: com.clovermail.app
-productName: Clover Mail (Personal)
+productName: Clover Mail
 copyright: Copyright © 2026 Clover Mail
-artifactName: CloverMail-Personal-${version}-setup.${ext}
+artifactName: CloverMail-${version}-setup.${ext}
 directories:
   output: release-personal
   buildResources: build
@@ -11,15 +11,15 @@ files:
 asarUnpack:
   - '**/*.node'
   - node_modules/better-sqlite3/**
+# Personal build = the public build + a bundled seed DB that is copied on first
+# run ONLY (never overwrites existing data). It updates from the public feed.
 extraResources:
   - from: seed/clover-mail.db
     to: seed.db
-  - from: seed/updater-token.txt
-    to: updater-token.txt
 publish:
   provider: github
   owner: khaelec
-  repo: clover-mail-personal
+  repo: clover-mail
 win:
   icon: build/icon.ico
   target:

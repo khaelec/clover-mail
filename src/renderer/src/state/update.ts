@@ -8,6 +8,7 @@ export type UpdateStatus =
   | 'downloading'
   | 'ready'
   | 'none'
+  | 'dev'
   | 'error'
 
 interface UpdateState {
@@ -53,7 +54,7 @@ export const useUpdate = create<UpdateState>((set) => ({
           set({ status: 'error', error: event.error })
           break
         case 'unavailable-dev':
-          set({ status: 'none' })
+          set({ status: 'dev' })
           break
       }
     })

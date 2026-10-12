@@ -1,6 +1,4 @@
 import { app, type BrowserWindow } from 'electron'
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import type { AppUpdater } from 'electron-updater'
 import type { UpdateEvent } from '@shared/ipc'
 
@@ -30,21 +28,6 @@ export async function initUpdater(): Promise<void> {
     // Opt-in: never download or install without the user asking.
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = false
-
-    // Personal builds ship a read-only token for the private update feed.
-    const tokenFile = join(process.resourcesPath, 'updater-token.txt')
-    if (existsSync(tokenFile)) {
-      const token = readFileSync(tokenFile, 'utf8').trim()
-      if (token && !token.startsWith('PASTE')) {
-        autoUpdater.setFeedURL({
-          provider: 'github',
-          owner: 'khaelec',
-          repo: 'clover-mail-personal',
-          private: true,
-          token
-        })
-      }
-    }
 
     autoUpdater.on('checking-for-update', () => emit({ type: 'checking' }))
     autoUpdater.on('update-available', (info) => emit({ type: 'available', version: info.version }))
