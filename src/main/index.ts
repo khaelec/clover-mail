@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, Menu, net, protocol, session } from 'electron'
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
@@ -187,6 +187,20 @@ app.whenReady().then(async () => {
   if (app.isPackaged) {
     try {
       const { autoUpdater } = await import('electron-updater')
+      // A personal build ships a read-only token for the private update feed.
+      const tokenFile = join(process.resourcesPath, 'updater-token.txt')
+      if (existsSync(tokenFile)) {
+        const token = readFileSync(tokenFile, 'utf8').trim()
+        if (token && !token.startsWith('PASTE')) {
+          autoUpdater.setFeedURL({
+            provider: 'github',
+            owner: 'khaelec',
+            repo: 'clover-mail-personal',
+            private: true,
+            token
+          })
+        }
+      }
       autoUpdater.checkForUpdatesAndNotify().catch(() => undefined)
     } catch {
       // auto-update unavailable
