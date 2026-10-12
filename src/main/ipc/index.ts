@@ -18,7 +18,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
       chrome: process.versions.chrome,
       node: process.versions.node,
       platform: process.platform,
-      userDataPath: app.getPath('userData')
+      userDataPath: app.getPath('userData'),
+      isPackaged: app.isPackaged
     })
   })
 

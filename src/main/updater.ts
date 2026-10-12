@@ -46,7 +46,12 @@ export async function initUpdater(): Promise<void> {
 
 export async function checkForUpdates(): Promise<void> {
   if (!updater) {
-    emit({ type: 'unavailable-dev' })
+    emit({
+      type: 'error',
+      error: app.isPackaged
+        ? 'Update system failed to initialise'
+        : 'Updates are disabled in development builds'
+    })
     return
   }
   try {

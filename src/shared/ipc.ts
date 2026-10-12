@@ -34,7 +34,8 @@ export const AppInfoSchema = z.object({
   chrome: z.string(),
   node: z.string(),
   platform: z.string(),
-  userDataPath: z.string()
+  userDataPath: z.string(),
+  isPackaged: z.boolean()
 })
 export type AppInfo = z.infer<typeof AppInfoSchema>
 

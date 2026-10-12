@@ -683,6 +683,12 @@ export function SettingsView(): ReactNode {
               <dd className="text-ink">{info?.node ?? '—'}</dd>
               <dt className="text-muted">Data folder</dt>
               <dd className="break-all text-ink">{info?.userDataPath ?? '—'}</dd>
+              <dt className="text-muted">Build</dt>
+              <dd className="text-ink">
+                {info?.isPackaged ? 'Installed (packaged)' : 'Development build'}
+              </dd>
+              <dt className="text-muted">Update feed</dt>
+              <dd className="text-ink">github: khaelec/clover-mail</dd>
             </dl>
             <div className="mt-4 flex items-center gap-3">
               <button
