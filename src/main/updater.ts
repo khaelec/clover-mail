@@ -23,7 +23,15 @@ export async function initUpdater(): Promise<void> {
   }
 
   try {
-    const { autoUpdater } = await import('electron-updater')
+    const mod = (await import('electron-updater')) as {
+      autoUpdater?: AppUpdater
+      default?: { autoUpdater?: AppUpdater }
+    }
+    const autoUpdater = mod.autoUpdater ?? mod.default?.autoUpdater
+    if (!autoUpdater) {
+      emit({ type: 'error', error: 'electron-updater did not expose autoUpdater' })
+      return
+    }
     updater = autoUpdater
     // Opt-in: never download or install without the user asking.
     autoUpdater.autoDownload = false

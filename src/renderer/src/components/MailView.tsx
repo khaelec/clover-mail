@@ -893,7 +893,7 @@ export function MailView(): ReactNode {
 
                     {expanded && t.messageCount > 1 && (
                       <div className="bg-canvas/30">
-                        {t.messages.map((m) => (
+                        {[...t.messages].reverse().map((m) => (
                           <div
                             key={m.id}
                             onClick={() => void selectMessage(m.id)}
