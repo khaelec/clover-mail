@@ -87,6 +87,42 @@ function Field({
 
 export function SettingsView(): ReactNode {
   const { mode, accent, customAccent, setMode, setAccent, setCustomAccent } = useTheme()
+  const [backupAttachments, setBackupAttachments] = useState(false)
+  const [backupBusy, setBackupBusy] = useState(false)
+  const [backupMsg, setBackupMsg] = useState('')
+
+  async function runExport(): Promise<void> {
+    setBackupBusy(true)
+    setBackupMsg('Exporting…')
+    try {
+      const res = await window.clover.backup.exportBackup(backupAttachments)
+      setBackupMsg(
+        res.saved ? `Saved (${Math.max(1, Math.round((res.bytes ?? 0) / 1024))} KB)` : res.error ?? 'Cancelled'
+      )
+    } catch (error) {
+      setBackupMsg((error as Error).message)
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
+  async function runImport(): Promise<void> {
+    setBackupBusy(true)
+    setBackupMsg('Restoring…')
+    try {
+      const res = await window.clover.backup.importBackup()
+      if (res.relaunching) {
+        setBackupMsg('Restored — restarting…')
+        return
+      }
+      setBackupMsg(res.error ?? 'Cancelled')
+    } catch (error) {
+      setBackupMsg((error as Error).message)
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
   async function importTheme(): Promise<void> {
     try {
       const text = await window.navigator.clipboard.readText()
@@ -770,6 +806,49 @@ export function SettingsView(): ReactNode {
 
           {tab === 'about' && (
           <>
+          <Card title="Backup & restore">
+            <p className="text-[12px] text-muted">
+              Export your accounts, folders, rules, labels, snippets and settings to a single file.
+              Restoring replaces your current data and restarts Clover Mail. Saved passwords stay on
+              this machine and can&apos;t be moved between machines.
+            </p>
+            <label className="mt-3 flex items-center gap-2 text-[12px] text-muted">
+              <input
+                type="checkbox"
+                checked={backupAttachments}
+                onChange={(e) => setBackupAttachments(e.target.checked)}
+              />
+              Include cached attachment files (larger backup)
+            </label>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={backupBusy}
+                onClick={() => void runExport()}
+                className="rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-accent-ink disabled:opacity-50"
+              >
+                Export backup
+              </button>
+              <button
+                type="button"
+                disabled={backupBusy}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      'Restoring replaces your current accounts, mail cache and settings, then restarts Clover Mail. Continue?'
+                    )
+                  ) {
+                    void runImport()
+                  }
+                }}
+                className="rounded-lg border border-line px-4 py-2 text-[13px] font-medium text-ink hover:border-accent disabled:opacity-50"
+              >
+                Restore from backup
+              </button>
+              {backupMsg && <span className="text-[12px] text-muted">{backupMsg}</span>}
+            </div>
+          </Card>
+
           <Card title="Support">
             <p className="text-[12px] text-muted">
               Clover Mail is free and open source. If it&apos;s useful to you, you can buy me a coffee.

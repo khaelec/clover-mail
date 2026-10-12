@@ -8,6 +8,7 @@ import { registerCalendarIpc } from './calendar'
 import { registerAiIpc } from './ai'
 import { registerWallpaperIpc } from './wallpaper'
 import { registerUpdateIpc } from './update'
+import { registerBackupIpc } from './backup'
 import { setTrayUnread } from '@main/tray'
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
@@ -51,4 +52,5 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   registerAiIpc(getWindow)
   registerWallpaperIpc()
   registerUpdateIpc(getWindow)
+  registerBackupIpc(getWindow)
 }

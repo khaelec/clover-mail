@@ -187,6 +187,20 @@ export interface UpdateApi {
   onEvent: (cb: (event: UpdateEvent) => void) => () => void
 }
 
+export interface BackupResult {
+  saved?: boolean
+  restored?: boolean
+  relaunching?: boolean
+  path?: string
+  bytes?: number
+  error?: string
+}
+
+export interface BackupApi {
+  exportBackup: (includeAttachments: boolean) => Promise<BackupResult>
+  importBackup: () => Promise<BackupResult>
+}
+
 export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
@@ -196,6 +210,7 @@ export interface CloverApi {
   ai: AiApi
   wallpaper: WallpaperApi
   update: UpdateApi
+  backup: BackupApi
   settings: {
     getAll: () => Promise<SettingsRecord>
     get: (key: string) => Promise<unknown>

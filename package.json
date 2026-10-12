@@ -23,6 +23,7 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "adm-zip": "^0.5.18",
     "better-sqlite3": "^13.0.3",
     "dompurify": "^3.4.16",
     "drizzle-orm": "^0.45.4",
@@ -40,6 +41,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@types/adm-zip": "^0.5.8",
     "@types/better-sqlite3": "^9.6.0",
     "@types/mailparser": "^3.9.0",
     "@types/node": "^26.6.5",

@@ -59,11 +59,15 @@ const api: CloverApi = {
     download: () => ipcRenderer.invoke(IpcChannels.update.download),
     install: () => ipcRenderer.send(IpcChannels.update.install),
     onEvent: (cb) => {
-      const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
-        cb(event as Parameters<typeof cb>[0])
+      const listener = (_e: unknown, event: unknown): void => cb(event as never)
       ipcRenderer.on(IpcChannels.update.event, listener)
       return () => ipcRenderer.removeListener(IpcChannels.update.event, listener)
     }
+  },
+  backup: {
+    exportBackup: (includeAttachments: boolean) =>
+      ipcRenderer.invoke(IpcChannels.backup.export, includeAttachments),
+    importBackup: () => ipcRenderer.invoke(IpcChannels.backup.import)
   },
   settings: {
     getAll: () => ipcRenderer.invoke(IpcChannels.settingsGetAll),

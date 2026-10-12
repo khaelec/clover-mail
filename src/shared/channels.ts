@@ -129,6 +129,10 @@ export const IpcChannels = {
     listFolder: 'wallpaper:list-folder',
     detectEngine: 'wallpaper:detect-engine'
   },
+  backup: {
+    export: 'backup:export',
+    import: 'backup:import'
+  },
   update: {
     check: 'update:check',
     download: 'update:download',
