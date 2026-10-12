@@ -23,6 +23,7 @@ import type {
   ImportResult,
   Occurrence
 } from './calendar'
+import type { AiChatRequest, AiSettings, AiStatus, AiStreamEvent, McpSettings } from './ai'
 
 export const AppInfoSchema = z.object({
   name: z.string(),
@@ -91,11 +92,26 @@ export interface CalendarApi {
   exportIcs: (calendarId?: string) => Promise<{ saved: boolean; path?: string }>
 }
 
+export interface AiApi {
+  getSettings: () => Promise<AiSettings>
+  setSettings: (patch: Partial<AiSettings> & { claudeApiKey?: string }) => Promise<AiSettings>
+  status: () => Promise<AiStatus>
+  listModels: (provider: string) => Promise<string[]>
+  chat: (request: AiChatRequest) => Promise<void>
+  cancel: (streamId: string) => Promise<void>
+  onStream: (cb: (event: AiStreamEvent) => void) => () => void
+  getMcpSettings: () => Promise<McpSettings>
+  setMcpSettings: (patch: Partial<McpSettings>) => Promise<McpSettings>
+  mcpStart: () => Promise<{ running: boolean; port: number }>
+  mcpStop: () => Promise<void>
+}
+
 export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
   apps: AppsApi
   calendar: CalendarApi
+  ai: AiApi
   settings: {
     getAll: () => Promise<SettingsRecord>
     get: (key: string) => Promise<unknown>

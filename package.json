@@ -19,9 +19,11 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "better-sqlite3": "^13.0.3",
     "dompurify": "^3.4.16",
     "drizzle-orm": "^0.45.4",
+    "harper.js": "^2.10.0",
     "imapflow": "^2.4.0",
     "mailparser": "^3.9.38",
     "node-ical": "^0.27.3",

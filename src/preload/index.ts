@@ -29,6 +29,24 @@ const api: CloverApi = {
     pickAndImport: () => ipcRenderer.invoke(IpcChannels.calendar.pickAndImport),
     exportIcs: (calendarId) => ipcRenderer.invoke(IpcChannels.calendar.exportIcs, calendarId)
   },
+  ai: {
+    getSettings: () => ipcRenderer.invoke(IpcChannels.ai.getSettings),
+    setSettings: (patch) => ipcRenderer.invoke(IpcChannels.ai.setSettings, patch),
+    status: () => ipcRenderer.invoke(IpcChannels.ai.status),
+    listModels: (provider) => ipcRenderer.invoke(IpcChannels.ai.listModels, provider),
+    chat: (request) => ipcRenderer.invoke(IpcChannels.ai.chat, request),
+    cancel: (streamId) => ipcRenderer.invoke(IpcChannels.ai.cancel, streamId),
+    onStream: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
+        cb(event as Parameters<typeof cb>[0])
+      ipcRenderer.on(IpcChannels.ai.stream, listener)
+      return () => ipcRenderer.removeListener(IpcChannels.ai.stream, listener)
+    },
+    getMcpSettings: () => ipcRenderer.invoke(IpcChannels.ai.getMcpSettings),
+    setMcpSettings: (patch) => ipcRenderer.invoke(IpcChannels.ai.setMcpSettings, patch),
+    mcpStart: () => ipcRenderer.invoke(IpcChannels.ai.mcpStart),
+    mcpStop: () => ipcRenderer.invoke(IpcChannels.ai.mcpStop)
+  },
   settings: {
     getAll: () => ipcRenderer.invoke(IpcChannels.settingsGetAll),
     get: (key: string) => ipcRenderer.invoke(IpcChannels.settingsGet, key),

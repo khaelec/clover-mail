@@ -5,6 +5,7 @@ import { getAllSettings, getSetting, setSetting, deleteSetting } from '@main/set
 import { registerMailIpc } from './mail'
 import { registerAppsIpc } from './apps'
 import { registerCalendarIpc } from './calendar'
+import { registerAiIpc } from './ai'
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.appInfo, (): AppInfo => {
@@ -42,4 +43,5 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   registerMailIpc(getWindow)
   registerAppsIpc()
   registerCalendarIpc()
+  registerAiIpc(getWindow)
 }

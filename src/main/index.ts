@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, Menu, session } from 'electron'
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IpcChannels } from '@shared/channels'
@@ -44,6 +44,37 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const template: Electron.MenuItemConstructorOptions[] = []
+    if (params.misspelledWord) {
+      for (const suggestion of params.dictionarySuggestions.slice(0, 5)) {
+        template.push({
+          label: suggestion,
+          click: () => mainWindow?.webContents.replaceMisspelling(suggestion)
+        })
+      }
+      if (template.length > 0) template.push({ type: 'separator' })
+      template.push({
+        label: `Add “${params.misspelledWord}” to dictionary`,
+        click: () =>
+          mainWindow?.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+      })
+      template.push({ type: 'separator' })
+    }
+    if (params.isEditable) {
+      template.push(
+        { role: 'cut', enabled: params.editFlags.canCut },
+        { role: 'copy', enabled: params.editFlags.canCopy },
+        { role: 'paste', enabled: params.editFlags.canPaste },
+        { type: 'separator' },
+        { role: 'selectAll' }
+      )
+    } else if (params.selectionText) {
+      template.push({ role: 'copy' })
+    }
+    if (template.length > 0) Menu.buildFromTemplate(template).popup()
+  })
+
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -57,6 +88,9 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  session.defaultSession.setSpellCheckerEnabled(true)
+  session.defaultSession.setSpellCheckerLanguages(['en-US'])
 
   initDatabase(app.getPath('userData'))
   setStorageRoot(app.getPath('userData'))

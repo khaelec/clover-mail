@@ -4,6 +4,7 @@ import { Sidebar, type SectionId } from './components/Sidebar'
 import { MailView } from './components/MailView'
 import { AppsView } from './components/AppsView'
 import { CalendarView } from './components/CalendarView'
+import { CopilotView } from './components/CopilotView'
 import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
 import { IconCalendar, IconGrid, IconSparkles, IconWallpaper } from './components/icons'
@@ -47,19 +48,7 @@ function renderSection(section: SectionId): ReactNode {
         />
       )
     case 'copilot':
-      return (
-        <PlaceholderView
-          title="AI Copilot"
-          blurb="Connect Claude and opencode to summarize, draft, and act on your mail — through MCP."
-          icon={<IconSparkles className="h-6 w-6" />}
-          upcoming={[
-            'Claude chat panel with per-message actions',
-            'Embedded opencode agent sessions',
-            'Clover Mail MCP server (read tools by default)',
-            'Consume external MCP servers'
-          ]}
-        />
-      )
+      return <CopilotView />
     default:
       return null
   }
@@ -70,6 +59,12 @@ export function App(): ReactNode {
 
   useEffect(() => {
     void useMail.getState().init()
+  }, [])
+
+  useEffect(() => {
+    const handler = (): void => setSection('copilot')
+    window.addEventListener('clover:open-copilot', handler)
+    return () => window.removeEventListener('clover:open-copilot', handler)
   }, [])
 
   return (

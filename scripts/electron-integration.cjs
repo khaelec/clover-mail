@@ -74,6 +74,12 @@ app.whenReady().then(async () => {
       const occ = await window.clover.calendar.listOccurrences(now - 86400000, now + 86400000)
       await window.clover.calendar.deleteEvent(ev.id)
 
+      await window.clover.ai.setSettings({ provider: 'ollama', ollamaModel: 'test-model' })
+      const aiAfter = await window.clover.ai.getSettings()
+      const aiStat = await window.clover.ai.status()
+      const mcpSettings = await window.clover.ai.getMcpSettings()
+      const mcpStart = await window.clover.ai.mcpStart()
+
       await api.deleteAccount(created.id)
       for (const stale of await api.listAccounts()) await api.deleteAccount(stale.id)
       const after = await api.listAccounts()
@@ -94,12 +100,63 @@ app.whenReady().then(async () => {
         appsFinal: appsFinal.length,
         calendars: calList.length,
         calendarOccurrences: occ.length,
+        aiProvider: aiAfter.provider,
+        aiModel: aiAfter.ollamaModel,
+        aiClaudeConfigured: aiStat.claudeConfigured,
+        mcpEnabledDefault: mcpSettings.enabled,
+        mcpStarted: mcpStart.running,
+        mcpPort: mcpStart.port,
         accountsAfterDelete: after.length
       })
     })()`)
     console.log('MAIL_INTEGRATION ' + result)
   } catch (error) {
     console.log('MAIL_INTEGRATION_FAIL ' + error.message)
+  }
+
+  try {
+    const initRes = await fetch('http://127.0.0.1:8765/mcp', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          clientInfo: { name: 'clover-test', version: '0.1.0' }
+        }
+      })
+    })
+    const sessionId = initRes.headers.get('mcp-session-id')
+    await initRes.text()
+    const listRes = await fetch('http://127.0.0.1:8765/mcp', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        ...(sessionId ? { 'mcp-session-id': sessionId } : {})
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} })
+    })
+    const listText = await listRes.text()
+    console.log(
+      'MCP_HTTP ' +
+        JSON.stringify({
+          initStatus: initRes.status,
+          hasSession: Boolean(sessionId),
+          toolsListed: listText.includes('search_messages') && listText.includes('read_message')
+        })
+    )
+  } catch (error) {
+    console.log('MCP_HTTP_FAIL ' + error.message)
+  }
+
+  try {
+    await win.webContents.executeJavaScript('window.clover.ai.mcpStop()')
+  } catch {
+    // ignore
   }
 
   console.log('ERRORS ' + JSON.stringify(errors))

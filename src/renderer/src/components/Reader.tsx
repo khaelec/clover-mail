@@ -2,7 +2,8 @@ import DOMPurify from 'dompurify'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { SETTINGS_KEYS } from '@shared/theme'
 import { useMail } from '../state/mail'
-import { IconFlag, IconPaperclip, IconRefresh, IconReply, IconTrash } from './icons'
+import { useAi } from '../state/ai'
+import { IconFlag, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
 
 function formatDate(value: number | null): string {
   if (!value) return ''
@@ -79,6 +80,23 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
     await window.clover.settings.set(SETTINGS_KEYS.trustedSenders, next)
   }
 
+  function askCopilot(prompt: string): void {
+    if (!detail) return
+    const text = [
+      `Subject: ${detail.subject ?? ''}`,
+      `From: ${detail.fromName ?? ''} <${detail.fromEmail ?? ''}>`,
+      `To: ${detail.to.join(', ')}`,
+      '',
+      detail.textPlain ?? '(HTML-only message)'
+    ].join('\n')
+    void (async () => {
+      await useAi.getState().load()
+      useAi.getState().setContext(detail.subject ?? 'Email', text)
+      window.dispatchEvent(new Event('clover:open-copilot'))
+      await useAi.getState().send(prompt)
+    })()
+  }
+
   if (!detail) {
     return (
       <div className="flex h-full items-center justify-center text-[13px] text-muted">
@@ -116,6 +134,14 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
             className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted hover:text-rose-500"
           >
             <IconTrash />
+          </button>
+          <button
+            type="button"
+            title="Ask copilot to summarize"
+            onClick={() => askCopilot('Summarize this email in a few bullets, then list any action items, deadlines, or dates.')}
+            className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted hover:text-accent"
+          >
+            <IconSparkles />
           </button>
           <button
             type="button"

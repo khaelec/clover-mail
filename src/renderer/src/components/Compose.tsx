@@ -1,6 +1,28 @@
 import { useRef, useState, type ReactNode } from 'react'
+import type { Lint, LocalLinter, Suggestion } from 'harper.js'
 import { useMail } from '../state/mail'
-import { IconClose, IconPaperclip, IconRefresh, IconSend, IconTrash } from './icons'
+import { IconCheck, IconClose, IconPaperclip, IconRefresh, IconSend, IconTrash } from './icons'
+
+let harperLinter: LocalLinter | null = null
+async function getLinter(): Promise<LocalLinter> {
+  if (!harperLinter) {
+    const [{ LocalLinter: Ctor }, { binary }] = await Promise.all([
+      import('harper.js'),
+      import('harper.js/binary')
+    ])
+    const linter = new Ctor({ binary })
+    await linter.setup()
+    harperLinter = linter
+  }
+  return harperLinter
+}
+
+interface GrammarIssue {
+  kind: string
+  message: string
+  lint: Lint
+  suggestions: Suggestion[]
+}
 
 function parseList(value: string): string[] {
   return value
@@ -68,6 +90,43 @@ export function Compose({
   const [error, setError] = useState<string | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [grammarOpen, setGrammarOpen] = useState(false)
+  const [grammarBusy, setGrammarBusy] = useState(false)
+  const [grammarError, setGrammarError] = useState<string | null>(null)
+  const [issues, setIssues] = useState<GrammarIssue[]>([])
+
+  async function checkWriting(): Promise<void> {
+    setGrammarOpen(true)
+    setGrammarBusy(true)
+    setGrammarError(null)
+    try {
+      const linter = await getLinter()
+      const text = editorRef.current?.innerText ?? ''
+      const lints = await linter.lint(text)
+      setIssues(
+        lints.slice(0, 60).map((lint) => ({
+          kind: lint.lint_kind(),
+          message: lint.message(),
+          lint,
+          suggestions: lint.suggestions()
+        }))
+      )
+    } catch (error) {
+      setGrammarError((error as Error).message)
+    } finally {
+      setGrammarBusy(false)
+    }
+  }
+
+  async function applyIssue(index: number, suggestionIndex: number): Promise<void> {
+    const issue = issues[index]
+    const suggestion = issue?.suggestions[suggestionIndex]
+    if (!issue || !suggestion || !editorRef.current) return
+    const linter = await getLinter()
+    const updated = await linter.applySuggestion(editorRef.current.innerText, issue.lint, suggestion)
+    editorRef.current.innerHTML = escapeHtml(updated).replace(/\n/g, '<br>')
+    await checkWriting()
+  }
 
   const initialHtml = initialBody
     ? escapeHtml(initialBody)
@@ -178,7 +237,55 @@ export function Compose({
             <ToolbarButton label="❝" title="Quote" onClick={() => exec('formatBlock', 'blockquote')} />
             <ToolbarButton label="🔗" title="Insert link" onClick={addLink} />
             <ToolbarButton label="⌫" title="Clear formatting" onClick={() => exec('removeFormat')} />
+            <span className="mx-1 h-4 w-px bg-line" />
+            <button
+              type="button"
+              onClick={() => void checkWriting()}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted hover:text-accent"
+            >
+              <IconCheck className="h-3.5 w-3.5" />
+              Check writing
+            </button>
           </div>
+
+          {grammarOpen && (
+            <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-line bg-canvas/50 p-2.5">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                  {grammarBusy ? 'Checking…' : `${issues.length} suggestion${issues.length === 1 ? '' : 's'}`}
+                </span>
+                <button type="button" onClick={() => setGrammarOpen(false)} className="text-muted hover:text-ink">
+                  <IconClose className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {grammarError && <div className="text-[11px] text-rose-500">{grammarError}</div>}
+              {!grammarBusy && issues.length === 0 && !grammarError && (
+                <div className="text-[12px] text-muted">No spelling or grammar issues found.</div>
+              )}
+              <ul className="space-y-1.5">
+                {issues.map((issue, i) => (
+                  <li key={i} className="flex items-start gap-2 text-[12px]">
+                    <span className="mt-0.5 shrink-0 rounded bg-accent/12 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                      {issue.kind}
+                    </span>
+                    <span className="min-w-0 flex-1 text-ink/90">{issue.message}</span>
+                    <span className="flex shrink-0 flex-wrap gap-1">
+                      {issue.suggestions.slice(0, 3).map((s, si) => (
+                        <button
+                          key={si}
+                          type="button"
+                          onClick={() => void applyIssue(i, si)}
+                          className="rounded border border-line px-1.5 py-0.5 text-[11px] text-ink hover:border-accent hover:text-accent"
+                        >
+                          {s.get_replacement_text() || '(remove)'}
+                        </button>
+                      ))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div
             ref={editorRef}

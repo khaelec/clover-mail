@@ -58,6 +58,19 @@ export const IpcChannels = {
     importAttachment: 'calendar:import-attachment',
     pickAndImport: 'calendar:pick-and-import',
     exportIcs: 'calendar:export-ics'
+  },
+  ai: {
+    getSettings: 'ai:get-settings',
+    setSettings: 'ai:set-settings',
+    status: 'ai:status',
+    listModels: 'ai:list-models',
+    chat: 'ai:chat',
+    cancel: 'ai:cancel',
+    stream: 'ai:stream',
+    getMcpSettings: 'ai:get-mcp-settings',
+    setMcpSettings: 'ai:set-mcp-settings',
+    mcpStart: 'ai:mcp-start',
+    mcpStop: 'ai:mcp-stop'
   }
 } as const
 
