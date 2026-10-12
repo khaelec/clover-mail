@@ -1,0 +1,28 @@
+appId: com.clovermail.app
+productName: Clover Mail (Personal)
+copyright: Copyright © 2026 Clover Mail
+artifactName: CloverMail-Personal-${version}-setup.${ext}
+directories:
+  output: release-personal
+  buildResources: build
+npmRebuild: false
+files:
+  - out/**
+asarUnpack:
+  - '**/*.node'
+  - node_modules/better-sqlite3/**
+extraResources:
+  - from: seed/clover-mail.db
+    to: seed.db
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true

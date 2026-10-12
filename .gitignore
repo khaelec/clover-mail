@@ -3,6 +3,8 @@ out/
 dist/
 dist-electron/
 release/
+release-personal/
+seed/
 *.local
 *.log
 .vite/

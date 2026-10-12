@@ -16,7 +16,8 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "db:generate": "drizzle-kit generate",
     "dist": "electron-vite build && electron-builder --win",
-    "dist:dir": "electron-vite build && electron-builder --win --dir"
+    "dist:dir": "electron-vite build && electron-builder --win --dir",
+    "dist:personal": "electron-vite build && electron-builder --win --config electron-builder.personal.yml --publish never"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

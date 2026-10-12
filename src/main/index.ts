@@ -1,4 +1,5 @@
 import { app, shell, BrowserWindow, Menu, net, protocol, session } from 'electron'
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
@@ -43,6 +44,18 @@ protocol.registerSchemesAsPrivileged([
     privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, bypassCSP: true }
   }
 ])
+
+// A personal build can ship a preconfigured database; seed it on first run only.
+function seedDatabaseIfFirstRun(userData: string): void {
+  const target = join(userData, 'clover-mail.db')
+  if (existsSync(target)) return
+  const seed = is.dev
+    ? join(app.getAppPath(), 'seed', 'clover-mail.db')
+    : join(process.resourcesPath, 'seed.db')
+  if (!existsSync(seed)) return
+  mkdirSync(userData, { recursive: true })
+  copyFileSync(seed, target)
+}
 
 function registerMediaProtocol(): void {
   protocol.handle('clover-media', (request) => {
@@ -160,6 +173,7 @@ app.whenReady().then(async () => {
 
   registerMediaProtocol()
 
+  seedDatabaseIfFirstRun(app.getPath('userData'))
   initDatabase(app.getPath('userData'))
   setStorageRoot(app.getPath('userData'))
   setAppsRoot(app.getPath('userData'))
