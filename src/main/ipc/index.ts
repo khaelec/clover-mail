@@ -6,6 +6,7 @@ import { registerMailIpc } from './mail'
 import { registerAppsIpc } from './apps'
 import { registerCalendarIpc } from './calendar'
 import { registerAiIpc } from './ai'
+import { registerWallpaperIpc } from './wallpaper'
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.appInfo, (): AppInfo => {
@@ -44,4 +45,5 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   registerAppsIpc()
   registerCalendarIpc()
   registerAiIpc(getWindow)
+  registerWallpaperIpc()
 }

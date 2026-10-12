@@ -71,6 +71,11 @@ export const IpcChannels = {
     setMcpSettings: 'ai:set-mcp-settings',
     mcpStart: 'ai:mcp-start',
     mcpStop: 'ai:mcp-stop'
+  },
+  wallpaper: {
+    pickFile: 'wallpaper:pick-file',
+    pickFolder: 'wallpaper:pick-folder',
+    listFolder: 'wallpaper:list-folder'
   }
 } as const
 

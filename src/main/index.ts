@@ -1,5 +1,6 @@
-import { app, shell, BrowserWindow, Menu, session } from 'electron'
-import { join } from 'node:path'
+import { app, shell, BrowserWindow, Menu, net, protocol, session } from 'electron'
+import { extname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IpcChannels } from '@shared/channels'
 import { initDatabase, closeDatabase } from '@main/db'
@@ -8,6 +9,43 @@ import { setStorageRoot } from '@main/mail/storage'
 import { setAppsRoot } from '@main/apps'
 
 let mainWindow: BrowserWindow | null = null
+
+const MEDIA_EXTENSIONS = new Set([
+  'mp4',
+  'webm',
+  'mkv',
+  'mov',
+  'm4v',
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'gif',
+  'bmp',
+  'avif',
+  'html',
+  'htm'
+])
+
+// Privileged custom scheme so the renderer can load local wallpaper media safely.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'clover-media',
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, bypassCSP: true }
+  }
+])
+
+function registerMediaProtocol(): void {
+  protocol.handle('clover-media', (request) => {
+    const raw = new URL(request.url).searchParams.get('path')
+    if (!raw) return new Response('Bad request', { status: 400 })
+    const filePath = decodeURIComponent(raw)
+    if (!MEDIA_EXTENSIONS.has(extname(filePath).slice(1).toLowerCase())) {
+      return new Response('Forbidden', { status: 403 })
+    }
+    return net.fetch(pathToFileURL(filePath).toString())
+  })
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -91,6 +129,8 @@ app.whenReady().then(() => {
 
   session.defaultSession.setSpellCheckerEnabled(true)
   session.defaultSession.setSpellCheckerLanguages(['en-US'])
+
+  registerMediaProtocol()
 
   initDatabase(app.getPath('userData'))
   setStorageRoot(app.getPath('userData'))

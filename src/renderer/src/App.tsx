@@ -5,10 +5,13 @@ import { MailView } from './components/MailView'
 import { AppsView } from './components/AppsView'
 import { CalendarView } from './components/CalendarView'
 import { CopilotView } from './components/CopilotView'
+import { WallpaperView } from './components/WallpaperView'
+import { WallpaperLayer } from './components/WallpaperLayer'
 import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
 import { IconCalendar, IconGrid, IconSparkles, IconWallpaper } from './components/icons'
 import { useMail } from './state/mail'
+import { useWallpaper } from './state/wallpaper'
 
 /**
  * Placeholder background layer. In Phase 3 this becomes the real live-wallpaper
@@ -34,19 +37,7 @@ function renderSection(section: SectionId): ReactNode {
     case 'apps':
       return <AppsView />
     case 'wallpaper':
-      return (
-        <PlaceholderView
-          title="Live Wallpapers"
-          blurb="Set a video, GIF, HTML, or Wallpaper Engine wallpaper as your app background."
-          icon={<IconWallpaper className="h-6 w-6" />}
-          upcoming={[
-            'Video (mp4/webm) and animated GIF wallpapers',
-            'HTML / web wallpapers',
-            'Wallpaper Engine integration (best-effort)',
-            'Opacity, blur, dim, and pause-when-hidden controls'
-          ]}
-        />
-      )
+      return <WallpaperView />
     case 'copilot':
       return <CopilotView />
     default:
@@ -59,6 +50,7 @@ export function App(): ReactNode {
 
   useEffect(() => {
     void useMail.getState().init()
+    void useWallpaper.getState().load()
   }, [])
 
   useEffect(() => {
@@ -73,6 +65,7 @@ export function App(): ReactNode {
       <div className="flex min-h-0 flex-1">
         <Sidebar active={section} onSelect={setSection} />
         <main className="relative min-h-0 flex-1 overflow-hidden">
+          <WallpaperLayer />
           <BackgroundLayer />
           <div className="relative h-full">{renderSection(section)}</div>
         </main>

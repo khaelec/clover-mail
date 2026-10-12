@@ -47,6 +47,11 @@ const api: CloverApi = {
     mcpStart: () => ipcRenderer.invoke(IpcChannels.ai.mcpStart),
     mcpStop: () => ipcRenderer.invoke(IpcChannels.ai.mcpStop)
   },
+  wallpaper: {
+    pickFile: (kind) => ipcRenderer.invoke(IpcChannels.wallpaper.pickFile, kind),
+    pickFolder: () => ipcRenderer.invoke(IpcChannels.wallpaper.pickFolder),
+    listFolder: (path) => ipcRenderer.invoke(IpcChannels.wallpaper.listFolder, path)
+  },
   settings: {
     getAll: () => ipcRenderer.invoke(IpcChannels.settingsGetAll),
     get: (key: string) => ipcRenderer.invoke(IpcChannels.settingsGet, key),

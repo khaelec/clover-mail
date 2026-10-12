@@ -1,5 +1,11 @@
 const path = require('node:path')
+const fs = require('node:fs')
+const os = require('node:os')
 const { app, BrowserWindow } = require('electron')
+
+const wpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clover-wp-'))
+fs.writeFileSync(path.join(wpDir, 'a.png'), Buffer.from([0]))
+fs.writeFileSync(path.join(wpDir, 'b.txt'), 'x')
 
 // Boot the real built main process: registers all IPC handlers and creates the window.
 require(path.join(__dirname, '..', 'out', 'main', 'index.js'))
@@ -80,6 +86,15 @@ app.whenReady().then(async () => {
       const mcpSettings = await window.clover.ai.getMcpSettings()
       const mcpStart = await window.clover.ai.mcpStart()
 
+      await window.clover.settings.set('wallpaper.settings', {
+        kind: 'video',
+        source: 'C:/x.mp4',
+        opacity: 0.5,
+        dim: 0.3
+      })
+      const wp = await window.clover.settings.get('wallpaper.settings')
+      const wpFiles = await window.clover.wallpaper.listFolder(${JSON.stringify(wpDir)})
+
       await api.deleteAccount(created.id)
       for (const stale of await api.listAccounts()) await api.deleteAccount(stale.id)
       const after = await api.listAccounts()
@@ -106,6 +121,8 @@ app.whenReady().then(async () => {
         mcpEnabledDefault: mcpSettings.enabled,
         mcpStarted: mcpStart.running,
         mcpPort: mcpStart.port,
+        wallpaperKind: wp.kind,
+        wallpaperImages: wpFiles.length,
         accountsAfterDelete: after.length
       })
     })()`)

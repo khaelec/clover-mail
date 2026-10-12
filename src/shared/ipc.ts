@@ -106,12 +106,19 @@ export interface AiApi {
   mcpStop: () => Promise<void>
 }
 
+export interface WallpaperApi {
+  pickFile: (kind: string) => Promise<string | null>
+  pickFolder: () => Promise<string | null>
+  listFolder: (path: string) => Promise<string[]>
+}
+
 export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
   apps: AppsApi
   calendar: CalendarApi
   ai: AiApi
+  wallpaper: WallpaperApi
   settings: {
     getAll: () => Promise<SettingsRecord>
     get: (key: string) => Promise<unknown>
