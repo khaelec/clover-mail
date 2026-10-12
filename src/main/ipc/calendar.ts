@@ -12,8 +12,10 @@ import {
   listCalendars,
   listOccurrences,
   pickAndImport,
+  removeCalendar,
   updateEvent
 } from '@main/calendar'
+import { addCaldavCalendar, syncCaldav } from '@main/calendar/caldav'
 
 export function registerCalendarIpc(): void {
   ipcMain.handle(IpcChannels.calendar.listCalendars, () => listCalendars())
@@ -35,4 +37,15 @@ export function registerCalendarIpc(): void {
   )
   ipcMain.handle(IpcChannels.calendar.pickAndImport, () => pickAndImport())
   ipcMain.handle(IpcChannels.calendar.exportIcs, (_e, calendarId?: string) => exportIcs(calendarId))
+  ipcMain.handle(
+    IpcChannels.calendar.addCaldav,
+    (_e, name: string, url: string, username: string, password: string) =>
+      addCaldavCalendar(name, url, username, password)
+  )
+  ipcMain.handle(IpcChannels.calendar.syncCalendar, (_e, calendarId: string) =>
+    syncCaldav(calendarId)
+  )
+  ipcMain.handle(IpcChannels.calendar.removeCalendar, (_e, calendarId: string) =>
+    removeCalendar(calendarId)
+  )
 }

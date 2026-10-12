@@ -10,6 +10,7 @@ export const IpcChannels = {
   windowIsMaximized: 'window:is-maximized',
   windowMaximizedChanged: 'window:maximized-changed',
   appSetUnread: 'app:set-unread',
+  appNavigate: 'app:navigate',
   mail: {
     listAccounts: 'mail:list-accounts',
     createAccount: 'mail:create-account',
@@ -108,7 +109,10 @@ export const IpcChannels = {
     importPath: 'calendar:import-path',
     importAttachment: 'calendar:import-attachment',
     pickAndImport: 'calendar:pick-and-import',
-    exportIcs: 'calendar:export-ics'
+    exportIcs: 'calendar:export-ics',
+    addCaldav: 'calendar:add-caldav',
+    syncCalendar: 'calendar:sync-calendar',
+    removeCalendar: 'calendar:remove-calendar'
   },
   ai: {
     getSettings: 'ai:get-settings',

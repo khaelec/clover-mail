@@ -338,5 +338,21 @@ export const migrations: Migration[] = [
         created_at INTEGER NOT NULL
       );
     `
+  },
+  {
+    id: '0014_calendar_sync_and_reminders',
+    sql: `
+      ALTER TABLE calendars ADD COLUMN kind TEXT NOT NULL DEFAULT 'local';
+      ALTER TABLE calendars ADD COLUMN url TEXT;
+      ALTER TABLE calendars ADD COLUMN username TEXT;
+      ALTER TABLE calendars ADD COLUMN secret_ref TEXT;
+      ALTER TABLE calendars ADD COLUMN last_sync_at INTEGER;
+      CREATE TABLE IF NOT EXISTS reminder_log (
+        event_id TEXT NOT NULL,
+        occurrence_start INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (event_id, occurrence_start)
+      );
+    `
   }
 ]

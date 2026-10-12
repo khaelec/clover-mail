@@ -143,6 +143,9 @@ export interface CalendarApi {
   importAttachment: (attachmentId: string) => Promise<ImportResult>
   pickAndImport: () => Promise<ImportResult | null>
   exportIcs: (calendarId?: string) => Promise<{ saved: boolean; path?: string }>
+  addCaldav: (name: string, url: string, username: string, password: string) => Promise<Calendar>
+  syncCalendar: (calendarId: string) => Promise<ImportResult>
+  removeCalendar: (calendarId: string) => Promise<void>
 }
 
 export interface AiApi {
@@ -205,6 +208,7 @@ export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
   setUnread: (count: number) => void
+  onNavigate: (cb: (target: string) => void) => () => void
   apps: AppsApi
   calendar: CalendarApi
   ai: AiApi

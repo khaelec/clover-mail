@@ -8,6 +8,11 @@ const api: CloverApi = {
   getFilePath: (file) =>
     webUtils.getPathForFile(file as Parameters<typeof webUtils.getPathForFile>[0]),
   setUnread: (count) => ipcRenderer.send(IpcChannels.appSetUnread, count),
+  onNavigate: (cb) => {
+    const listener = (_e: unknown, target: string): void => cb(target)
+    ipcRenderer.on(IpcChannels.appNavigate, listener)
+    return () => ipcRenderer.removeListener(IpcChannels.appNavigate, listener)
+  },
   apps: {
     list: () => ipcRenderer.invoke(IpcChannels.apps.list),
     create: (input) => ipcRenderer.invoke(IpcChannels.apps.create, input),
@@ -28,7 +33,13 @@ const api: CloverApi = {
     importAttachment: (attachmentId) =>
       ipcRenderer.invoke(IpcChannels.calendar.importAttachment, attachmentId),
     pickAndImport: () => ipcRenderer.invoke(IpcChannels.calendar.pickAndImport),
-    exportIcs: (calendarId) => ipcRenderer.invoke(IpcChannels.calendar.exportIcs, calendarId)
+    exportIcs: (calendarId) => ipcRenderer.invoke(IpcChannels.calendar.exportIcs, calendarId),
+    addCaldav: (name, url, username, password) =>
+      ipcRenderer.invoke(IpcChannels.calendar.addCaldav, name, url, username, password),
+    syncCalendar: (calendarId) =>
+      ipcRenderer.invoke(IpcChannels.calendar.syncCalendar, calendarId),
+    removeCalendar: (calendarId) =>
+      ipcRenderer.invoke(IpcChannels.calendar.removeCalendar, calendarId)
   },
   ai: {
     getSettings: () => ipcRenderer.invoke(IpcChannels.ai.getSettings),

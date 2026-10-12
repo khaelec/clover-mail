@@ -5,7 +5,8 @@ import { mediaUrl } from '@shared/wallpaper'
 import { useTheme } from '../theme/theme'
 import { useMail } from '../state/mail'
 import { useAi } from '../state/ai'
-import { IconClose, IconDownload, IconFlag, IconForward, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
+import { useCalendar } from '../state/calendar'
+import { IconCalendar, IconClose, IconDownload, IconFlag, IconForward, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
 
 const AI_ACTIONS: { label: string; prompt: string }[] = [
   {
@@ -248,6 +249,16 @@ export function Reader({
     await window.clover.settings.set(SETTINGS_KEYS.trustedSenders, next)
   }
 
+  function addToCalendar(): void {
+    if (!detail) return
+    useCalendar.getState().requestDraft({
+      summary: detail.subject || 'Email',
+      description: (detail.textPlain ?? '').slice(0, 2000),
+      location: ''
+    })
+    window.dispatchEvent(new Event('clover:open-calendar'))
+  }
+
   async function trustSender(): Promise<void> {
     if (!detail || !sender) return
     const next = Array.from(new Set([...trusted, sender]))
@@ -370,6 +381,15 @@ export function Reader({
               </div>
             )}
           </div>
+          <button
+            type="button"
+            onClick={addToCalendar}
+            title="Add to calendar"
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-accent"
+          >
+            <IconCalendar className="h-3.5 w-3.5" />
+            Calendar
+          </button>
           <button
             type="button"
             onClick={onReply}

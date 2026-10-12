@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, Menu, net, protocol, session } from 'electron'
+import { app, shell, BrowserWindow, Menu, net, Notification, protocol, session } from 'electron'
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -13,6 +13,8 @@ import { initUpdater } from '@main/updater'
 import { createTray } from '@main/tray'
 import { clearDueSnoozes } from '@main/mail/snooze'
 import { processDueSends } from '@main/mail/schedules'
+import { dueReminders, markReminded } from '@main/calendar/reminders'
+import { syncAllCaldav } from '@main/calendar/caldav'
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
@@ -230,6 +232,35 @@ app.whenReady().then(async () => {
       }
     })
   }, 30_000)
+
+  // Event reminders shortly before they start.
+  setInterval(() => {
+    try {
+      for (const reminder of dueReminders(Date.now())) {
+        markReminded(reminder.eventId, reminder.startUtc)
+        if (!Notification.isSupported()) continue
+        const when = new Date(reminder.startUtc).toLocaleTimeString([], {
+          hour: 'numeric',
+          minute: '2-digit'
+        })
+        const notification = new Notification({
+          title: reminder.summary,
+          body: `${when}${reminder.location ? ` · ${reminder.location}` : ''}`
+        })
+        notification.on('click', () => {
+          mainWindow?.show()
+          mainWindow?.webContents.send(IpcChannels.appNavigate, 'calendar')
+        })
+        notification.show()
+      }
+    } catch {
+      // calendar may be empty; ignore
+    }
+  }, 30_000)
+
+  // Pull-sync CalDAV calendars on startup and periodically.
+  setTimeout(() => void syncAllCaldav(), 20_000)
+  setInterval(() => void syncAllCaldav(), 15 * 60_000)
 })
 
 app.on('window-all-closed', () => {

@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useCalendar, rangeFor, type CalendarViewMode } from '../state/calendar'
+import { SETTINGS_KEYS } from '@shared/theme'
 import type { Occurrence } from '@shared/calendar'
 import { EventModal, type EventDraft } from './EventModal'
 import { IconCalendar, IconPlus } from './icons'
+
+function nextHour(): number {
+  const d = new Date()
+  d.setMinutes(0, 0, 0)
+  d.setHours(d.getHours() + 1)
+  return d.getTime()
+}
 
 function dayKey(ms: number): string {
   const d = new Date(ms)
@@ -41,13 +49,59 @@ export function CalendarView(): ReactNode {
   const exportIcs = useCalendar((s) => s.exportIcs)
   const setNotice = useCalendar((s) => s.setNotice)
   const moveTo = useCalendar((s) => s.setAnchor)
+  const pendingDraft = useCalendar((s) => s.pendingDraft)
+  const clearPendingDraft = useCalendar((s) => s.clearPendingDraft)
+  const addCaldav = useCalendar((s) => s.addCaldav)
+  const syncCalendar = useCalendar((s) => s.syncCalendar)
+  const removeCalendar = useCalendar((s) => s.removeCalendar)
 
   const [draft, setDraft] = useState<EventDraft | null>(null)
+  const [showCaldav, setShowCaldav] = useState(false)
+  const [calBusy, setCalBusy] = useState(false)
+  const [calForm, setCalForm] = useState({ name: '', url: '', username: '', password: '' })
+  const [reminder, setReminder] = useState(10)
 
   useEffect(() => {
     void load()
+    void window.clover.settings.get(SETTINGS_KEYS.calendarReminderMinutes).then((value) => {
+      if (typeof value === 'number') setReminder(value)
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!pendingDraft) return
+    const start = nextHour()
+    setDraft({
+      calendarId: calendars[0]?.id ?? '',
+      summary: pendingDraft.summary,
+      description: pendingDraft.description ?? '',
+      location: pendingDraft.location ?? '',
+      startUtc: start,
+      endUtc: start + 60 * 60 * 1000,
+      isAllDay: false
+    })
+    clearPendingDraft()
+  }, [pendingDraft, calendars, clearPendingDraft])
+
+  async function submitCaldav(): Promise<void> {
+    if (!calForm.url.trim() || !calForm.username.trim()) {
+      setNotice('Enter the calendar URL and username.')
+      return
+    }
+    setCalBusy(true)
+    try {
+      await addCaldav(calForm.name, calForm.url.trim(), calForm.username.trim(), calForm.password)
+      setCalForm({ name: '', url: '', username: '', password: '' })
+    } catch (error) {
+      setNotice((error as Error).message)
+    } finally {
+      setCalBusy(false)
+    }
+  }
+
+  const field =
+    'w-full rounded-lg border border-line bg-canvas/60 px-2.5 py-1.5 text-[12px] text-ink outline-none focus:border-accent'
 
   const colorFor = useMemo(() => {
     const map = new Map(calendars.map((c) => [c.id, c.color]))
@@ -159,6 +213,32 @@ export function CalendarView(): ReactNode {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <select
+            value={reminder}
+            onChange={(e) => {
+              const value = Number(e.target.value)
+              setReminder(value)
+              void window.clover.settings.set(SETTINGS_KEYS.calendarReminderMinutes, value)
+            }}
+            title="Event reminders"
+            className="rounded-lg border border-line bg-canvas/60 px-2 py-1.5 text-[12px] text-ink"
+          >
+            <option value={0}>No reminders</option>
+            <option value={5}>Remind 5 min before</option>
+            <option value={10}>Remind 10 min before</option>
+            <option value={15}>Remind 15 min before</option>
+            <option value={30}>Remind 30 min before</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowCaldav((v) => !v)}
+            className={
+              'rounded-lg border border-line px-3 py-1.5 text-[12px] ' +
+              (showCaldav ? 'text-accent' : 'text-muted hover:text-accent')
+            }
+          >
+            Calendars
+          </button>
           <button
             type="button"
             onClick={() => void pickAndImport()}
@@ -183,6 +263,86 @@ export function CalendarView(): ReactNode {
           </button>
         </div>
       </header>
+
+      {showCaldav && (
+        <div className="border-b border-line bg-canvas/40 px-4 py-3 text-[12px]">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              placeholder="Name (e.g. Work)"
+              value={calForm.name}
+              onChange={(e) => setCalForm({ ...calForm, name: e.target.value })}
+              className={field}
+            />
+            <input
+              placeholder="Calendar URL (https://…)"
+              value={calForm.url}
+              onChange={(e) => setCalForm({ ...calForm, url: e.target.value })}
+              className={field}
+            />
+            <input
+              placeholder="Username"
+              value={calForm.username}
+              onChange={(e) => setCalForm({ ...calForm, username: e.target.value })}
+              className={field}
+            />
+            <input
+              type="password"
+              placeholder="Password / app password"
+              value={calForm.password}
+              onChange={(e) => setCalForm({ ...calForm, password: e.target.value })}
+              className={field}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={calBusy}
+              onClick={() => void submitCaldav()}
+              className="rounded-lg bg-accent px-3 py-1.5 font-medium text-accent-ink disabled:opacity-50"
+            >
+              {calBusy ? 'Adding…' : 'Add & sync'}
+            </button>
+            <span className="text-muted">
+              Works with iCloud, Fastmail, Nextcloud, Baïkal and other CalDAV servers.
+            </span>
+          </div>
+          {calendars.filter((c) => c.kind === 'caldav').length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              {calendars
+                .filter((c) => c.kind === 'caldav')
+                .map((c) => (
+                  <div key={c.id} className="flex flex-wrap items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
+                    <span className="flex-1 truncate text-ink">{c.name}</span>
+                    <span className="text-muted">
+                      {c.lastSyncAt
+                        ? `synced ${new Date(c.lastSyncAt).toLocaleTimeString()}`
+                        : 'never synced'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void syncCalendar(c.id)}
+                      className="rounded-md border border-line px-2 py-1 text-muted hover:text-accent"
+                    >
+                      Sync
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Remove "${c.name}" and its synced events?`)) {
+                          void removeCalendar(c.id)
+                        }
+                      }}
+                      className="rounded-md border border-line px-2 py-1 text-muted hover:text-rose-500"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {notice && (
         <div className="flex items-center justify-between border-b border-line bg-accent/8 px-4 py-1.5 text-[12px] text-accent">

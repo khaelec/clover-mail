@@ -276,6 +276,17 @@ export const calendars = sqliteTable('calendars', {
   name: text('name').notNull(),
   color: text('color').notNull(),
   isVisible: integer('is_visible', { mode: 'boolean' }).notNull().default(true),
+  kind: text('kind').notNull().default('local'),
+  url: text('url'),
+  username: text('username'),
+  secretRef: text('secret_ref'),
+  lastSyncAt: integer('last_sync_at'),
+  createdAt: integer('created_at').notNull()
+})
+
+export const reminderLog = sqliteTable('reminder_log', {
+  eventId: text('event_id').notNull(),
+  occurrenceStart: integer('occurrence_start').notNull(),
   createdAt: integer('created_at').notNull()
 })
 
@@ -346,5 +357,6 @@ export const schema = {
   customWebApps,
   calendars,
   calendarEvents,
-  calendarEventAttendees
+  calendarEventAttendees,
+  reminderLog
 }

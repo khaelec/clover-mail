@@ -7,6 +7,7 @@ import { dialog } from 'electron'
 import { getDb } from '../db'
 import { attachments, calendarEventAttendees, calendarEvents, calendars } from '../db/schema'
 import { attachmentAbsolutePath } from '../mail/storage'
+import { deleteSecret } from '../settings/secrets'
 import type {
   AttendeeLite,
   Calendar,
@@ -30,14 +31,33 @@ export function ensureDefaultCalendar(): Calendar {
   return toCalendar(db.select().from(calendars).where(eq(calendars.id, id)).get()!)
 }
 
-function toCalendar(row: typeof calendars.$inferSelect): Calendar {
+export function toCalendar(row: typeof calendars.$inferSelect): Calendar {
   return {
     id: row.id,
     accountId: row.accountId,
     name: row.name,
     color: row.color,
-    isVisible: row.isVisible
+    isVisible: row.isVisible,
+    kind: row.kind === 'caldav' ? 'caldav' : 'local',
+    url: row.url,
+    lastSyncAt: row.lastSyncAt
   }
+}
+
+export function touchCalendarSync(id: string): void {
+  getDb().update(calendars).set({ lastSyncAt: Date.now() }).where(eq(calendars.id, id)).run()
+}
+
+export function removeCalendar(id: string): void {
+  const db = getDb()
+  const row = db.select().from(calendars).where(eq(calendars.id, id)).get()
+  const rows = db.select().from(calendarEvents).where(eq(calendarEvents.calendarId, id)).all()
+  for (const event of rows) {
+    db.delete(calendarEventAttendees).where(eq(calendarEventAttendees.eventId, event.id)).run()
+  }
+  db.delete(calendarEvents).where(eq(calendarEvents.calendarId, id)).run()
+  db.delete(calendars).where(eq(calendars.id, id)).run()
+  if (row?.secretRef) deleteSecret(row.secretRef)
 }
 
 export function listCalendars(): Calendar[] {

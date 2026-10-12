@@ -4,6 +4,9 @@ export interface Calendar {
   name: string
   color: string
   isVisible: boolean
+  kind: 'local' | 'caldav'
+  url: string | null
+  lastSyncAt: number | null
 }
 
 export interface AttendeeLite {

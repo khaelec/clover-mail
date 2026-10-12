@@ -9,6 +9,7 @@ interface CalendarState {
   view: CalendarViewMode
   anchor: number
   notice: string | null
+  pendingDraft: { summary: string; description?: string; location?: string } | null
   load: () => Promise<void>
   refresh: () => Promise<void>
   setView: (view: CalendarViewMode) => void
@@ -22,6 +23,11 @@ interface CalendarState {
   pickAndImport: () => Promise<void>
   exportIcs: () => Promise<void>
   setNotice: (notice: string | null) => void
+  requestDraft: (draft: { summary: string; description?: string; location?: string }) => void
+  clearPendingDraft: () => void
+  addCaldav: (name: string, url: string, username: string, password: string) => Promise<void>
+  syncCalendar: (id: string) => Promise<void>
+  removeCalendar: (id: string) => Promise<void>
 }
 
 export function rangeFor(view: CalendarViewMode, anchor: number): { start: number; end: number } {
@@ -55,6 +61,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
   view: 'month',
   anchor: Date.now(),
   notice: null,
+  pendingDraft: null,
 
   load: async () => {
     const calendars = await window.clover.calendar.listCalendars()
@@ -128,5 +135,36 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     if (result.saved) set({ notice: `Exported to ${result.path}` })
   },
 
-  setNotice: (notice) => set({ notice })
+  setNotice: (notice) => set({ notice }),
+
+  requestDraft: (draft) => set({ pendingDraft: draft }),
+
+  clearPendingDraft: () => set({ pendingDraft: null }),
+
+  addCaldav: async (name, url, username, password) => {
+    const calendar = await window.clover.calendar.addCaldav(name, url, username, password)
+    await get().load()
+    try {
+      const result = await window.clover.calendar.syncCalendar(calendar.id)
+      set({ notice: `Added ${calendar.name}: ${result.imported} events imported.` })
+      await get().load()
+    } catch (error) {
+      set({ notice: `Added ${calendar.name}, but sync failed: ${(error as Error).message}` })
+    }
+  },
+
+  syncCalendar: async (id) => {
+    try {
+      const result = await window.clover.calendar.syncCalendar(id)
+      set({ notice: `Synced: ${result.imported} new, ${result.updated} updated.` })
+    } catch (error) {
+      set({ notice: (error as Error).message })
+    }
+    await get().load()
+  },
+
+  removeCalendar: async (id) => {
+    await window.clover.calendar.removeCalendar(id)
+    await get().load()
+  }
 }))

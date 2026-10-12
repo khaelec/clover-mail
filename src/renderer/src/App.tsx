@@ -62,6 +62,20 @@ export function App(): ReactNode {
     return () => window.removeEventListener('clover:open-copilot', handler)
   }, [])
 
+  useEffect(() => {
+    const handler = (): void => setSection('calendar')
+    window.addEventListener('clover:open-calendar', handler)
+    return () => window.removeEventListener('clover:open-calendar', handler)
+  }, [])
+
+  useEffect(() => {
+    return window.clover.onNavigate((target) => {
+      if (target === 'calendar' || target === 'mail' || target === 'copilot' || target === 'apps') {
+        setSection(target)
+      }
+    })
+  }, [])
+
   return (
     <div className="flex h-full flex-col bg-canvas text-ink">
       <TitleBar />

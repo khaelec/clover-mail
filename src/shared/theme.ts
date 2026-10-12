@@ -20,5 +20,6 @@ export const SETTINGS_KEYS = {
   themeCustomAccent: 'theme.customAccent',
   blockRemoteImages: 'privacy.blockRemoteImages',
   trustedSenders: 'privacy.trustedSenders',
-  threadedView: 'mail.threaded'
+  threadedView: 'mail.threaded',
+  calendarReminderMinutes: 'calendar.reminderMinutes'
 } as const
