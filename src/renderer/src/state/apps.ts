@@ -1,23 +1,28 @@
 import { create } from 'zustand'
 import type { CreateAppInput, CustomApp } from '@shared/apps'
 
+interface AppHostSlot {
+  appId: string | null
+  rect: { left: number; top: number; width: number; height: number }
+}
+
 interface AppsState {
   apps: CustomApp[]
   activeAppId: string | null
-  displayedAppId: string | null
+  host: AppHostSlot | null
   loading: boolean
   creating: boolean
   load: () => Promise<void>
   add: (input: CreateAppInput) => Promise<CustomApp>
   remove: (id: string) => Promise<void>
   select: (id: string | null) => void
-  setDisplayed: (id: string | null) => void
+  setHost: (host: AppHostSlot | null) => void
 }
 
 export const useApps = create<AppsState>((set, get) => ({
   apps: [],
   activeAppId: null,
-  displayedAppId: null,
+  host: null,
   loading: false,
   creating: false,
 
@@ -51,5 +56,5 @@ export const useApps = create<AppsState>((set, get) => ({
   },
 
   select: (id) => set({ activeAppId: id }),
-  setDisplayed: (id) => set({ displayedAppId: id })
+  setHost: (host) => set({ host })
 }))

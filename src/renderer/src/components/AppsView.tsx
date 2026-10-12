@@ -29,11 +29,10 @@ export function AppsView(): ReactNode {
   const add = useApps((s) => s.add)
   const remove = useApps((s) => s.remove)
   const select = useApps((s) => s.select)
-  const setDisplayed = useApps((s) => s.setDisplayed)
-
+  const setHost = useApps((s) => s.setHost)
   const [url, setUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const hostRef = useRef<HTMLDivElement>(null)
+  const slotRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     void load()
@@ -42,26 +41,25 @@ export function AppsView(): ReactNode {
   const activeApp = apps.find((a) => a.id === activeAppId) ?? null
 
   useEffect(() => {
-    const host = hostRef.current
-    if (!host || !activeApp) return
-    host.innerHTML = ''
-    const webview = document.createElement('webview')
-    webview.setAttribute('partition', `persist:app-${activeApp.id}`)
-    webview.setAttribute('src', activeApp.url)
-    webview.setAttribute('allowpopups', 'true')
-    webview.setAttribute('webpreferences', 'backgroundThrottling=false')
-    webview.style.position = 'absolute'
-    webview.style.inset = '0'
-    webview.style.width = '100%'
-    webview.style.height = '100%'
-    webview.style.display = 'flex'
-    host.appendChild(webview)
-    setDisplayed(activeApp.id)
-    return () => {
-      host.innerHTML = ''
-      setDisplayed(null)
+    const el = slotRef.current
+    if (!el) return
+    const update = (): void => {
+      const rect = el.getBoundingClientRect()
+      setHost({
+        appId: activeApp?.id ?? null,
+        rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+      })
     }
-  }, [activeApp?.id, activeApp?.url, setDisplayed])
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    window.addEventListener('resize', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+      setHost(null)
+    }
+  }, [activeApp?.id, setHost])
 
   async function submit(): Promise<void> {
     if (!url.trim()) return
@@ -145,7 +143,7 @@ export function AppsView(): ReactNode {
 
       <section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-canvas">
         {activeApp ? (
-          <div ref={hostRef} className="relative min-h-0 min-w-0 flex-1" />
+          <div ref={slotRef} className="relative min-h-0 min-w-0 flex-1" />
         ) : (
           <div className="flex h-full items-center justify-center p-8">
             <div className="max-w-sm rounded-3xl border border-line bg-surface/70 p-8 text-center backdrop-blur-xl">

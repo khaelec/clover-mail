@@ -166,10 +166,10 @@ function AppDock(): ReactNode {
   const layout = useLayout((s) => s.settings)
   const setLayout = useLayout((s) => s.set)
   const saveLayout = useLayout((s) => s.save)
-  const hostRef = useRef<HTMLDivElement>(null)
   const isCopilot = layout.dockKind === 'copilot'
   const app = isCopilot ? null : (apps.find((a) => a.id === layout.dockAppId) ?? null)
-  const setDisplayed = useApps((s) => s.setDisplayed)
+  const setHost = useApps((s) => s.setHost)
+  const slotRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     void load()
@@ -180,28 +180,25 @@ function AppDock(): ReactNode {
   }, [apps, layout.dockAppId, isCopilot, setLayout])
 
   useEffect(() => {
-    const host = hostRef.current
-    if (!host || isCopilot) return
-    host.innerHTML = ''
-    if (app) {
-      const webview = document.createElement('webview')
-      webview.setAttribute('partition', `persist:app-${app.id}`)
-      webview.setAttribute('src', app.url)
-      webview.setAttribute('allowpopups', 'true')
-      webview.setAttribute('webpreferences', 'backgroundThrottling=false')
-      webview.style.position = 'absolute'
-      webview.style.inset = '0'
-      webview.style.width = '100%'
-      webview.style.height = '100%'
-      webview.style.display = 'flex'
-      host.appendChild(webview)
-      setDisplayed(app.id)
+    const el = slotRef.current
+    if (!el || isCopilot) return
+    const update = (): void => {
+      const rect = el.getBoundingClientRect()
+      setHost({
+        appId: app?.id ?? null,
+        rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+      })
     }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    window.addEventListener('resize', update)
     return () => {
-      host.innerHTML = ''
-      setDisplayed(null)
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+      setHost(null)
     }
-  }, [app, app?.id, app?.url, isCopilot, setDisplayed])
+  }, [app?.id, isCopilot, setHost])
 
   return (
     <>
@@ -250,7 +247,7 @@ function AppDock(): ReactNode {
             <CopilotView embedded />
           </div>
         ) : (
-          <div ref={hostRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden" />
+          <div ref={slotRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden" />
         )}
       </section>
     </>
