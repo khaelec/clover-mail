@@ -104,6 +104,12 @@ export const IpcChannels = {
     pickFolder: 'wallpaper:pick-folder',
     listFolder: 'wallpaper:list-folder',
     detectEngine: 'wallpaper:detect-engine'
+  },
+  update: {
+    check: 'update:check',
+    download: 'update:download',
+    install: 'update:install',
+    event: 'update:event'
   }
 } as const
 

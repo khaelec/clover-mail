@@ -142,6 +142,27 @@ export interface WallpaperApi {
   detectEngine: () => Promise<import('./wallpaper').WeDetection>
 }
 
+export interface UpdateEvent {
+  type:
+    | 'checking'
+    | 'available'
+    | 'none'
+    | 'progress'
+    | 'downloaded'
+    | 'error'
+    | 'unavailable-dev'
+  version?: string
+  percent?: number
+  error?: string
+}
+
+export interface UpdateApi {
+  check: () => Promise<void>
+  download: () => Promise<void>
+  install: () => void
+  onEvent: (cb: (event: UpdateEvent) => void) => () => void
+}
+
 export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
@@ -149,6 +170,7 @@ export interface CloverApi {
   calendar: CalendarApi
   ai: AiApi
   wallpaper: WallpaperApi
+  update: UpdateApi
   settings: {
     getAll: () => Promise<SettingsRecord>
     get: (key: string) => Promise<unknown>

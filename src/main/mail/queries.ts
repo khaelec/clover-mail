@@ -68,21 +68,55 @@ function normalizeSubject(subject: string | null): string {
 }
 
 function buildThreads(rows: (typeof messages.$inferSelect)[]): ThreadSummary[] {
-  const groups = new Map<string, typeof rows>()
+  const parent = new Map<string, string>()
+  const find = (x: string): string => {
+    let root = parent.get(x) ?? x
+    if (root !== x) {
+      root = find(root)
+      parent.set(x, root)
+    }
+    return root
+  }
+  const union = (a: string, b: string): void => {
+    const ra = find(a)
+    const rb = find(b)
+    if (ra !== rb) parent.set(ra, rb)
+  }
+
+  for (const row of rows) parent.set(row.id, row.id)
+
+  // Link by the References/In-Reply-To chain (threadId), then by normalized subject.
+  const byThread = new Map<string, string>()
   for (const row of rows) {
-    const key = normalizeSubject(row.subject) || row.threadId || row.id
-    const list = groups.get(key) ?? []
+    const key = row.threadId ?? row.id
+    const first = byThread.get(key)
+    if (first) union(row.id, first)
+    else byThread.set(key, row.id)
+  }
+  const bySubject = new Map<string, string>()
+  for (const row of rows) {
+    const key = normalizeSubject(row.subject)
+    if (!key) continue
+    const first = bySubject.get(key)
+    if (first) union(row.id, first)
+    else bySubject.set(key, row.id)
+  }
+
+  const groups = new Map<string, (typeof rows)>()
+  for (const row of rows) {
+    const root = find(row.id)
+    const list = groups.get(root) ?? []
     list.push(row)
-    groups.set(key, list)
+    groups.set(root, list)
   }
 
   const threads: ThreadSummary[] = []
-  for (const [key, list] of groups) {
+  for (const [root, list] of groups) {
     const ordered = [...list].sort((a, b) => (a.dateUtc ?? 0) - (b.dateUtc ?? 0))
     const first = ordered[0]
     const last = ordered[ordered.length - 1]
     threads.push({
-      threadId: key,
+      threadId: root,
       subject: first.subject,
       fromName: last.fromName,
       fromEmail: last.fromEmail,
@@ -98,16 +132,23 @@ function buildThreads(rows: (typeof messages.$inferSelect)[]): ThreadSummary[] {
   return threads.sort((a, b) => (b.lastDate ?? 0) - (a.lastDate ?? 0))
 }
 
-/** Group a folder's messages into threads for conversation view. */
-export function listThreads(folderId: string, limit = 400): ThreadSummary[] {
-  const rows = getDb()
+/**
+ * Conversation view for a folder. Threads span the whole account (so a reply
+ * filed in another folder/label still shows), but a thread is only listed when
+ * at least one of its messages is in the requested folder.
+ */
+export function listThreads(folderId: string, limit = 1500): ThreadSummary[] {
+  const db = getDb()
+  const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
+  if (!folderRow) return []
+  const rows = db
     .select()
     .from(messages)
-    .where(and(eq(messages.folderId, folderId), ne(messages.isSpam, true)))
+    .where(and(eq(messages.accountId, folderRow.accountId), ne(messages.isSpam, true)))
     .orderBy(desc(messages.dateUtc))
     .limit(limit)
     .all()
-  return buildThreads(rows)
+  return buildThreads(rows).filter((t) => t.messages.some((m) => m.folderId === folderId))
 }
 
 /** Threads across every account (Unified Inbox). */

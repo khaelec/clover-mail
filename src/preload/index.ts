@@ -53,6 +53,17 @@ const api: CloverApi = {
     listFolder: (path) => ipcRenderer.invoke(IpcChannels.wallpaper.listFolder, path),
     detectEngine: () => ipcRenderer.invoke(IpcChannels.wallpaper.detectEngine)
   },
+  update: {
+    check: () => ipcRenderer.invoke(IpcChannels.update.check),
+    download: () => ipcRenderer.invoke(IpcChannels.update.download),
+    install: () => ipcRenderer.send(IpcChannels.update.install),
+    onEvent: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
+        cb(event as Parameters<typeof cb>[0])
+      ipcRenderer.on(IpcChannels.update.event, listener)
+      return () => ipcRenderer.removeListener(IpcChannels.update.event, listener)
+    }
+  },
   settings: {
     getAll: () => ipcRenderer.invoke(IpcChannels.settingsGetAll),
     get: (key: string) => ipcRenderer.invoke(IpcChannels.settingsGet, key),

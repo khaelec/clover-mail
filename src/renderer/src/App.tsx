@@ -7,11 +7,13 @@ import { CalendarView } from './components/CalendarView'
 import { CopilotView } from './components/CopilotView'
 import { WallpaperView } from './components/WallpaperView'
 import { WallpaperLayer } from './components/WallpaperLayer'
+import { UpdateBanner } from './components/UpdateBanner'
 import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
 import { IconCalendar, IconGrid, IconSparkles, IconWallpaper } from './components/icons'
 import { useMail } from './state/mail'
 import { useWallpaper } from './state/wallpaper'
+import { useUpdate } from './state/update'
 
 /**
  * Placeholder background layer. In Phase 3 this becomes the real live-wallpaper
@@ -51,6 +53,7 @@ export function App(): ReactNode {
   useEffect(() => {
     void useMail.getState().init()
     void useWallpaper.getState().load()
+    useUpdate.getState().init()
   }, [])
 
   useEffect(() => {
@@ -70,6 +73,7 @@ export function App(): ReactNode {
           <div className="relative h-full">{renderSection(section)}</div>
         </main>
       </div>
+      <UpdateBanner />
     </div>
   )
 }

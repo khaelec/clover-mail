@@ -10,6 +10,7 @@ import type { AppInfo } from '@shared/ipc'
 import type { AccountAlias, AccountSummary } from '@shared/mail'
 import type { AiSettings, AiStatus, McpSettings } from '@shared/ai'
 import { useTheme } from '../theme/theme'
+import { useUpdate } from '../state/update'
 import { IconCheck, IconMonitor, IconMoon, IconSignature, IconSun } from './icons'
 
 const MODE_META: Record<ThemeMode, { label: string; icon: (p: { className?: string }) => ReactNode }> = {
@@ -98,6 +99,25 @@ export function SettingsView(): ReactNode {
   const [msClientId, setMsClientId] = useState('')
   const [msSecret, setMsSecret] = useState('')
   const [msMsg, setMsMsg] = useState<string | null>(null)
+  const updateStatus = useUpdate((s) => s.status)
+  const updateVersion = useUpdate((s) => s.version)
+  const updatePercent = useUpdate((s) => s.percent)
+  const updateError = useUpdate((s) => s.error)
+  const checkUpdates = useUpdate((s) => s.check)
+  const updateText =
+    updateStatus === 'checking'
+      ? 'Checking…'
+      : updateStatus === 'available'
+        ? `v${updateVersion} available`
+        : updateStatus === 'downloading'
+          ? `Downloading ${updatePercent ?? 0}%`
+          : updateStatus === 'ready'
+            ? 'Ready to install — see the banner'
+            : updateStatus === 'none'
+              ? 'Up to date'
+              : updateStatus === 'error'
+                ? (updateError ?? 'Could not check')
+                : ''
 
   useEffect(() => {
     void window.clover.appInfo().then(setInfo)
@@ -617,6 +637,16 @@ export function SettingsView(): ReactNode {
               <dt className="text-muted">Data folder</dt>
               <dd className="break-all text-ink">{info?.userDataPath ?? '—'}</dd>
             </dl>
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void checkUpdates()}
+                className="rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-ink"
+              >
+                Check for updates
+              </button>
+              {updateText && <span className="text-[12px] text-muted">{updateText}</span>}
+            </div>
           </Card>
         </div>
       </div>
