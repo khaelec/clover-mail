@@ -16,5 +16,7 @@ export const DEFAULT_THEME: ThemeSettings = {
 
 export const SETTINGS_KEYS = {
   themeMode: 'theme.mode',
-  themeAccent: 'theme.accent'
+  themeAccent: 'theme.accent',
+  blockRemoteImages: 'privacy.blockRemoteImages',
+  trustedSenders: 'privacy.trustedSenders'
 } as const

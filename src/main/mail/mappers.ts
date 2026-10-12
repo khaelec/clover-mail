@@ -14,7 +14,9 @@ export function toMessageSummary(row: typeof messages.$inferSelect): MessageSumm
     snippet: row.snippet,
     isRead: row.isRead,
     isFlagged: row.isFlagged,
-    hasAttachments: row.hasAttachments
+    hasAttachments: row.hasAttachments,
+    spamScore: row.spamScore,
+    isSpam: row.isSpam
   }
 }
 
@@ -24,6 +26,7 @@ export function toAttachmentSummary(row: typeof attachments.$inferSelect): Attac
     filename: row.filename,
     mimeType: row.mimeType,
     size: row.size,
-    isInline: row.isInline
+    isInline: row.isInline,
+    available: row.contentPath !== null
   }
 }

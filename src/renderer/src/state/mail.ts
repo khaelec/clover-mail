@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { JUNK_FOLDER_ID } from '@shared/mail'
 import type {
   AccountSummary,
   ComposeInput,
@@ -22,6 +23,7 @@ interface MailState {
   syncing: boolean
   status: string | null
   error: string | null
+  spamCount: number
 
   init: () => Promise<void>
   refreshAccounts: () => Promise<void>
@@ -38,6 +40,10 @@ interface MailState {
   send: (input: ComposeInput) => Promise<void>
   createAccount: (input: CreateAccountInput) => Promise<AccountSummary>
   deleteAccount: (id: string) => Promise<void>
+  markSpam: (messageId: string) => Promise<void>
+  markNotSpam: (messageId: string) => Promise<void>
+  blockSender: (email: string) => Promise<void>
+  allowSender: (email: string) => Promise<void>
 }
 
 function patchMessage(list: MessageSummary[], id: string, patch: Partial<MessageSummary>): MessageSummary[] {
@@ -47,17 +53,24 @@ function patchMessage(list: MessageSummary[], id: string, patch: Partial<Message
 export const useMail = create<MailState>((set, get) => {
   async function reloadFolder(): Promise<void> {
     const folderId = get().activeFolderId
-    if (!folderId) return
+    const accountId = get().activeAccountId
+    if (!folderId || !accountId) return
     set({ loadingMessages: true })
-    const messages = await window.clover.mail.listMessages(folderId)
+    const messages =
+      folderId === JUNK_FOLDER_ID
+        ? await window.clover.mail.listJunk(accountId)
+        : await window.clover.mail.listMessages(folderId)
     set({ messages, loadingMessages: false })
   }
 
   async function reloadFolders(): Promise<void> {
     const accountId = get().activeAccountId
     if (!accountId) return
-    const folders = await window.clover.mail.listFolders(accountId)
-    set({ folders })
+    const [folders, spamCount] = await Promise.all([
+      window.clover.mail.listFolders(accountId),
+      window.clover.mail.spamCount(accountId)
+    ])
+    set({ folders, spamCount })
   }
 
   return {
@@ -74,6 +87,7 @@ export const useMail = create<MailState>((set, get) => {
     syncing: false,
     status: null,
     error: null,
+    spamCount: 0,
 
     init: async () => {
       window.clover.mail.onEvent((event) => {
@@ -205,6 +219,36 @@ export const useMail = create<MailState>((set, get) => {
       await get().refreshAccounts()
       await get().selectAccount(account.id)
       return account
+    },
+
+    markSpam: async (messageId) => {
+      await window.clover.mail.markSpam(messageId)
+      await reloadFolders()
+      await reloadFolder()
+      if (get().detail?.id === messageId) set({ detail: null, selectedMessageId: null })
+    },
+
+    markNotSpam: async (messageId) => {
+      await window.clover.mail.markNotSpam(messageId)
+      await reloadFolders()
+      await reloadFolder()
+      if (get().detail?.id === messageId) set({ detail: null, selectedMessageId: null })
+    },
+
+    blockSender: async (email) => {
+      const accountId = get().activeAccountId
+      if (!accountId || !email) return
+      await window.clover.mail.blockSender(accountId, email)
+      await reloadFolders()
+      await reloadFolder()
+    },
+
+    allowSender: async (email) => {
+      const accountId = get().activeAccountId
+      if (!accountId || !email) return
+      await window.clover.mail.allowSender(accountId, email)
+      await reloadFolders()
+      await reloadFolder()
     },
 
     deleteAccount: async (id) => {

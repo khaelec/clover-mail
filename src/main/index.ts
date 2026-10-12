@@ -4,6 +4,7 @@ import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IpcChannels } from '@shared/channels'
 import { initDatabase, closeDatabase } from '@main/db'
 import { registerIpc } from '@main/ipc'
+import { setStorageRoot } from '@main/mail/storage'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -56,6 +57,7 @@ app.whenReady().then(() => {
   })
 
   initDatabase(app.getPath('userData'))
+  setStorageRoot(app.getPath('userData'))
   registerIpc(() => mainWindow)
   createWindow()
 

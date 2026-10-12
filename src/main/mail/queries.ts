@@ -1,7 +1,8 @@
-import { asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, ne } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { toMessageSummary } from './mappers'
+import { countSpam, listSpam } from './spam'
 import type { FolderSummary, MessageSummary } from '@shared/mail'
 
 export function listFolders(accountId: string): FolderSummary[] {
@@ -23,16 +24,25 @@ export function listFolders(accountId: string): FolderSummary[] {
     }))
 }
 
+/** Regular folder listing — spam is routed to the synthetic Junk folder instead. */
 export function listMessages(folderId: string, limit = 150, offset = 0): MessageSummary[] {
   return getDb()
     .select()
     .from(messages)
-    .where(eq(messages.folderId, folderId))
+    .where(and(eq(messages.folderId, folderId), ne(messages.isSpam, true)))
     .orderBy(desc(messages.dateUtc), desc(messages.uid))
     .limit(limit)
     .offset(offset)
     .all()
     .map(toMessageSummary)
+}
+
+export function listJunk(accountId: string): MessageSummary[] {
+  return listSpam(accountId).map(toMessageSummary)
+}
+
+export function spamCount(accountId: string): number {
+  return countSpam(accountId)
 }
 
 export function folderById(folderId: string): typeof folders.$inferSelect | undefined {

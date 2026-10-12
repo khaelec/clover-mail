@@ -128,5 +128,35 @@ export const migrations: Migration[] = [
         tokenize = 'unicode61'
       );
     `
+  },
+  {
+    id: '0002_message_richness',
+    sql: `
+      ALTER TABLE attachments ADD COLUMN content_path TEXT;
+    `
+  },
+  {
+    id: '0003_spam',
+    sql: `
+      ALTER TABLE messages ADD COLUMN is_spam INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE messages ADD COLUMN spam_score INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE messages ADD COLUMN spam_reasons TEXT;
+
+      CREATE TABLE IF NOT EXISTS spam_senders (
+        id TEXT PRIMARY KEY NOT NULL,
+        account_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_spam_senders_account_email
+        ON spam_senders(account_id, email);
+
+      CREATE TABLE IF NOT EXISTS spam_tokens (
+        token TEXT PRIMARY KEY NOT NULL,
+        spam_count INTEGER NOT NULL DEFAULT 0,
+        ham_count INTEGER NOT NULL DEFAULT 0
+      );
+    `
   }
 ]

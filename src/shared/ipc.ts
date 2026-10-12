@@ -36,17 +36,25 @@ export interface MailApi {
   syncFolder: (folderId: string) => Promise<SyncResult>
   listFolders: (accountId: string) => Promise<FolderSummary[]>
   listMessages: (folderId: string, limit?: number, offset?: number) => Promise<MessageSummary[]>
+  listJunk: (accountId: string) => Promise<MessageSummary[]>
+  spamCount: (accountId: string) => Promise<number>
+  markSpam: (messageId: string) => Promise<void>
+  markNotSpam: (messageId: string) => Promise<void>
+  blockSender: (accountId: string, email: string) => Promise<void>
+  allowSender: (accountId: string, email: string) => Promise<void>
   getMessage: (messageId: string) => Promise<MessageDetail | null>
   setFlags: (messageId: string, flags: { seen?: boolean; flagged?: boolean }) => Promise<void>
   moveMessage: (messageId: string, targetFolderId: string) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
   sendMessage: (input: ComposeInput) => Promise<void>
+  downloadAttachment: (attachmentId: string) => Promise<{ saved: boolean; path?: string }>
   search: (query: string, accountId?: string) => Promise<MessageSummary[]>
   onEvent: (cb: (event: MailEvent) => void) => () => void
 }
 
 export interface CloverApi {
   appInfo: () => Promise<AppInfo>
+  getFilePath: (file: unknown) => string
   settings: {
     getAll: () => Promise<SettingsRecord>
     get: (key: string) => Promise<unknown>

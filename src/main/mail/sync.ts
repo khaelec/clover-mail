@@ -6,6 +6,7 @@ import { folders, messages } from '../db/schema'
 import { getAccountById, getAccountPassword } from './accounts'
 import { buildImapClient } from './imap'
 import { indexMessage } from './search'
+import { applyAssessment } from './spam'
 import type { MailEvent, SyncResult } from '@shared/mail'
 
 const INITIAL_FETCH = 60
@@ -166,6 +167,7 @@ function upsertMessage(accountId: string, folderId: string, msg: FetchMessageObj
     .run()
 
   indexMessage(id)
+  applyAssessment(id)
 }
 
 async function syncOneMailbox(

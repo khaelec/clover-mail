@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMail } from '../state/mail'
+import { JUNK_FOLDER_ID } from '@shared/mail'
 import type { FolderSummary, MessageSummary } from '@shared/mail'
 import { Reader } from './Reader'
 import { Compose } from './Compose'
@@ -12,7 +13,8 @@ import {
   IconRefresh,
   IconSearch,
   IconStar,
-  IconTrash
+  IconTrash,
+  IconShield
 } from './icons'
 
 function formatListDate(value: number | null): string {
@@ -71,6 +73,7 @@ export function MailView(): ReactNode {
   const syncing = useMail((s) => s.syncing)
   const status = useMail((s) => s.status)
   const error = useMail((s) => s.error)
+  const spamCount = useMail((s) => s.spamCount)
 
   const selectAccount = useMail((s) => s.selectAccount)
   const selectFolder = useMail((s) => s.selectFolder)
@@ -186,6 +189,27 @@ export function MailView(): ReactNode {
               </button>
             )
           })}
+
+          <button
+            type="button"
+            onClick={() => void selectFolder(JUNK_FOLDER_ID)}
+            className={
+              'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
+              (activeFolderId === JUNK_FOLDER_ID
+                ? 'bg-accent/12 font-medium text-accent'
+                : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
+            }
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <IconShield className="h-4 w-4" />
+              <span className="truncate">Junk</span>
+            </span>
+            {spamCount > 0 && (
+              <span className={'shrink-0 text-[11px] ' + (activeFolderId === JUNK_FOLDER_ID ? 'text-accent' : 'text-muted')}>
+                {spamCount}
+              </span>
+            )}
+          </button>
         </div>
 
         <button

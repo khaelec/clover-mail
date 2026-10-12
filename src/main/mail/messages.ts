@@ -1,19 +1,39 @@
 import { simpleParser } from 'mailparser'
 import { randomUUID } from 'node:crypto'
+import { copyFileSync } from 'node:fs'
+import { dialog } from 'electron'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { attachments, folders, messageBodies, messages } from '../db/schema'
 import { getAccountById, getAccountPassword } from './accounts'
 import { buildImapClient } from './imap'
 import { indexMessage, removeFromIndex } from './search'
+import { applyAssessment } from './spam'
+import { attachmentAbsolutePath, readAttachmentDataUrl, saveAttachment } from './storage'
 import { toAttachmentSummary, toMessageSummary } from './mappers'
-import type { MessageDetail } from '@shared/mail'
+import type { InlineImage, MessageDetail } from '@shared/mail'
 
 function parseAddresses(json: string | null): string[] {
   if (!json) return []
   try {
     const parsed = JSON.parse(json) as { name: string | null; address: string | null }[]
-    return parsed.map((a) => (a.name ? `${a.name} <${a.address ?? ''}>` : a.address ?? '')).filter(Boolean)
+    return parsed
+      .map((a) => (a.name ? `${a.name} <${a.address ?? ''}>` : a.address ?? ''))
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+function normalizeContentId(cid: string): string {
+  return cid.replace(/^<|>$/g, '').trim()
+}
+
+function parseReasons(json: string | null): string[] {
+  if (!json) return []
+  try {
+    const parsed = JSON.parse(json)
+    return Array.isArray(parsed) ? (parsed as string[]) : []
   } catch {
     return []
   }
@@ -23,7 +43,8 @@ function toDetail(
   row: typeof messages.$inferSelect,
   textPlain: string | null,
   htmlRaw: string | null,
-  attachmentRows: (typeof attachments.$inferSelect)[]
+  attachmentRows: (typeof attachments.$inferSelect)[],
+  inlineImages: InlineImage[]
 ): MessageDetail {
   return {
     ...toMessageSummary(row),
@@ -35,7 +56,9 @@ function toDetail(
     bcc: parseAddresses(row.bccJson),
     textPlain,
     htmlRaw,
-    attachments: attachmentRows.map(toAttachmentSummary)
+    attachments: attachmentRows.map(toAttachmentSummary),
+    inlineImages,
+    spamReasons: parseReasons(row.spamReasons)
   }
 }
 
@@ -60,8 +83,7 @@ async function fetchAndStoreBody(messageId: string): Promise<void> {
     const parsed = await simpleParser(fetched.source)
     const textPlain = typeof parsed.text === 'string' ? parsed.text : null
     const htmlRaw = typeof parsed.html === 'string' ? parsed.html : null
-    const snippet =
-      (textPlain ?? '').replace(/\s+/g, ' ').trim().slice(0, 240) || null
+    const snippet = (textPlain ?? '').replace(/\s+/g, ' ').trim().slice(0, 240) || null
     const hasAttachments = parsed.attachments.length > 0
 
     db.insert(messageBodies)
@@ -74,15 +96,25 @@ async function fetchAndStoreBody(messageId: string): Promise<void> {
 
     db.delete(attachments).where(eq(attachments.messageId, messageId)).run()
     for (const att of parsed.attachments) {
+      const id = randomUUID()
+      let contentPath: string | null = null
+      if (att.content && Buffer.isBuffer(att.content)) {
+        try {
+          contentPath = saveAttachment(messageId, id, att.filename ?? null, att.content)
+        } catch {
+          contentPath = null
+        }
+      }
       db.insert(attachments)
         .values({
-          id: randomUUID(),
+          id,
           messageId,
           filename: att.filename ?? null,
           mimeType: att.contentType ?? null,
           size: typeof att.size === 'number' ? att.size : null,
-          contentId: att.cid ?? null,
-          isInline: att.contentDisposition === 'inline' || Boolean(att.cid)
+          contentId: att.cid ? normalizeContentId(att.cid) : null,
+          isInline: att.contentDisposition === 'inline' || Boolean(att.cid),
+          contentPath
         })
         .run()
     }
@@ -93,6 +125,7 @@ async function fetchAndStoreBody(messageId: string): Promise<void> {
       .run()
 
     indexMessage(messageId)
+    applyAssessment(messageId)
   } finally {
     await client.logout().catch(() => undefined)
   }
@@ -117,7 +150,30 @@ export async function getMessageDetail(messageId: string): Promise<MessageDetail
     .where(eq(attachments.messageId, messageId))
     .all()
 
-  return toDetail(row, body?.textPlain ?? null, body?.htmlRaw ?? null, attachmentRows)
+  const inlineImages: InlineImage[] = []
+  for (const att of attachmentRows) {
+    if (!att.isInline || !att.contentId || !att.contentPath) continue
+    const dataUrl = readAttachmentDataUrl(att.contentPath, att.mimeType)
+    if (dataUrl) inlineImages.push({ contentId: att.contentId, dataUrl })
+  }
+
+  return toDetail(row, body?.textPlain ?? null, body?.htmlRaw ?? null, attachmentRows, inlineImages)
+}
+
+export async function downloadAttachment(
+  attachmentId: string
+): Promise<{ saved: boolean; path?: string }> {
+  const db = getDb()
+  const row = db.select().from(attachments).where(eq(attachments.id, attachmentId)).get()
+  if (!row || !row.contentPath) return { saved: false }
+
+  const result = await dialog.showSaveDialog({
+    defaultPath: row.filename ?? 'attachment'
+  })
+  if (result.canceled || !result.filePath) return { saved: false }
+
+  copyFileSync(attachmentAbsolutePath(row.contentPath), result.filePath)
+  return { saved: true, path: result.filePath }
 }
 
 async function withMailbox<T>(

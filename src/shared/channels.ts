@@ -19,11 +19,18 @@ export const IpcChannels = {
     syncFolder: 'mail:sync-folder',
     listFolders: 'mail:list-folders',
     listMessages: 'mail:list-messages',
+    listJunk: 'mail:list-junk',
+    spamCount: 'mail:spam-count',
+    markSpam: 'mail:mark-spam',
+    markNotSpam: 'mail:mark-not-spam',
+    blockSender: 'mail:block-sender',
+    allowSender: 'mail:allow-sender',
     getMessage: 'mail:get-message',
     setFlags: 'mail:set-flags',
     moveMessage: 'mail:move-message',
     deleteMessage: 'mail:delete-message',
     sendMessage: 'mail:send-message',
+    downloadAttachment: 'mail:download-attachment',
     search: 'mail:search',
     events: 'mail:events'
   }

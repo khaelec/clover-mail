@@ -23,6 +23,7 @@ export async function sendMessage(input: ComposeInput): Promise<void> {
       subject: input.subject,
       text: input.text,
       html: input.html,
+      attachments: input.attachments?.map((a) => ({ filename: a.filename, path: a.path })),
       inReplyTo: input.inReplyTo,
       references: input.references
     })) as { message?: Buffer }

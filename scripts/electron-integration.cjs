@@ -40,6 +40,8 @@ app.whenReady().then(async () => {
       const accts = await api.listAccounts()
       const folders = await api.listFolders(created.id)
       const search = await api.search('nonexistent-term-xyz')
+      const junk = await api.listJunk(created.id)
+      const spam = await api.spamCount(created.id)
       await api.deleteAccount(created.id)
       const after = await api.listAccounts()
       return JSON.stringify({
@@ -50,6 +52,8 @@ app.whenReady().then(async () => {
         accountsAfterCreate: accts.length,
         folders: folders.length,
         searchHits: search.length,
+        junk: junk.length,
+        spamCount: spam,
         accountsAfterDelete: after.length
       })
     })()`)

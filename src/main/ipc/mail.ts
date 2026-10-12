@@ -10,10 +10,11 @@ import * as accountService from '@main/mail/accounts'
 import { testImap } from '@main/mail/imap'
 import { testSmtp } from '@main/mail/smtp'
 import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@main/mail/sync'
-import { listFolders, listMessages } from '@main/mail/queries'
-import { deleteMessage, getMessageDetail, moveMessage, setFlags } from '@main/mail/messages'
+import { listFolders, listJunk, listMessages, spamCount } from '@main/mail/queries'
+import { deleteMessage, downloadAttachment, getMessageDetail, moveMessage, setFlags } from '@main/mail/messages'
 import { sendMessage } from '@main/mail/send'
 import { searchMessages } from '@main/mail/search'
+import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 
 export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   const emit: Emit = (event) => getWindow()?.webContents.send(IpcChannels.mail.events, event)
@@ -61,6 +62,16 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     IpcChannels.mail.listMessages,
     (_e, folderId: string, limit?: number, offset?: number) => listMessages(folderId, limit, offset)
   )
+  ipcMain.handle(IpcChannels.mail.listJunk, (_e, accountId: string) => listJunk(accountId))
+  ipcMain.handle(IpcChannels.mail.spamCount, (_e, accountId: string) => spamCount(accountId))
+  ipcMain.handle(IpcChannels.mail.markSpam, (_e, messageId: string) => markSpam(messageId))
+  ipcMain.handle(IpcChannels.mail.markNotSpam, (_e, messageId: string) => markNotSpam(messageId))
+  ipcMain.handle(IpcChannels.mail.blockSender, (_e, accountId: string, email: string) =>
+    setSenderKind(accountId, email, 'block')
+  )
+  ipcMain.handle(IpcChannels.mail.allowSender, (_e, accountId: string, email: string) =>
+    setSenderKind(accountId, email, 'allow')
+  )
   ipcMain.handle(IpcChannels.mail.getMessage, (_e, messageId: string) =>
     getMessageDetail(messageId)
   )
@@ -76,6 +87,9 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     deleteMessage(messageId)
   )
   ipcMain.handle(IpcChannels.mail.sendMessage, (_e, input: ComposeInput) => sendMessage(input))
+  ipcMain.handle(IpcChannels.mail.downloadAttachment, (_e, attachmentId: string) =>
+    downloadAttachment(attachmentId)
+  )
   ipcMain.handle(IpcChannels.mail.search, (_e, query: string, accountId?: string) =>
     searchMessages(query, accountId)
   )

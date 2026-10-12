@@ -1,6 +1,9 @@
 export type Security = 'ssl' | 'starttls' | 'none'
 export type IncomingProtocol = 'imap' | 'pop3'
 
+/** Synthetic (local) folder id for spam-classified messages. */
+export const JUNK_FOLDER_ID = 'junk'
+
 export interface EndpointInput {
   host: string
   port: number
@@ -60,6 +63,8 @@ export interface MessageSummary {
   isRead: boolean
   isFlagged: boolean
   hasAttachments: boolean
+  spamScore: number
+  isSpam: boolean
 }
 
 export interface AttachmentSummary {
@@ -68,6 +73,12 @@ export interface AttachmentSummary {
   mimeType: string | null
   size: number | null
   isInline: boolean
+  available: boolean
+}
+
+export interface InlineImage {
+  contentId: string
+  dataUrl: string
 }
 
 export interface MessageDetail extends MessageSummary {
@@ -80,6 +91,13 @@ export interface MessageDetail extends MessageSummary {
   textPlain: string | null
   htmlRaw: string | null
   attachments: AttachmentSummary[]
+  inlineImages: InlineImage[]
+  spamReasons: string[]
+}
+
+export interface AttachmentRef {
+  filename: string
+  path: string
 }
 
 export interface ComposeInput {
@@ -90,6 +108,7 @@ export interface ComposeInput {
   subject: string
   text?: string
   html?: string
+  attachments?: AttachmentRef[]
   inReplyTo?: string
   references?: string
 }

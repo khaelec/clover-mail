@@ -198,6 +198,13 @@ export const IconFlag = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconShield = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z" />
+    <path d="m9 12 2 2 4-4" />
+  </Base>
+)
+
 export function CloverMark({ className }: { className?: string }): ReactNode {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" className={className} aria-hidden="true">

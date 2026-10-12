@@ -92,7 +92,10 @@ export const messages = sqliteTable(
     isDraft: integer('is_draft', { mode: 'boolean' }).notNull().default(false),
     hasAttachments: integer('has_attachments', { mode: 'boolean' }).notNull().default(false),
     snippet: text('snippet'),
-    threadId: text('thread_id')
+    threadId: text('thread_id'),
+    isSpam: integer('is_spam', { mode: 'boolean' }).notNull().default(false),
+    spamScore: integer('spam_score').notNull().default(0),
+    spamReasons: text('spam_reasons')
   },
   (table) => [
     uniqueIndex('ux_messages_account_folder_uid').on(table.accountId, table.folderId, table.uid),
@@ -120,10 +123,29 @@ export const attachments = sqliteTable(
     mimeType: text('mime_type'),
     size: integer('size'),
     contentId: text('content_id'),
-    isInline: integer('is_inline', { mode: 'boolean' }).notNull().default(false)
+    isInline: integer('is_inline', { mode: 'boolean' }).notNull().default(false),
+    contentPath: text('content_path')
   },
   (table) => [index('ix_attachments_message').on(table.messageId)]
 )
+
+export const spamSenders = sqliteTable(
+  'spam_senders',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id').notNull(),
+    email: text('email').notNull(),
+    kind: text('kind').notNull(),
+    createdAt: integer('created_at').notNull()
+  },
+  (table) => [uniqueIndex('ux_spam_senders_account_email').on(table.accountId, table.email)]
+)
+
+export const spamTokens = sqliteTable('spam_tokens', {
+  token: text('token').primaryKey(),
+  spamCount: integer('spam_count').notNull().default(0),
+  hamCount: integer('ham_count').notNull().default(0)
+})
 
 export const schema = {
   appSettings,
@@ -134,5 +156,7 @@ export const schema = {
   folders,
   messages,
   messageBodies,
-  attachments
+  attachments,
+  spamSenders,
+  spamTokens
 }

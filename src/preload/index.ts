@@ -1,10 +1,12 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IpcChannels } from '@shared/channels'
 import type { CloverApi } from '@shared/ipc'
 
 const api: CloverApi = {
   appInfo: () => ipcRenderer.invoke(IpcChannels.appInfo),
+  getFilePath: (file) =>
+    webUtils.getPathForFile(file as Parameters<typeof webUtils.getPathForFile>[0]),
   settings: {
     getAll: () => ipcRenderer.invoke(IpcChannels.settingsGetAll),
     get: (key: string) => ipcRenderer.invoke(IpcChannels.settingsGet, key),
@@ -34,6 +36,14 @@ const api: CloverApi = {
     listFolders: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listFolders, accountId),
     listMessages: (folderId, limit, offset) =>
       ipcRenderer.invoke(IpcChannels.mail.listMessages, folderId, limit, offset),
+    listJunk: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listJunk, accountId),
+    spamCount: (accountId) => ipcRenderer.invoke(IpcChannels.mail.spamCount, accountId),
+    markSpam: (messageId) => ipcRenderer.invoke(IpcChannels.mail.markSpam, messageId),
+    markNotSpam: (messageId) => ipcRenderer.invoke(IpcChannels.mail.markNotSpam, messageId),
+    blockSender: (accountId, email) =>
+      ipcRenderer.invoke(IpcChannels.mail.blockSender, accountId, email),
+    allowSender: (accountId, email) =>
+      ipcRenderer.invoke(IpcChannels.mail.allowSender, accountId, email),
     getMessage: (messageId) => ipcRenderer.invoke(IpcChannels.mail.getMessage, messageId),
     setFlags: (messageId, flags) =>
       ipcRenderer.invoke(IpcChannels.mail.setFlags, messageId, flags),
@@ -41,6 +51,8 @@ const api: CloverApi = {
       ipcRenderer.invoke(IpcChannels.mail.moveMessage, messageId, targetFolderId),
     deleteMessage: (messageId) => ipcRenderer.invoke(IpcChannels.mail.deleteMessage, messageId),
     sendMessage: (input) => ipcRenderer.invoke(IpcChannels.mail.sendMessage, input),
+    downloadAttachment: (attachmentId) =>
+      ipcRenderer.invoke(IpcChannels.mail.downloadAttachment, attachmentId),
     search: (query, accountId) => ipcRenderer.invoke(IpcChannels.mail.search, query, accountId),
     onEvent: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
