@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Lint, LocalLinter, Suggestion } from 'harper.js'
 import { useMail } from '../state/mail'
-import { IconCheck, IconClose, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
+import { IconCheck, IconClose, IconHighlight, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
 
 const SIGNATURE_MARKER = '<div data-clover-signature="1">'
 
@@ -304,6 +304,31 @@ export function Compose({
             <ToolbarButton label="❝" title="Quote" onClick={() => exec('formatBlock', 'blockquote')} />
             <ToolbarButton label="🔗" title="Insert link" onClick={addLink} />
             <ToolbarButton label="⌫" title="Clear formatting" onClick={() => exec('removeFormat')} />
+            <span className="mx-1 h-4 w-px bg-line" />
+            <button
+              type="button"
+              title="Highlight text"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                exec('styleWithCSS', 'true')
+                exec('hiliteColor', '#fde68a')
+              }}
+              className="grid h-7 min-w-7 place-items-center rounded-md px-1.5 text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
+            >
+              <IconHighlight className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              title="Remove highlight"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                exec('styleWithCSS', 'true')
+                exec('hiliteColor', 'transparent')
+              }}
+              className="rounded-md px-1.5 py-1 text-[11px] text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
+            >
+              No highlight
+            </button>
             <span className="mx-1 h-4 w-px bg-line" />
             <button
               type="button"

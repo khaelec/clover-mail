@@ -33,8 +33,17 @@ const MEDIA_EXTENSIONS = new Set([
   'gif',
   'bmp',
   'avif',
+  'svg',
   'html',
-  'htm'
+  'htm',
+  'pdf',
+  'txt',
+  'csv',
+  'json',
+  'md',
+  'log',
+  'xml',
+  'eml'
 ])
 
 // Privileged custom scheme so the renderer can load local wallpaper media safely.

@@ -198,6 +198,20 @@ export const IconForward = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconHighlight = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="m14 4 6 6-7 7H7v-6z" />
+    <path d="M4 20h16" />
+  </Base>
+)
+
+export const IconDownload = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M12 4v10m0 0 4-4m-4 4-4-4" />
+    <path d="M4 20h16" />
+  </Base>
+)
+
 export const IconFlag = (p: IconProps): ReactNode => (
   <Base {...p}>
     <path d="M5 21V4" />

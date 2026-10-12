@@ -62,6 +62,8 @@ export const IpcChannels = {
     sendMessage: 'mail:send-message',
     downloadAttachment: 'mail:download-attachment',
     attachmentPath: 'mail:attachment-path',
+    openAttachment: 'mail:open-attachment',
+    readAttachmentText: 'mail:read-attachment-text',
     search: 'mail:search',
     events: 'mail:events'
   },

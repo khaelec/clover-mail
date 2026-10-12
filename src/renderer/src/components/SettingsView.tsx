@@ -41,21 +41,31 @@ function Field({
   value,
   onChange,
   type = 'text',
-  placeholder
+  placeholder,
+  hint
 }: {
   label: string
   value: string | number
   onChange: (value: string) => void
   type?: string
   placeholder?: string
+  hint?: string
 }): ReactNode {
   return (
     <label className="block w-full">
-      <span className="mb-1 block text-[11px] font-medium text-muted">{label}</span>
+      <span className="mb-1 flex items-center gap-1 text-[11px] font-medium text-muted">
+        {label}
+        {hint && (
+          <span title={hint} className="cursor-help text-muted/70">
+            ⓘ
+          </span>
+        )}
+      </span>
       <input
         type={type}
         value={value}
         placeholder={placeholder}
+        title={hint}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-lg border border-line bg-canvas/60 px-3 py-2 text-[13px] text-ink outline-none transition-colors focus:border-accent"
       />
@@ -425,8 +435,8 @@ export function SettingsView(): ReactNode {
                   )}
 
                   <div className="flex flex-wrap items-end gap-2">
-                    <Field label="Alias email" value={aliasEmail} onChange={setAliasEmail} placeholder="sales@yourdomain.com" />
-                    <Field label="Name (optional)" value={aliasName} onChange={setAliasName} placeholder="Sales" />
+                    <Field label="Alias email" value={aliasEmail} onChange={setAliasEmail} placeholder="sales@yourdomain.com" hint="An address you can send from on this account. Your provider must allow sending as it (e.g. a Gmail ‘Send mail as’ alias)." />
+                    <Field label="Name (optional)" value={aliasName} onChange={setAliasName} placeholder="Sales" hint="Display name shown on the From line for this alias." />
                     <button
                       type="button"
                       onClick={() => void addAliasEntry()}
@@ -450,9 +460,9 @@ export function SettingsView(): ReactNode {
                 <p className="mb-2 text-[11px] text-muted">
                   Desktop-app OAuth client from Google Cloud Console. Redirect: loopback. Secret optional (PKCE).
                 </p>
-                <Field label="Client ID" value={googleClientId} onChange={setGoogleClientId} placeholder="xxxxx.apps.googleusercontent.com" />
+                <Field label="Client ID" value={googleClientId} onChange={setGoogleClientId} placeholder="xxxxx.apps.googleusercontent.com" hint="Google Cloud Console → Credentials → OAuth client ID (type: Desktop app). Enables “Sign in with Google” instead of an app password." />
                 <div className="mt-2">
-                  <Field label="Client Secret (optional)" type="password" value={googleSecret} onChange={setGoogleSecret} />
+                  <Field label="Client Secret (optional)" type="password" value={googleSecret} onChange={setGoogleSecret} hint="Only required for ‘Web application’ OAuth clients. Desktop clients use PKCE, so leave this blank." />
                 </div>
                 <div className="mt-2 flex items-center gap-3">
                   <button type="button" onClick={() => void saveGoogleConfig()} className="rounded-lg bg-accent px-3.5 py-2 text-[12px] font-semibold text-accent-ink">
@@ -468,9 +478,9 @@ export function SettingsView(): ReactNode {
                   Register an app in Azure (Entra) → “Mobile and desktop applications”, redirect <code>http://localhost</code>.
                   Public client (no secret needed).
                 </p>
-                <Field label="Application (client) ID" value={msClientId} onChange={setMsClientId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                <Field label="Application (client) ID" value={msClientId} onChange={setMsClientId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" hint="Azure/Entra → App registrations → Application (client) ID. Add a ‘Mobile and desktop applications’ redirect of http://localhost." />
                 <div className="mt-2">
-                  <Field label="Client Secret (optional)" type="password" value={msSecret} onChange={setMsSecret} />
+                  <Field label="Client Secret (optional)" type="password" value={msSecret} onChange={setMsSecret} hint="Only needed if you made it a confidential client. Public clients don’t require a secret." />
                 </div>
                 <div className="mt-2 flex items-center gap-3">
                   <button type="button" onClick={() => void saveMicrosoftConfig()} className="rounded-lg bg-accent px-3.5 py-2 text-[12px] font-semibold text-accent-ink">
@@ -500,7 +510,7 @@ export function SettingsView(): ReactNode {
                   <button type="button" onClick={saveKey} className="rounded-lg bg-accent px-3 py-2 text-[12px] font-medium text-accent-ink">
                     Save key
                   </button>
-                  <Field label="Claude model" value={ai?.claudeModel ?? ''} onChange={(v) => void patchAi({ claudeModel: v })} />
+                  <Field label="Claude model" value={ai?.claudeModel ?? ''} onChange={(v) => void patchAi({ claudeModel: v })} hint="Anthropic model id, e.g. claude-sonnet-4-5. Choose one in the Copilot’s model dropdown." />
                 </div>
               </div>
 
@@ -510,8 +520,8 @@ export function SettingsView(): ReactNode {
                   <span className={'h-1.5 w-1.5 rounded-full ' + (aiStatus?.ollamaReachable ? 'bg-emerald-500' : 'bg-muted/50')} />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Field label="Base URL" value={ai?.ollamaBaseUrl ?? ''} onChange={(v) => void patchAi({ ollamaBaseUrl: v })} />
-                  <Field label="Model" value={ai?.ollamaModel ?? ''} onChange={(v) => void patchAi({ ollamaModel: v })} />
+                  <Field label="Base URL" value={ai?.ollamaBaseUrl ?? ''} onChange={(v) => void patchAi({ ollamaBaseUrl: v })} hint="Where Ollama listens locally. Default http://127.0.0.1:11434." />
+                  <Field label="Model" value={ai?.ollamaModel ?? ''} onChange={(v) => void patchAi({ ollamaModel: v })} hint="An installed Ollama model, e.g. llama3.1 or qwen2.5. Models are auto-detected in the Copilot." />
                 </div>
                 {aiStatus && aiStatus.ollamaModels.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -542,6 +552,7 @@ export function SettingsView(): ReactNode {
                   value={ai?.opencodeWorkspace ?? ''}
                   onChange={(v) => void patchAi({ opencodeWorkspace: v })}
                   placeholder="C:\\path\\to\\project"
+                  hint="Folder where the opencode CLI runs when you use the opencode provider."
                 />
                 <p className="mt-1 text-[11px] text-muted">Runs the opencode CLI in this folder when you use the opencode provider.</p>
               </div>
@@ -560,8 +571,8 @@ export function SettingsView(): ReactNode {
                 </span>
               </button>
               <div className="grid grid-cols-2 gap-2">
-                <Field label="Port" type="number" value={mcp?.port ?? 8765} onChange={(v) => void patchMcp({ port: Number(v) || 0 })} />
-                <Field label="Auth token" value={mcp?.token ?? ''} onChange={(v) => void patchMcp({ token: v })} placeholder="optional" />
+                <Field label="Port" type="number" value={mcp?.port ?? 8765} onChange={(v) => void patchMcp({ port: Number(v) || 0 })} hint="Local TCP port the MCP server listens on (127.0.0.1)." />
+                <Field label="Auth token" value={mcp?.token ?? ''} onChange={(v) => void patchMcp({ token: v })} placeholder="optional" hint="Shared secret MCP clients must send. Recommended if anything else runs locally." />
               </div>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={() => void window.clover.ai.mcpStart().then((r) => setMcpRunning(r.running))} className="rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink">

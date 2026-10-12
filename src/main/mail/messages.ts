@@ -1,8 +1,10 @@
 import { simpleParser } from 'mailparser'
 import { randomUUID } from 'node:crypto'
-import { copyFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { ImapFlow } from 'imapflow'
-import { dialog } from 'electron'
+import { dialog, shell } from 'electron'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { attachments, folders, messageBodies, messages } from '../db/schema'
@@ -173,6 +175,36 @@ export function getAttachmentPath(attachmentId: string): string | null {
   const row = getDb().select().from(attachments).where(eq(attachments.id, attachmentId)).get()
   if (!row || !row.contentPath) return null
   return attachmentAbsolutePath(row.contentPath)
+}
+
+/** Open an attachment with the OS default app (copied to a temp file with its real name). */
+export async function openAttachment(
+  attachmentId: string
+): Promise<{ opened: boolean; error?: string }> {
+  const row = getDb().select().from(attachments).where(eq(attachments.id, attachmentId)).get()
+  if (!row || !row.contentPath) return { opened: false, error: 'Attachment is not cached yet' }
+  try {
+    const dir = join(tmpdir(), 'clover-attachments')
+    mkdirSync(dir, { recursive: true })
+    const target = join(dir, row.filename || `attachment-${attachmentId}`)
+    copyFileSync(attachmentAbsolutePath(row.contentPath), target)
+    const error = await shell.openPath(target)
+    return { opened: !error, error: error || undefined }
+  } catch (error) {
+    return { opened: false, error: (error as Error).message }
+  }
+}
+
+/** Read a text-ish attachment's content (capped) for in-app preview. */
+export function readAttachmentText(attachmentId: string): string | null {
+  const row = getDb().select().from(attachments).where(eq(attachments.id, attachmentId)).get()
+  if (!row || !row.contentPath) return null
+  try {
+    const buffer = readFileSync(attachmentAbsolutePath(row.contentPath))
+    return buffer.subarray(0, 200_000).toString('utf8')
+  } catch {
+    return null
+  }
 }
 
 async function withMessageMailbox<T>(

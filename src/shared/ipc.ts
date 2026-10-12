@@ -94,6 +94,8 @@ export interface MailApi {
   sendMessage: (input: ComposeInput) => Promise<void>
   downloadAttachment: (attachmentId: string) => Promise<{ saved: boolean; path?: string }>
   getAttachmentPath: (attachmentId: string) => Promise<string | null>
+  openAttachment: (attachmentId: string) => Promise<{ opened: boolean; error?: string }>
+  readAttachmentText: (attachmentId: string) => Promise<string | null>
   search: (query: string, accountId?: string) => Promise<MessageSummary[]>
   onEvent: (cb: (event: MailEvent) => void) => () => void
 }

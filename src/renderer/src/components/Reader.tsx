@@ -1,10 +1,11 @@
 import DOMPurify from 'dompurify'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { SETTINGS_KEYS } from '@shared/theme'
+import { mediaUrl } from '@shared/wallpaper'
 import { useTheme } from '../theme/theme'
 import { useMail } from '../state/mail'
 import { useAi } from '../state/ai'
-import { IconFlag, IconForward, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
+import { IconClose, IconDownload, IconFlag, IconForward, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
 
 function formatDate(value: number | null): string {
   if (!value) return ''
@@ -66,6 +67,45 @@ export function Reader({ onReply, onForward }: { onReply: () => void; onForward:
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const effective = useTheme((s) => s.effective)
   const [menu, setMenu] = useState<{ x: number; y: number; mode: 'main' | 'move' } | null>(null)
+  const [preview, setPreview] = useState<{
+    id: string
+    name: string
+    kind: 'image' | 'pdf' | 'text'
+    url?: string
+    text?: string
+  } | null>(null)
+
+  async function previewAttachment(att: {
+    id: string
+    filename: string | null
+    mimeType: string | null
+    available: boolean
+  }): Promise<void> {
+    if (!att.available) {
+      await window.clover.mail.openAttachment(att.id)
+      return
+    }
+    const mime = att.mimeType ?? ''
+    const ext = (att.filename ?? '').split('.').pop()?.toLowerCase() ?? ''
+    const name = att.filename ?? 'attachment'
+    if (mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'svg'].includes(ext)) {
+      const path = await window.clover.mail.getAttachmentPath(att.id)
+      if (path) setPreview({ id: att.id, name, kind: 'image', url: mediaUrl(path) })
+      else await window.clover.mail.openAttachment(att.id)
+    } else if (mime === 'application/pdf' || ext === 'pdf') {
+      const path = await window.clover.mail.getAttachmentPath(att.id)
+      if (path) setPreview({ id: att.id, name, kind: 'pdf', url: mediaUrl(path) })
+      else await window.clover.mail.openAttachment(att.id)
+    } else if (
+      mime.startsWith('text/') ||
+      ['txt', 'csv', 'json', 'md', 'log', 'xml', 'html', 'htm', 'ics'].includes(ext)
+    ) {
+      const text = await window.clover.mail.readAttachmentText(att.id)
+      setPreview({ id: att.id, name, kind: 'text', text: text ?? '(empty)' })
+    } else {
+      await window.clover.mail.openAttachment(att.id)
+    }
+  }
 
   useEffect(() => {
     if (!menu) return
@@ -322,9 +362,8 @@ export function Reader({ onReply, onForward }: { onReply: () => void; onForward:
                 <span key={att.id} className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    disabled={!att.available}
-                    onClick={() => void window.clover.mail.downloadAttachment(att.id)}
-                    title={att.available ? 'Save attachment' : 'Content not cached yet — open the message first'}
+                    onClick={() => void previewAttachment(att)}
+                    title={att.available ? 'Open' : 'Content not cached yet — open the message first'}
                     className={
                       'flex items-center gap-1.5 rounded-lg border border-line bg-canvas/50 px-2.5 py-1.5 text-[12px] ' +
                       (att.available ? 'text-ink hover:border-accent hover:text-accent' : 'text-muted opacity-60')
@@ -334,6 +373,16 @@ export function Reader({ onReply, onForward }: { onReply: () => void; onForward:
                     {att.filename ?? 'attachment'}
                     {att.size ? <span className="text-muted">· {Math.round(att.size / 1024)} KB</span> : null}
                   </button>
+                  {att.available && (
+                    <button
+                      type="button"
+                      title="Save as…"
+                      onClick={() => void window.clover.mail.downloadAttachment(att.id)}
+                      className="grid h-7 w-7 place-items-center rounded-lg border border-line text-muted hover:text-accent"
+                    >
+                      <IconDownload className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   {isIcs && (
                     <button
                       type="button"
@@ -486,6 +535,49 @@ export function Reader({ onReply, onForward }: { onReply: () => void; onForward:
             )}
           </div>
         </>
+      )}
+      {preview && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
+          <div className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+            <header className="flex items-center gap-2 border-b border-line px-4 py-2.5">
+              <span className="truncate text-[13px] font-medium text-ink">{preview.name}</span>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void window.clover.mail.openAttachment(preview.id)}
+                  className="rounded-lg border border-line px-2.5 py-1 text-[12px] text-muted hover:text-ink"
+                >
+                  Open in app
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void window.clover.mail.downloadAttachment(preview.id)}
+                  className="rounded-lg border border-line px-2.5 py-1 text-[12px] text-muted hover:text-ink"
+                >
+                  Save as…
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreview(null)}
+                  className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:text-ink"
+                >
+                  <IconClose className="h-4 w-4" />
+                </button>
+              </div>
+            </header>
+            <div className="min-h-0 flex-1 overflow-auto bg-canvas/40">
+              {preview.kind === 'image' && preview.url && (
+                <img src={preview.url} className="mx-auto max-h-full max-w-full" />
+              )}
+              {preview.kind === 'pdf' && preview.url && (
+                <iframe src={preview.url} title="pdf-preview" className="h-full w-full border-0" />
+              )}
+              {preview.kind === 'text' && (
+                <pre className="whitespace-pre-wrap p-4 text-[12.5px] text-ink">{preview.text}</pre>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </article>
   )

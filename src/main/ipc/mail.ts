@@ -14,7 +14,7 @@ import { testImap } from '@main/mail/imap'
 import { testSmtp } from '@main/mail/smtp'
 import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@main/mail/sync'
 import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount } from '@main/mail/queries'
-import { deleteMessage, downloadAttachment, getAttachmentPath, getMessageDetail, moveMessage, setFlags } from '@main/mail/messages'
+import { deleteMessage, downloadAttachment, getAttachmentPath, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@main/mail/messages'
 import { sendMessage } from '@main/mail/send'
 import { searchMessages } from '@main/mail/search'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
@@ -189,6 +189,12 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   )
   ipcMain.handle(IpcChannels.mail.attachmentPath, (_e, attachmentId: string) =>
     getAttachmentPath(attachmentId)
+  )
+  ipcMain.handle(IpcChannels.mail.openAttachment, (_e, attachmentId: string) =>
+    openAttachment(attachmentId)
+  )
+  ipcMain.handle(IpcChannels.mail.readAttachmentText, (_e, attachmentId: string) =>
+    readAttachmentText(attachmentId)
   )
   ipcMain.handle(IpcChannels.mail.search, (_e, query: string, accountId?: string) =>
     searchMessages(query, accountId)

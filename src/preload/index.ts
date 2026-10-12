@@ -139,6 +139,10 @@ const api: CloverApi = {
       ipcRenderer.invoke(IpcChannels.mail.downloadAttachment, attachmentId),
     getAttachmentPath: (attachmentId) =>
       ipcRenderer.invoke(IpcChannels.mail.attachmentPath, attachmentId),
+    openAttachment: (attachmentId) =>
+      ipcRenderer.invoke(IpcChannels.mail.openAttachment, attachmentId),
+    readAttachmentText: (attachmentId) =>
+      ipcRenderer.invoke(IpcChannels.mail.readAttachmentText, attachmentId),
     search: (query, accountId) => ipcRenderer.invoke(IpcChannels.mail.search, query, accountId),
     onEvent: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
