@@ -6,11 +6,21 @@ import { countSpam, listSpam } from './spam'
 import type { FolderSummary, MessageSummary, ThreadSummary } from '@shared/mail'
 
 export function listFolders(accountId: string): FolderSummary[] {
-  return getDb()
-    .select()
-    .from(folders)
-    .where(eq(folders.accountId, accountId))
+  const db = getDb()
+  const rows = db.select().from(folders).where(eq(folders.accountId, accountId)).all()
+
+  // Unread is derived from cached messages so badges update the instant you read.
+  const unread = db
+    .select({ folderId: messages.folderId, count: sql<number>`count(*)` })
+    .from(messages)
+    .where(
+      and(eq(messages.accountId, accountId), eq(messages.isRead, false), ne(messages.isSpam, true))
+    )
+    .groupBy(messages.folderId)
     .all()
+  const unreadMap = new Map(unread.map((u) => [u.folderId, Number(u.count)]))
+
+  return rows
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
     .map((row) => ({
       id: row.id,
@@ -18,7 +28,7 @@ export function listFolders(accountId: string): FolderSummary[] {
       remotePath: row.remotePath,
       name: row.name,
       specialUse: row.specialUse,
-      unreadCount: row.unreadCount,
+      unreadCount: unreadMap.get(row.id) ?? 0,
       totalCount: row.totalCount,
       sortOrder: row.sortOrder
     }))

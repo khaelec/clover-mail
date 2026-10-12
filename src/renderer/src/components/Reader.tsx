@@ -46,14 +46,40 @@ function blockRemoteImages(html: string): { html: string; blocked: number } {
 }
 
 export function Reader({ onReply }: { onReply: () => void }): ReactNode {
-  const { detail, toggleFlag, toggleImportant, remove, markSpam, markNotSpam, blockSender, allowSender } =
-    useMail()
+  const {
+    detail,
+    toggleFlag,
+    toggleImportant,
+    toggleRead,
+    remove,
+    markSpam,
+    markNotSpam,
+    blockSender,
+    allowSender,
+    folders,
+    bulkIds
+  } = useMail()
   const [allowRemote, setAllowRemote] = useState(false)
   const [trusted, setTrusted] = useState<string[]>([])
   const [blockEnabled, setBlockEnabled] = useState(true)
   const [calendarNotice, setCalendarNotice] = useState<string | null>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const effective = useTheme((s) => s.effective)
+  const [menu, setMenu] = useState<{ x: number; y: number; mode: 'main' | 'move' } | null>(null)
+
+  useEffect(() => {
+    if (!menu) return
+    const close = (): void => setMenu(null)
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setMenu(null)
+    }
+    window.addEventListener('resize', close)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('resize', close)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [menu])
 
   useEffect(() => {
     void (async () => {
@@ -138,7 +164,17 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
   }
 
   return (
-    <article className="flex min-w-0 flex-1 flex-col">
+    <article
+      className="flex min-w-0 flex-1 flex-col"
+      onContextMenu={(e) => {
+        e.preventDefault()
+        setMenu({
+          x: Math.min(e.clientX, window.innerWidth - 220),
+          y: Math.min(e.clientY, window.innerHeight - 300),
+          mode: 'main'
+        })
+      }}
+    >
       <header className="flex items-start gap-3 border-b border-line px-6 py-4">
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent to-accent/60 text-[13px] font-semibold text-accent-ink">
           {initials(detail.fromName, detail.fromEmail)}
@@ -328,6 +364,111 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
           </div>
         )}
       </div>
+      {menu && detail && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setMenu(null)
+            }}
+          />
+          <div
+            className="fixed z-50 w-52 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-2xl text-ink"
+            style={{ left: menu.x, top: menu.y }}
+          >
+            {menu.mode === 'main' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void toggleRead(detail)
+                    setMenu(null)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  {detail.isRead ? 'Mark as unread' : 'Mark as read'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void toggleImportant(detail)
+                    setMenu(null)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  {detail.isImportant ? 'Remove important' : 'Mark as important'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void toggleFlag(detail)
+                    setMenu(null)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  {detail.isFlagged ? 'Unstar' : 'Star'}
+                </button>
+                <div className="my-1 h-px bg-line" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    void bulkIds([detail.id], 'archive')
+                    setMenu(null)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  Archive
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMenu({ ...menu, mode: 'move' })}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  Move to folder ›
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Move this message to Trash?')) void bulkIds([detail.id], 'trash')
+                    setMenu(null)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] text-rose-500 hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  Delete
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setMenu({ ...menu, mode: 'main' })}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  ‹ Back
+                </button>
+                <div className="my-1 h-px bg-line" />
+                <div className="max-h-64 overflow-y-auto">
+                  {folders.map((folder) => (
+                    <button
+                      key={folder.id}
+                      type="button"
+                      onClick={() => {
+                        void bulkIds([detail.id], 'move', folder.id)
+                        setMenu(null)
+                      }}
+                      className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                    >
+                      {folder.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </article>
   )
 }

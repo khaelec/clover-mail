@@ -25,6 +25,7 @@ import {
   IconStar,
   IconThreads,
   IconTrash,
+  IconUnread,
   IconShield
 } from './icons'
 
@@ -62,31 +63,47 @@ function Splitter({
   onChange: (width: number) => void
   onCommit: () => void
 }): ReactNode {
+  const frame = useRef(0)
   return (
     <div
       onPointerDown={(e) => {
         e.preventDefault()
+        const el = e.currentTarget
+        const pointerId = e.pointerId
         const startX = e.clientX
         const startWidth = width
+        el.setPointerCapture(pointerId)
+        document.body.style.userSelect = 'none'
+        document.body.style.cursor = 'col-resize'
+
         const move = (ev: PointerEvent): void => {
           const delta = ev.clientX - startX
-          onChange(Math.max(min, Math.min(max, startWiden(invert, startWidth, delta))))
+          const next = Math.max(min, Math.min(max, invert ? startWidth - delta : startWidth + delta))
+          if (frame.current) cancelAnimationFrame(frame.current)
+          frame.current = requestAnimationFrame(() => onChange(next))
         }
-        const up = (): void => {
-          window.removeEventListener('pointermove', move)
-          window.removeEventListener('pointerup', up)
+        const finish = (): void => {
+          el.removeEventListener('pointermove', move)
+          el.removeEventListener('pointerup', finish)
+          el.removeEventListener('pointercancel', finish)
+          try {
+            el.releasePointerCapture(pointerId)
+          } catch {
+            // already released
+          }
+          document.body.style.userSelect = ''
+          document.body.style.cursor = ''
           onCommit()
         }
-        window.addEventListener('pointermove', move)
-        window.addEventListener('pointerup', up)
+
+        el.addEventListener('pointermove', move)
+        el.addEventListener('pointerup', finish)
+        el.addEventListener('pointercancel', finish)
       }}
+      style={{ touchAction: 'none' }}
       className="w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-accent/40"
     />
   )
-}
-
-function startWiden(invert: boolean | undefined, startWidth: number, delta: number): number {
-  return invert ? startWidth - delta : startWidth + delta
 }
 
 function EmptyState({ onAdd }: { onAdd: () => void }): ReactNode {
@@ -265,6 +282,9 @@ export function MailView(): ReactNode {
   const emptyFolder = useMail((s) => s.emptyFolder)
   const markFolderRead = useMail((s) => s.markFolderRead)
   const syncFolder = useMail((s) => s.syncFolder)
+  const emptyJunk = useMail((s) => s.emptyJunk)
+  const unreadOnly = useMail((s) => s.unreadOnly)
+  const setUnreadOnly = useMail((s) => s.setUnreadOnly)
   const [menu, setMenu] = useState<{
     x: number
     y: number
@@ -274,7 +294,8 @@ export function MailView(): ReactNode {
   const [folderMenu, setFolderMenu] = useState<{
     x: number
     y: number
-    folder: FolderSummary
+    kind: 'folder' | 'junk'
+    folder?: FolderSummary
   } | null>(null)
 
   useEffect(() => {
@@ -300,7 +321,18 @@ export function MailView(): ReactNode {
     setFolderMenu({
       x: Math.min(e.clientX, window.innerWidth - 220),
       y: Math.min(e.clientY, window.innerHeight - 200),
+      kind: 'folder',
       folder
+    })
+  }
+
+  function openJunkMenu(e: ReactMouseEvent): void {
+    e.preventDefault()
+    e.stopPropagation()
+    setFolderMenu({
+      x: Math.min(e.clientX, window.innerWidth - 220),
+      y: Math.min(e.clientY, window.innerHeight - 200),
+      kind: 'junk'
     })
   }
 
@@ -323,6 +355,14 @@ export function MailView(): ReactNode {
     void bulkIds(menuTargets, action, targetFolderId)
     setMenu(null)
   }
+
+  function menuDelete(): void {
+    const count = menuTargets.length
+    ask('Delete messages', `Move ${count} message${count === 1 ? '' : 's'} to Trash?`, () => {
+      void bulkIds(menuTargets, 'trash')
+      setMenu(null)
+    })
+  }
   const [composeState, setComposeState] = useState<{ open: boolean; to?: string; subject?: string; body?: string }>({
     open: false
   })
@@ -336,6 +376,15 @@ export function MailView(): ReactNode {
   const list = searchResults ?? messages
   const isSynthetic = activeFolderId === JUNK_FOLDER_ID || activeFolderId === IMPORTANT_FOLDER_ID
   const showingThreads = threaded && !isSynthetic && !searchResults
+  const visibleList = unreadOnly ? list.filter((m) => !m.isRead) : list
+  const visibleThreads = unreadOnly ? threads.filter((t) => t.unreadCount > 0) : threads
+
+  const [confirm, setConfirm] = useState<{ title: string; body: string; action: () => void } | null>(
+    null
+  )
+  function ask(title: string, body: string, action: () => void): void {
+    setConfirm({ title, body, action })
+  }
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -480,6 +529,7 @@ export function MailView(): ReactNode {
           <button
             type="button"
             onClick={() => void selectFolder(JUNK_FOLDER_ID)}
+            onContextMenu={(e) => openJunkMenu(e)}
             className={
               'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
               (activeFolderId === JUNK_FOLDER_ID
@@ -566,6 +616,17 @@ export function MailView(): ReactNode {
           </button>
           <button
             type="button"
+            title="Unread only"
+            onClick={() => setUnreadOnly(!unreadOnly)}
+            className={
+              'grid h-7 w-7 place-items-center rounded-md ' +
+              (unreadOnly ? 'text-accent' : 'text-muted hover:text-accent')
+            }
+          >
+            <IconUnread className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
             title="Toggle folder pane"
             onClick={() => {
               setLayout({ showFolders: !layout.showFolders })
@@ -618,7 +679,17 @@ export function MailView(): ReactNode {
             <button type="button" onClick={() => void bulk('archive')} className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-muted hover:text-ink">
               <IconArchive className="h-3.5 w-3.5" /> Archive
             </button>
-            <button type="button" onClick={() => void bulk('trash')} className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-muted hover:text-rose-500">
+            <button
+              type="button"
+              onClick={() =>
+                ask(
+                  'Delete messages',
+                  `Move ${selectedIds.length} message${selectedIds.length === 1 ? '' : 's'} to Trash?`,
+                  () => void bulk('trash')
+                )
+              }
+              className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-muted hover:text-rose-500"
+            >
               <IconTrash className="h-3.5 w-3.5" /> Delete
             </button>
             <button type="button" onClick={() => void bulk('markRead')} className="rounded-md border border-line px-2 py-1 text-muted hover:text-ink">
@@ -658,12 +729,12 @@ export function MailView(): ReactNode {
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {showingThreads &&
-            (threads.length === 0 ? (
+            (visibleThreads.length === 0 ? (
               <div className="px-4 py-10 text-center text-[12px] text-muted">
                 No messages. Hit sync to fetch.
               </div>
             ) : (
-              threads.map((t) => {
+              visibleThreads.map((t) => {
                 const expanded = expandedThreadIds.includes(t.threadId)
                 const single = t.messages.length === 1
                 const latest = t.messages[t.messages.length - 1]
@@ -741,7 +812,7 @@ export function MailView(): ReactNode {
               })
             ))}
 
-          {!showingThreads && list.length === 0 && (
+          {!showingThreads && visibleList.length === 0 && (
             <div className="px-4 py-10 text-center text-[12px] text-muted">
               {searchQuery
                 ? 'No results.'
@@ -750,7 +821,7 @@ export function MailView(): ReactNode {
                   : 'Select a folder.'}
             </div>
           )}
-          {!showingThreads && list.map((m: MessageSummary) => {
+          {!showingThreads && visibleList.map((m: MessageSummary) => {
             const active = m.id === selectedMessageId
             const selected = selectedIds.includes(m.id)
             return (
@@ -892,7 +963,7 @@ export function MailView(): ReactNode {
                 <MenuDivider />
                 <MenuItem onClick={() => menuRun('archive')}>Archive</MenuItem>
                 <MenuItem onClick={() => setMenu({ ...menu, mode: 'move' })}>Move to folder ›</MenuItem>
-                <MenuItem danger onClick={() => menuRun('trash')}>
+                <MenuItem danger onClick={menuDelete}>
                   Delete
                 </MenuItem>
               </>
@@ -927,38 +998,86 @@ export function MailView(): ReactNode {
             className="fixed z-50 w-52 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-2xl"
             style={{ left: folderMenu.x, top: folderMenu.y }}
           >
-            <MenuItem
-              onClick={() => {
-                void syncFolder(folderMenu.folder.id)
-                setFolderMenu(null)
-              }}
-            >
-              Sync now
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                void markFolderRead(folderMenu.folder.id)
-                setFolderMenu(null)
-              }}
-            >
-              Mark all as read
-            </MenuItem>
-            {folderMenu.folder.specialUse === 'trash' && (
+            {folderMenu.kind === 'junk' ? (
+              <MenuItem
+                danger
+                onClick={() => {
+                  setFolderMenu(null)
+                  ask('Empty Junk', 'Permanently delete all messages in Junk?', () => void emptyJunk())
+                }}
+              >
+                Empty Junk
+              </MenuItem>
+            ) : (
               <>
-                <MenuDivider />
                 <MenuItem
-                  danger
                   onClick={() => {
-                    void emptyFolder(folderMenu.folder.id)
+                    if (folderMenu.folder) void syncFolder(folderMenu.folder.id)
                     setFolderMenu(null)
                   }}
                 >
-                  Empty Trash
+                  Sync now
                 </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    if (folderMenu.folder) void markFolderRead(folderMenu.folder.id)
+                    setFolderMenu(null)
+                  }}
+                >
+                  Mark all as read
+                </MenuItem>
+                {folderMenu.folder?.specialUse === 'trash' && (
+                  <>
+                    <MenuDivider />
+                    <MenuItem
+                      danger
+                      onClick={() => {
+                        const id = folderMenu.folder?.id
+                        setFolderMenu(null)
+                        if (id) {
+                          ask('Empty Trash', 'Permanently delete everything in Trash?', () =>
+                            void emptyFolder(id)
+                          )
+                        }
+                      }}
+                    >
+                      Empty Trash
+                    </MenuItem>
+                  </>
+                )}
               </>
             )}
           </div>
         </>
+      )}
+
+      {confirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+            <h3 className="text-[15px] font-semibold text-ink">{confirm.title}</h3>
+            <p className="mt-1.5 text-[13px] text-muted">{confirm.body}</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirm(null)}
+                className="rounded-lg px-3.5 py-2 text-[13px] text-muted hover:text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const action = confirm.action
+                  setConfirm(null)
+                  action()
+                }}
+                className="rounded-lg bg-rose-500 px-4 py-2 text-[13px] font-semibold text-white"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

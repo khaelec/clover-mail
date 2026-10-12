@@ -19,7 +19,7 @@ import { sendMessage } from '@main/mail/send'
 import { searchMessages } from '@main/mail/search'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder } from '@main/mail/folders'
-import { bulkAction, emptyFolder, markFolderRead } from '@main/mail/bulk'
+import { bulkAction, deleteSpam, emptyFolder, markFolderRead } from '@main/mail/bulk'
 import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
 
 export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
@@ -115,6 +115,7 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.bulkAction, (_e, input: BulkActionInput) => bulkAction(input))
   ipcMain.handle(IpcChannels.mail.emptyFolder, (_e, folderId: string) => emptyFolder(folderId))
   ipcMain.handle(IpcChannels.mail.markFolderRead, (_e, folderId: string) => markFolderRead(folderId))
+  ipcMain.handle(IpcChannels.mail.deleteSpam, (_e, accountId: string) => deleteSpam(accountId))
   ipcMain.handle(IpcChannels.mail.sendMessage, (_e, input: ComposeInput) => sendMessage(input))
   ipcMain.handle(IpcChannels.mail.downloadAttachment, (_e, attachmentId: string) =>
     downloadAttachment(attachmentId)

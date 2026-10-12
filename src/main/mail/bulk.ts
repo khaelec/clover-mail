@@ -118,3 +118,36 @@ export async function markFolderRead(folderId: string): Promise<number> {
   db.update(messages).set({ isRead: true }).where(eq(messages.folderId, folderId)).run()
   return rows.length
 }
+
+/** Permanently delete every message the spam classifier flagged for an account (Empty Junk). */
+export async function deleteSpam(accountId: string): Promise<{ deleted: number }> {
+  const db = getDb()
+  const rows = db
+    .select({ id: messages.id, uid: messages.uid, folderId: messages.folderId })
+    .from(messages)
+    .where(and(eq(messages.accountId, accountId), eq(messages.isSpam, true)))
+    .all()
+  if (rows.length === 0) return { deleted: 0 }
+
+  const byFolder = new Map<string, number[]>()
+  for (const row of rows) {
+    const list = byFolder.get(row.folderId) ?? []
+    list.push(row.uid)
+    byFolder.set(row.folderId, list)
+  }
+
+  await withImap(accountId, async (client) => {
+    for (const [folderId, uids] of byFolder) {
+      const folder = db.select().from(folders).where(eq(folders.id, folderId)).get()
+      if (!folder) continue
+      await client.mailboxOpen(folder.remotePath)
+      await client.messageDelete(uids, { uid: true })
+    }
+  })
+
+  for (const row of rows) removeFromIndex(row.id)
+  db.delete(messages)
+    .where(and(eq(messages.accountId, accountId), eq(messages.isSpam, true)))
+    .run()
+  return { deleted: rows.length }
+}

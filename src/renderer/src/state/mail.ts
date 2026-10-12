@@ -56,6 +56,9 @@ interface MailState {
   emptyFolder: (folderId: string) => Promise<void>
   markFolderRead: (folderId: string) => Promise<void>
   syncFolder: (folderId: string) => Promise<void>
+  emptyJunk: () => Promise<void>
+  unreadOnly: boolean
+  setUnreadOnly: (value: boolean) => void
   setThreaded: (value: boolean) => Promise<void>
   toggleThread: (threadId: string) => void
   move: (messageId: string, targetFolderId: string) => Promise<void>
@@ -133,6 +136,7 @@ export const useMail = create<MailState>((set, get) => {
     threaded: true,
     threads: [],
     expandedThreadIds: [],
+    unreadOnly: false,
 
     init: async () => {
       window.clover.mail.onEvent((event) => {        if (event.type === 'sync:folder') {
@@ -181,7 +185,8 @@ export const useMail = create<MailState>((set, get) => {
       const detail = await window.clover.mail.getMessage(id)
       set({ detail })
       if (detail && !detail.isRead) {
-        set({ messages: patchMessage(get().messages, id, { isRead: true }) })
+        await reloadFolder()
+        await reloadFolders()
       }
     },
 
@@ -221,6 +226,8 @@ export const useMail = create<MailState>((set, get) => {
         detail:
           get().detail?.id === message.id ? { ...(get().detail as MessageDetail), ...patch } : get().detail
       })
+      void reloadFolders()
+      void reloadFolder()
     },
 
     toggleFlag: async (message) => {
@@ -301,6 +308,17 @@ export const useMail = create<MailState>((set, get) => {
       await reloadFolder()
       await reloadFolders()
     },
+
+    emptyJunk: async () => {
+      const accountId = get().activeAccountId
+      if (!accountId) return
+      await window.clover.mail.deleteSpam(accountId)
+      set({ selectedMessageId: null, detail: null })
+      await reloadFolder()
+      await reloadFolders()
+    },
+
+    setUnreadOnly: (value) => set({ unreadOnly: value }),
 
     setThreaded: async (value) => {
       set({ threaded: value })

@@ -65,6 +65,12 @@ export function upsertFolders(accountId: string, list: MailboxRecord[]): string[
   const ids: string[] = []
 
   for (const mailbox of list) {
+    const flags = mailbox.flags
+      ? [...mailbox.flags].map((f) => f.replace(/\\/g, '').toLowerCase())
+      : []
+    // Skip containers like Gmail's "[Gmail]" namespace (not real folders).
+    if (flags.includes('noselect')) continue
+
     const existing = db
       .select()
       .from(folders)
@@ -72,7 +78,8 @@ export function upsertFolders(accountId: string, list: MailboxRecord[]): string[
       .get()
 
     const specialUse = normalizeSpecialUse(mailbox)
-    const name = mailbox.name && mailbox.name !== 'INBOX' ? mailbox.name : mailbox.path
+    const rawName = mailbox.name && mailbox.name !== 'INBOX' ? mailbox.name : mailbox.path
+    const name = rawName.replace(/^\[Gmail\]\//i, '')
     const sortOrder = specialUse ? (ORDER[specialUse] ?? 50) : 100
 
     if (existing) {
@@ -102,6 +109,15 @@ export function upsertFolders(accountId: string, list: MailboxRecord[]): string[
         })
         .run()
       ids.push(id)
+    }
+  }
+
+  // Drop folders the server no longer lists (and their cached messages).
+  const currentPaths = new Set(ids.map((id) => db.select().from(folders).where(eq(folders.id, id)).get()?.remotePath))
+  for (const folder of db.select().from(folders).where(eq(folders.accountId, accountId)).all()) {
+    if (!currentPaths.has(folder.remotePath)) {
+      db.delete(messages).where(eq(messages.folderId, folder.id)).run()
+      db.delete(folders).where(eq(folders.id, folder.id)).run()
     }
   }
 

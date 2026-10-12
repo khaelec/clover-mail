@@ -263,6 +263,14 @@ export const IconSignature = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconUnread = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2.5" />
+    <path d="m4 7 8 6 8-6" />
+    <circle cx="19" cy="6" r="3" fill="currentColor" stroke="none" />
+  </Base>
+)
+
 export function CloverMark({ className }: { className?: string }): ReactNode {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" className={className} aria-hidden="true">
