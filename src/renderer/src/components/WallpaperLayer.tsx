@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { mediaUrl } from '@shared/wallpaper'
 import { useWallpaper } from '../state/wallpaper'
 
+const VIDEO_EXT = ['mp4', 'webm', 'mkv', 'mov', 'm4v']
+const HTML_EXT = ['html', 'htm']
+
 export function WallpaperLayer(): ReactNode {
   const settings = useWallpaper((s) => s.settings)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -10,6 +13,14 @@ export function WallpaperLayer(): ReactNode {
 
   const sources = settings.kind === 'slideshow' ? settings.sources : []
   const currentSlide = sources.length > 0 ? sources[slideIndex % sources.length] : ''
+
+  const ext = (settings.source.split('.').pop() ?? '').toLowerCase()
+  // "wallpaper-engine" is a source bucket — decide how to render from the file type.
+  const isVideo =
+    settings.kind === 'video' ||
+    (settings.kind === 'wallpaper-engine' && VIDEO_EXT.includes(ext))
+  const isHtml =
+    settings.kind === 'html' || (settings.kind === 'wallpaper-engine' && HTML_EXT.includes(ext))
 
   useEffect(() => {
     const update = (): void => {
@@ -35,21 +46,22 @@ export function WallpaperLayer(): ReactNode {
     const host = hostRef.current
     if (!host) return
     host.innerHTML = ''
-    if (settings.kind === 'html' || settings.kind === 'wallpaper-engine') {
+    if (isHtml) {
       const src = settings.sourceUrl || (settings.source ? mediaUrl(settings.source) : '')
       if (src) {
-        const webview = document.createElement('webview')
-        webview.setAttribute('src', src)
-        webview.setAttribute('partition', 'persist:wallpaper')
-        webview.style.width = '100%'
-        webview.style.height = '100%'
-        host.appendChild(webview)
+        // iframe (not <webview>) so a custom-scheme URL is never handed to the OS.
+        const frame = document.createElement('iframe')
+        frame.src = src
+        frame.style.width = '100%'
+        frame.style.height = '100%'
+        frame.style.border = '0'
+        host.appendChild(frame)
       }
     }
     return () => {
       host.innerHTML = ''
     }
-  }, [settings.kind, settings.source, settings.sourceUrl])
+  }, [isHtml, settings.source, settings.sourceUrl])
 
   if (settings.kind === 'none') return null
 
@@ -58,7 +70,7 @@ export function WallpaperLayer(): ReactNode {
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-      {settings.kind === 'video' && settings.source && (
+      {isVideo && settings.source && (
         <video
           ref={videoRef}
           src={mediaUrl(settings.source)}
@@ -84,9 +96,7 @@ export function WallpaperLayer(): ReactNode {
           style={{ objectFit, filter, opacity: settings.opacity }}
         />
       )}
-      {(settings.kind === 'html' || settings.kind === 'wallpaper-engine') && (
-        <div ref={hostRef} className="h-full w-full" style={{ filter, opacity: settings.opacity }} />
-      )}
+      {isHtml && <div ref={hostRef} className="h-full w-full" style={{ filter, opacity: settings.opacity }} />}
       <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${settings.dim})` }} />
     </div>
   )
