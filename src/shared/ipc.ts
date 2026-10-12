@@ -70,6 +70,10 @@ export interface MailApi {
   listAliases: (accountId: string) => Promise<import('./mail').AccountAlias[]>
   addAlias: (accountId: string, email: string, name?: string) => Promise<import('./mail').AccountAlias>
   deleteAlias: (aliasId: string) => Promise<void>
+  startGoogleOAuth: () => Promise<AccountSummary>
+  googleConfigured: () => Promise<boolean>
+  getGoogleConfig: () => Promise<{ clientId: string }>
+  setGoogleConfig: (clientId: string, clientSecret?: string) => Promise<void>
   listRules: (accountId: string) => Promise<Rule[]>
   createRule: (accountId: string, input: RuleInput) => Promise<Rule>
   updateRule: (ruleId: string, input: RuleInput) => Promise<Rule>

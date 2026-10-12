@@ -82,6 +82,9 @@ export function SettingsView(): ReactNode {
   const [aliasList, setAliasList] = useState<AccountAlias[]>([])
   const [aliasEmail, setAliasEmail] = useState('')
   const [aliasName, setAliasName] = useState('')
+  const [googleClientId, setGoogleClientId] = useState('')
+  const [googleSecret, setGoogleSecret] = useState('')
+  const [googleMsg, setGoogleMsg] = useState<string | null>(null)
 
   useEffect(() => {
     void window.clover.appInfo().then(setInfo)
@@ -98,7 +101,13 @@ export function SettingsView(): ReactNode {
         setAliasAccountId((current) => current || list[0].id)
       }
     })
+    void window.clover.mail.getGoogleConfig().then((cfg) => setGoogleClientId(cfg.clientId))
   }, [])
+
+  async function saveGoogleConfig(): Promise<void> {
+    await window.clover.mail.setGoogleConfig(googleClientId, googleSecret || undefined)
+    setGoogleMsg('Saved. You can now use “Sign in with Google”.')
+  }
 
   useEffect(() => {
     if (!aliasAccountId) return
@@ -422,6 +431,23 @@ export function SettingsView(): ReactNode {
                   </p>
                 </>
               )}
+            </div>
+          </Card>
+
+          <Card title="Google OAuth (optional)">
+            <div className="space-y-3">
+              <p className="text-[12px] text-muted">
+                To sign in to Gmail without an app password, create a <strong>Desktop app</strong> OAuth client in
+                Google Cloud Console and paste its Client ID here (redirect: loopback). The secret is optional for PKCE.
+              </p>
+              <Field label="Google Client ID" value={googleClientId} onChange={setGoogleClientId} placeholder="xxxxx.apps.googleusercontent.com" />
+              <Field label="Google Client Secret (optional)" type="password" value={googleSecret} onChange={setGoogleSecret} placeholder="optional" />
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => void saveGoogleConfig()} className="rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-accent-ink">
+                  Save
+                </button>
+                {googleMsg && <span className="text-[12px] text-accent">{googleMsg}</span>}
+              </div>
             </div>
           </Card>
 

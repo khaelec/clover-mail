@@ -1,7 +1,8 @@
 import { getDb } from '../db'
 import { eq } from 'drizzle-orm'
 import { folders } from '../db/schema'
-import { getAccountById, getAccountPassword } from './accounts'
+import { getAccountById } from './accounts'
+import { getAccountAuth } from './auth'
 import { buildTransport } from './smtp'
 import { withImap } from './connection'
 import type { ComposeInput } from '@shared/mail'
@@ -42,8 +43,8 @@ function extractInlineImages(html: string | undefined): {
 export async function sendMessage(input: ComposeInput): Promise<void> {
   const account = getAccountById(input.accountId)
   if (!account) throw new Error('Account not found')
-  const password = getAccountPassword(input.accountId)
-  if (!password) throw new Error('No stored password for account')
+  const auth = await getAccountAuth(input.accountId)
+  if (!auth) throw new Error('No credentials for account')
 
   const { html, inline } = extractInlineImages(input.html)
   const attachments = [
@@ -57,7 +58,7 @@ export async function sendMessage(input: ComposeInput): Promise<void> {
     }))
   ]
 
-  const transport = buildTransport(account.outgoing, password)
+  const transport = buildTransport(account.outgoing, auth)
   const fromEmail = input.fromEmail || account.email
   const fromName = input.fromName ?? (input.fromEmail ? null : account.displayName)
   const from = fromName ? `"${fromName}" <${fromEmail}>` : fromEmail

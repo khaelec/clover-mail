@@ -1,5 +1,7 @@
 export type Security = 'ssl' | 'starttls' | 'none'
 export type IncomingProtocol = 'imap' | 'pop3'
+export type AccountAuthType = 'password' | 'oauth'
+export type OAuthProvider = 'google' | 'microsoft'
 
 /** Synthetic (local) folder id for spam-classified messages. */
 export const JUNK_FOLDER_ID = 'junk'
@@ -32,6 +34,7 @@ export interface AccountSummary {
   displayName: string | null
   color: string | null
   isEnabled: boolean
+  authType: AccountAuthType
   incoming: EndpointInput
   outgoing: EndpointInput
 }

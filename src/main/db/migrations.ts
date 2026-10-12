@@ -270,5 +270,17 @@ export const migrations: Migration[] = [
       );
       ALTER TABLE folders ADD COLUMN is_visible INTEGER NOT NULL DEFAULT 1;
     `
+  },
+  {
+    id: '0009_oauth_accounts',
+    sql: `
+      CREATE TABLE IF NOT EXISTS account_oauth (
+        account_id TEXT PRIMARY KEY NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL,
+        refresh_token_ref TEXT NOT NULL,
+        scope TEXT,
+        created_at INTEGER NOT NULL
+      );
+    `
   }
 ]

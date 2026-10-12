@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
-import { getAccountById, getAccountPassword } from './accounts'
-import { buildImapClient } from './imap'
+import { getAccountById } from './accounts'
+import { buildAccountClient } from './auth'
 import { indexMessage } from './search'
 import { applyAssessment } from './spam'
 import { applyRules } from './rules'
@@ -281,11 +281,9 @@ async function syncOneMailbox(
 export async function syncAccount(accountId: string, emit: Emit): Promise<SyncResult> {
   const account = getAccountById(accountId)
   if (!account) throw new Error('Account not found')
-  const password = getAccountPassword(accountId)
-  if (!password) throw new Error('No stored password for account')
 
   emit({ type: 'sync:start', accountId })
-  const client = buildImapClient(account.incoming, password)
+  const client = await buildAccountClient(accountId)
   await client.connect()
 
   const db = getDb()
@@ -339,7 +337,7 @@ export async function syncAccount(accountId: string, emit: Emit): Promise<SyncRe
   }
 
   if (targetFolderIds.length > 0) {
-    const resyncClient = buildImapClient(account.incoming, password)
+    const resyncClient = await buildAccountClient(accountId)
     await resyncClient.connect()
     try {
       for (const id of targetFolderIds) {
@@ -361,12 +359,8 @@ export async function syncFolder(folderId: string, emit: Emit): Promise<SyncResu
   const db = getDb()
   const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
   if (!folderRow) throw new Error('Folder not found')
-  const account = getAccountById(folderRow.accountId)
-  if (!account) throw new Error('Account not found')
-  const password = getAccountPassword(folderRow.accountId)
-  if (!password) throw new Error('No stored password for account')
 
-  const client = buildImapClient(account.incoming, password)
+  const client = await buildAccountClient(folderRow.accountId)
   await client.connect()
   try {
     const count = await syncOneMailbox(client, folderRow.accountId, folderId, folderRow.remotePath)

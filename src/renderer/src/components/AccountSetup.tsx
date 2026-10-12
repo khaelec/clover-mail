@@ -87,6 +87,22 @@ export function AccountSetup({ onClose }: { onClose: () => void }): ReactNode {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [isError, setIsError] = useState(false)
+  const [oauthBusy, setOauthBusy] = useState(false)
+
+  async function signInGoogle(): Promise<void> {
+    setOauthBusy(true)
+    setIsError(false)
+    setMessage(null)
+    try {
+      await window.clover.mail.startGoogleOAuth()
+      onClose()
+    } catch (error) {
+      setIsError(true)
+      setMessage((error as Error).message)
+    } finally {
+      setOauthBusy(false)
+    }
+  }
 
   const preset = useMemo(() => {
     const domain = email.split('@')[1]?.toLowerCase().trim()
@@ -154,6 +170,20 @@ export function AccountSetup({ onClose }: { onClose: () => void }): ReactNode {
         </header>
 
         <div className="max-h-[70vh] space-y-4 overflow-y-auto px-5 py-4">
+          <button
+            type="button"
+            onClick={() => void signInGoogle()}
+            disabled={oauthBusy}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-canvas/50 px-3 py-2.5 text-[13px] font-medium text-ink hover:border-accent disabled:opacity-50"
+          >
+            {oauthBusy ? 'Opening Google…' : 'Sign in with Google (recommended — no app password)'}
+          </button>
+          <div className="flex items-center gap-3 text-[11px] text-muted">
+            <span className="h-px flex-1 bg-line" />
+            or add manually
+            <span className="h-px flex-1 bg-line" />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Email address" value={email} onChange={applyEmail} placeholder="you@example.com" />
             <Field label="Display name" value={displayName} onChange={setDisplayName} placeholder="Optional" />

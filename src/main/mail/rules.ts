@@ -9,8 +9,8 @@ import {
   ruleConditions,
   rules
 } from '../db/schema'
-import { getAccountById, getAccountPassword } from './accounts'
-import { buildImapClient } from './imap'
+import { getAccountById } from './accounts'
+import { buildAccountClient } from './auth'
 import { removeFromIndex } from './search'
 import { allFoldersSorted } from './queries'
 import type { Rule, RuleActionInput, RuleConditionInput, RuleInput } from '@shared/mail'
@@ -209,8 +209,7 @@ export async function applyRules(accountId: string): Promise<ApplyRulesResult> {
   if (ruleList.length === 0) return empty
 
   const account = getAccountById(accountId)
-  const password = account ? getAccountPassword(accountId) : undefined
-  if (!account || !password) return empty
+  if (!account) return empty
 
   const db = getDb()
   const folderRows = allFoldersSorted(accountId)
@@ -218,7 +217,7 @@ export async function applyRules(accountId: string): Promise<ApplyRulesResult> {
   let matched = 0
   let moved = 0
 
-  const client = buildImapClient(account.incoming, password)
+  const client = await buildAccountClient(accountId)
   await client.connect()
   try {
     for (const folder of folderRows) {

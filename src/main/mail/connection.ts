@@ -1,6 +1,5 @@
+import { buildAccountClient } from './auth'
 import type { ImapFlow } from 'imapflow'
-import { getAccountById, getAccountPassword } from './accounts'
-import { buildImapClient } from './imap'
 
 interface Entry {
   client: ImapFlow | null
@@ -19,13 +18,8 @@ export function withImap<T>(accountId: string, fn: (client: ImapFlow) => Promise
   pool.set(accountId, entry)
 
   const run = entry.chain.then(async () => {
-    const account = getAccountById(accountId)
-    if (!account) throw new Error('Account not found')
-    const password = getAccountPassword(accountId)
-    if (!password) throw new Error('No stored password for account')
-
     if (!entry.client || !entry.client.usable) {
-      entry.client = buildImapClient(account.incoming, password)
+      entry.client = await buildAccountClient(accountId)
       await entry.client.connect()
     }
     try {

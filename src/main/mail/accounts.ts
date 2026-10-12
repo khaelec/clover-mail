@@ -1,11 +1,27 @@
 import { randomUUID } from 'node:crypto'
 import { asc, eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { accounts, incomingSettings, outgoingSettings } from '../db/schema'
+import { accounts, accountOauth, incomingSettings, outgoingSettings } from '../db/schema'
 import { deleteSecret, getSecret, setSecret } from '../settings/secrets'
-import type { AccountInput, AccountSummary, CreateAccountInput, EndpointInput } from '@shared/mail'
+import type {
+  AccountAuthType,
+  AccountInput,
+  AccountSummary,
+  CreateAccountInput,
+  EndpointInput,
+  OAuthProvider
+} from '@shared/mail'
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#f43f5e', '#64748b']
+
+function authTypeFor(accountId: string): AccountAuthType {
+  const row = getDb()
+    .select()
+    .from(accountOauth)
+    .where(eq(accountOauth.accountId, accountId))
+    .get()
+  return row ? 'oauth' : 'password'
+}
 
 function makeSummary(
   account: typeof accounts.$inferSelect,
@@ -18,6 +34,7 @@ function makeSummary(
     displayName: account.displayName,
     color: account.color,
     isEnabled: account.isEnabled,
+    authType: authTypeFor(account.id),
     incoming: {
       host: incoming.host,
       port: incoming.port,
@@ -161,4 +178,62 @@ export function setAccountPassword(id: string, password: string): void {
 export function deleteAccount(id: string): void {
   deleteSecret(secretRefFor(id))
   getDb().delete(accounts).where(eq(accounts.id, id)).run()
+}
+
+export function createOAuthAccount(input: {
+  email: string
+  provider: OAuthProvider
+  refreshToken: string
+}): AccountSummary {
+  const id = randomUUID()
+  const now = Date.now()
+  const ref = `oauth:${id}`
+  const isGoogle = input.provider === 'google'
+
+  getDb()
+    .insert(accounts)
+    .values({
+      id,
+      email: input.email,
+      displayName: input.email,
+      color: COLORS[listAccounts().length % COLORS.length],
+      isEnabled: true,
+      createdAt: now
+    })
+    .run()
+
+  getDb()
+    .insert(incomingSettings)
+    .values({
+      id: randomUUID(),
+      accountId: id,
+      protocol: 'imap',
+      host: isGoogle ? 'imap.gmail.com' : 'outlook.office365.com',
+      port: 993,
+      security: 'ssl',
+      username: input.email,
+      secretRef: ref
+    })
+    .run()
+
+  getDb()
+    .insert(outgoingSettings)
+    .values({
+      id: randomUUID(),
+      accountId: id,
+      host: isGoogle ? 'smtp.gmail.com' : 'smtp.office365.com',
+      port: 465,
+      security: 'ssl',
+      username: input.email,
+      secretRef: ref
+    })
+    .run()
+
+  getDb()
+    .insert(accountOauth)
+    .values({ accountId: id, provider: input.provider, refreshTokenRef: ref, scope: null, createdAt: now })
+    .run()
+
+  setSecret(ref, input.refreshToken)
+  return getAccountById(id) as AccountSummary
 }

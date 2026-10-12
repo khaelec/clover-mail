@@ -21,6 +21,12 @@ import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
 import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
 import { exportFolderMbox } from '@main/mail/archive'
+import {
+  getGoogleConfig,
+  googleConfigured,
+  setGoogleConfig,
+  startGoogleOAuth
+} from '@main/oauth'
 import { bulkAction, deleteSpam, emptyFolder, markFolderRead } from '@main/mail/bulk'
 import { startAllIdle, startIdle, stopIdle } from '@main/mail/idle'
 import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
@@ -47,13 +53,19 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     async (_e, input: CreateAccountInput): Promise<ConnectionTestResult> => {
       const result: ConnectionTestResult = { ok: false }
       try {
-        result.imap = await testImap(input.incoming, input.password)
+        result.imap = await testImap(input.incoming, {
+          user: input.incoming.username,
+          pass: input.password
+        })
       } catch (error) {
         result.error = `IMAP: ${(error as Error).message}`
         return result
       }
       try {
-        result.smtp = await testSmtp(input.outgoing, input.password)
+        result.smtp = await testSmtp(input.outgoing, {
+          user: input.outgoing.username,
+          pass: input.password
+        })
       } catch (error) {
         result.error = `SMTP: ${(error as Error).message}`
         return result
@@ -114,6 +126,19 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     addAlias(accountId, email, name)
   )
   ipcMain.handle(IpcChannels.mail.deleteAlias, (_e, aliasId: string) => deleteAlias(aliasId))
+  ipcMain.handle(IpcChannels.mail.oauthStart, async () => {
+    const account = await startGoogleOAuth()
+    startIdle(account.id, emit)
+    return account
+  })
+  ipcMain.handle(IpcChannels.mail.oauthGoogleConfigured, () => googleConfigured())
+  ipcMain.handle(IpcChannels.mail.oauthGetGoogleConfig, () => ({
+    clientId: getGoogleConfig().clientId
+  }))
+  ipcMain.handle(
+    IpcChannels.mail.oauthSetGoogleConfig,
+    (_e, clientId: string, clientSecret?: string) => setGoogleConfig(clientId, clientSecret)
+  )
   ipcMain.handle(IpcChannels.mail.listRules, (_e, accountId: string) => listRules(accountId))
   ipcMain.handle(IpcChannels.mail.createRule, (_e, accountId: string, input: RuleInput) =>
     createRule(accountId, input)

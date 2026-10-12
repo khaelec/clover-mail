@@ -163,6 +163,14 @@ export const spamTokens = sqliteTable('spam_tokens', {
   hamCount: integer('ham_count').notNull().default(0)
 })
 
+export const accountOauth = sqliteTable('account_oauth', {
+  accountId: text('account_id').primaryKey(),
+  provider: text('provider').notNull(),
+  refreshTokenRef: text('refresh_token_ref').notNull(),
+  scope: text('scope'),
+  createdAt: integer('created_at').notNull()
+})
+
 export const rules = sqliteTable(
   'rules',
   {
@@ -272,6 +280,7 @@ export const schema = {
   migrationsTable,
   accounts,
   accountAliases,
+  accountOauth,
   incomingSettings,
   outgoingSettings,
   folders,

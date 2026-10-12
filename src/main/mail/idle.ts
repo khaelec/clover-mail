@@ -2,8 +2,8 @@ import type { ImapFlow } from 'imapflow'
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders } from '../db/schema'
-import { getAccountById, getAccountPassword, listAccounts } from './accounts'
-import { buildImapClient } from './imap'
+import { getAccountById, listAccounts } from './accounts'
+import { buildAccountClient } from './auth'
 import { syncFolder } from './sync'
 import type { MailEvent } from '@shared/mail'
 
@@ -21,10 +21,9 @@ const handles = new Map<string, Handle>()
 async function connect(handle: Handle, emit: Emit): Promise<void> {
   if (handle.stopped) return
   const account = getAccountById(handle.accountId)
-  const password = getAccountPassword(handle.accountId)
-  if (!account || !password) return
+  if (!account) return
 
-  const client = buildImapClient(account.incoming, password)
+  const client = await buildAccountClient(handle.accountId)
   handle.client = client
   client.on('error', () => undefined)
 

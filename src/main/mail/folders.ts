@@ -1,8 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
-import { getAccountById, getAccountPassword } from './accounts'
-import { buildImapClient } from './imap'
+import { buildAccountClient } from './auth'
 import { withImap } from './connection'
 import { upsertFolders, type MailboxRecord } from './sync'
 
@@ -11,12 +10,7 @@ export async function createFolder(
   name: string,
   parentRemotePath?: string
 ): Promise<void> {
-  const account = getAccountById(accountId)
-  if (!account) throw new Error('Account not found')
-  const password = getAccountPassword(accountId)
-  if (!password) throw new Error('No stored password for account')
-
-  const client = buildImapClient(account.incoming, password)
+  const client = await buildAccountClient(accountId)
   await client.connect()
   try {
     const list = (await client.list()) as unknown as MailboxRecord[]
