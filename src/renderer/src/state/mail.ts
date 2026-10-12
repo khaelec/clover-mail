@@ -59,6 +59,8 @@ interface MailState {
   emptyJunk: () => Promise<void>
   snooze: (messageId: string, untilMs: number) => Promise<void>
   unsnooze: (messageId: string) => Promise<void>
+  muteThread: (threadId: string, muted: boolean) => Promise<void>
+  pinThread: (threadId: string, pinned: boolean) => Promise<void>
   unreadOnly: boolean
   setUnreadOnly: (value: boolean) => void
   setThreaded: (value: boolean) => Promise<void>
@@ -406,6 +408,16 @@ export const useMail = create<MailState>((set, get) => {
       await window.clover.mail.unsnooze(messageId)
       await reloadFolder()
       await reloadFolders()
+    },
+
+    muteThread: async (threadId, muted) => {
+      await window.clover.mail.setThreadMuted(threadId, muted)
+      await reloadFolder()
+    },
+
+    pinThread: async (threadId, pinned) => {
+      await window.clover.mail.setThreadPinned(threadId, pinned)
+      await reloadFolder()
     },
     setThreaded: async (value) => {
       set({ threaded: value })

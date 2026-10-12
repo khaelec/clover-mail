@@ -294,5 +294,22 @@ export const migrations: Migration[] = [
       );
       ALTER TABLE messages ADD COLUMN snoozed_until INTEGER;
     `
+  },
+  {
+    id: '0011_schedules_and_threads',
+    sql: `
+      CREATE TABLE IF NOT EXISTS scheduled_sends (
+        id TEXT PRIMARY KEY NOT NULL,
+        account_id TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        send_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS thread_settings (
+        thread_id TEXT PRIMARY KEY NOT NULL,
+        muted INTEGER NOT NULL DEFAULT 0,
+        pinned INTEGER NOT NULL DEFAULT 0
+      );
+    `
   }
 ]

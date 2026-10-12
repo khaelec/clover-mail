@@ -12,6 +12,7 @@ import { stopAllIdle } from '@main/mail/idle'
 import { initUpdater } from '@main/updater'
 import { createTray } from '@main/tray'
 import { clearDueSnoozes } from '@main/mail/snooze'
+import { processDueSends } from '@main/mail/schedules'
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
@@ -220,6 +221,15 @@ app.whenReady().then(async () => {
       mainWindow?.webContents.send(IpcChannels.mail.events, { type: 'mail:refresh', accountId: '' })
     }
   }, 60_000)
+
+  // Send scheduled messages when due.
+  setInterval(() => {
+    void processDueSends(Date.now()).then((sent) => {
+      if (sent > 0) {
+        mainWindow?.webContents.send(IpcChannels.mail.events, { type: 'mail:refresh', accountId: '' })
+      }
+    })
+  }, 30_000)
 })
 
 app.on('window-all-closed', () => {

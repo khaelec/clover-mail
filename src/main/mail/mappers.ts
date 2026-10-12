@@ -17,7 +17,8 @@ export function toMessageSummary(row: typeof messages.$inferSelect): MessageSumm
     hasAttachments: row.hasAttachments,
     spamScore: row.spamScore,
     isSpam: row.isSpam,
-    isImportant: row.isImportant
+    isImportant: row.isImportant,
+    threadId: row.threadId
   }
 }
 

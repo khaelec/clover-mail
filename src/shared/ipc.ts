@@ -106,6 +106,11 @@ export interface MailApi {
   deleteSnippet: (id: string) => Promise<void>
   snooze: (messageId: string, untilMs: number) => Promise<void>
   unsnooze: (messageId: string) => Promise<void>
+  scheduleSend: (payload: ComposeInput, sendAt: number) => Promise<string>
+  listScheduled: () => Promise<import('./mail').ScheduledSend[]>
+  cancelScheduled: (id: string) => Promise<void>
+  setThreadMuted: (threadId: string, muted: boolean) => Promise<void>
+  setThreadPinned: (threadId: string, pinned: boolean) => Promise<void>
   onEvent: (cb: (event: MailEvent) => void) => () => void
 }
 

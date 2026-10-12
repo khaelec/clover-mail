@@ -20,6 +20,8 @@ import { sendMessage } from '@main/mail/send'
 import { searchMessages, searchServer } from '@main/mail/search'
 import { addSnippet, deleteSnippet, listSnippets } from '@main/mail/snippets'
 import { snooze, unsnooze } from '@main/mail/snooze'
+import { cancelScheduled, listScheduled, scheduleSend } from '@main/mail/schedules'
+import { setThreadMuted, setThreadPinned } from '@main/mail/threadSettings'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
 import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
@@ -241,6 +243,17 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     snooze(messageId, untilMs)
   )
   ipcMain.handle(IpcChannels.mail.unsnooze, (_e, messageId: string) => unsnooze(messageId))
+  ipcMain.handle(IpcChannels.mail.scheduleSend, (_e, payload: ComposeInput, sendAt: number) =>
+    scheduleSend(payload, sendAt)
+  )
+  ipcMain.handle(IpcChannels.mail.listScheduled, () => listScheduled())
+  ipcMain.handle(IpcChannels.mail.cancelScheduled, (_e, id: string) => cancelScheduled(id))
+  ipcMain.handle(IpcChannels.mail.setThreadMuted, (_e, threadId: string, muted: boolean) =>
+    setThreadMuted(threadId, muted)
+  )
+  ipcMain.handle(IpcChannels.mail.setThreadPinned, (_e, threadId: string, pinned: boolean) =>
+    setThreadPinned(threadId, pinned)
+  )
 
   startAllIdle(emit)
 }

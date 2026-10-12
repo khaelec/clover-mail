@@ -3,6 +3,7 @@ import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { toMessageSummary } from './mappers'
 import { countSpam, listSpam } from './spam'
+import { listThreadFlags } from './threadSettings'
 import type { FolderSummary, MessageSummary, ThreadSummary } from '@shared/mail'
 
 /** Excludes messages snoozed into the future. */
@@ -129,12 +130,23 @@ function buildThreads(rows: (typeof messages.$inferSelect)[]): ThreadSummary[] {
       unreadCount: ordered.filter((m) => !m.isRead).length,
       hasAttachments: ordered.some((m) => m.hasAttachments),
       isImportant: ordered.some((m) => m.isImportant),
+      muted: false,
+      pinned: false,
       lastDate: last.dateUtc,
       messages: ordered.map(toMessageSummary)
     })
   }
 
-  return threads.sort((a, b) => (b.lastDate ?? 0) - (a.lastDate ?? 0))
+  const flags = listThreadFlags()
+  for (const thread of threads) {
+    const flag = flags.get(thread.threadId)
+    thread.muted = flag?.muted ?? false
+    thread.pinned = flag?.pinned ?? false
+  }
+
+  return threads.sort(
+    (a, b) => Number(b.pinned) - Number(a.pinned) || (b.lastDate ?? 0) - (a.lastDate ?? 0)
+  )
 }
 
 /**

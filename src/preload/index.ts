@@ -167,6 +167,14 @@ const api: CloverApi = {
     deleteSnippet: (id) => ipcRenderer.invoke(IpcChannels.mail.deleteSnippet, id),
     snooze: (messageId, untilMs) => ipcRenderer.invoke(IpcChannels.mail.snooze, messageId, untilMs),
     unsnooze: (messageId) => ipcRenderer.invoke(IpcChannels.mail.unsnooze, messageId),
+    scheduleSend: (payload, sendAt) =>
+      ipcRenderer.invoke(IpcChannels.mail.scheduleSend, payload, sendAt),
+    listScheduled: () => ipcRenderer.invoke(IpcChannels.mail.listScheduled),
+    cancelScheduled: (id) => ipcRenderer.invoke(IpcChannels.mail.cancelScheduled, id),
+    setThreadMuted: (threadId, muted) =>
+      ipcRenderer.invoke(IpcChannels.mail.setThreadMuted, threadId, muted),
+    setThreadPinned: (threadId, pinned) =>
+      ipcRenderer.invoke(IpcChannels.mail.setThreadPinned, threadId, pinned),
     onEvent: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, event: unknown): void =>
         cb(event as Parameters<typeof cb>[0])

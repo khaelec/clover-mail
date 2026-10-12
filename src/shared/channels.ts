@@ -74,6 +74,11 @@ export const IpcChannels = {
     deleteSnippet: 'mail:delete-snippet',
     snooze: 'mail:snooze',
     unsnooze: 'mail:unsnooze',
+    scheduleSend: 'mail:schedule-send',
+    listScheduled: 'mail:list-scheduled',
+    cancelScheduled: 'mail:cancel-scheduled',
+    setThreadMuted: 'mail:set-thread-muted',
+    setThreadPinned: 'mail:set-thread-pinned',
     events: 'mail:events'
   },
   apps: {

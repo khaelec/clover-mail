@@ -5,6 +5,7 @@ import { folders, messages } from '../db/schema'
 import { getAccountById, listAccounts } from './accounts'
 import { buildAccountClient } from './auth'
 import { syncFolder } from './sync'
+import { isThreadMuted } from './threadSettings'
 import type { MailEvent } from '@shared/mail'
 
 export type Emit = (event: MailEvent) => void
@@ -63,6 +64,11 @@ async function onNewMail(handle: Handle, emit: Emit): Promise<void> {
     .orderBy(desc(messages.dateUtc))
     .limit(1)
     .get()
+  if (newest && isThreadMuted(newest.threadId)) {
+    // Muted conversation — refresh quietly without a notification.
+    emit({ type: 'mail:refresh', accountId: handle.accountId })
+    return
+  }
   emit({
     type: 'mail:new',
     accountId: handle.accountId,

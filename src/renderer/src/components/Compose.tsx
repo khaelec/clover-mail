@@ -109,6 +109,7 @@ export function Compose({
   const [signatureOn, setSignatureOn] = useState(false)
   const [snippets, setSnippets] = useState<Snippet[]>([])
   const [snippetOpen, setSnippetOpen] = useState(false)
+  const [laterOpen, setLaterOpen] = useState(false)
 
   useEffect(() => {
     void window.clover.mail.listSnippets().then(setSnippets)
@@ -273,31 +274,54 @@ export function Compose({
     if (url) exec('createLink', url)
   }
 
+  function buildInput(): ComposeInput {
+    const html = editorRef.current?.innerHTML ?? ''
+    const text = editorRef.current?.innerText ?? ''
+    return {
+      accountId,
+      to: parseList(to),
+      cc: parseList(cc),
+      bcc: parseList(bcc),
+      subject,
+      text,
+      html: html.trim() ? html : undefined,
+      fromEmail: fromEmail || undefined,
+      fromName: fromOptions.find((o) => o.email === fromEmail)?.name ?? undefined,
+      attachments: attachments.map((a) => ({ filename: a.name, path: a.path })),
+      inReplyTo,
+      references
+    }
+  }
+
+  function laterUntil(kind: 'hour' | 'tonight' | 'tomorrow'): number {
+    const d = new Date()
+    if (kind === 'hour') d.setHours(d.getHours() + 1)
+    else if (kind === 'tonight') {
+      d.setHours(18, 0, 0, 0)
+      if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1)
+    } else {
+      d.setDate(d.getDate() + 1)
+      d.setHours(8, 0, 0, 0)
+    }
+    return d.getTime()
+  }
+
+  function sendLater(kind: 'hour' | 'tonight' | 'tomorrow'): void {
+    if (!to.trim()) {
+      setError('Add at least one recipient.')
+      return
+    }
+    void window.clover.mail.scheduleSend(buildInput(), laterUntil(kind))
+    onClose()
+  }
+
   async function submit(): Promise<void> {
     if (!to.trim()) {
       setError('Add at least one recipient.')
       return
     }
     setError(null)
-    const html = editorRef.current?.innerHTML ?? ''
-    const text = editorRef.current?.innerText ?? ''
-    setPending({
-      seconds: 8,
-      input: {
-        accountId,
-        to: parseList(to),
-        cc: parseList(cc),
-        bcc: parseList(bcc),
-        subject,
-        text,
-        html: html.trim() ? html : undefined,
-        fromEmail: fromEmail || undefined,
-        fromName: fromOptions.find((o) => o.email === fromEmail)?.name ?? undefined,
-        attachments: attachments.map((a) => ({ filename: a.name, path: a.path })),
-        inReplyTo,
-        references
-      }
-    })
+    setPending({ seconds: 8, input: buildInput() })
   }
 
   return (
@@ -559,11 +583,44 @@ export function Compose({
             Attach
           </button>
           {error && <span className="text-[12px] text-rose-500">{error}</span>}
+          <div className="relative ml-auto">
+            <button
+              type="button"
+              onClick={() => setLaterOpen((v) => !v)}
+              disabled={busy}
+              className="flex items-center gap-1 rounded-lg border border-line px-3 py-2 text-[12px] text-muted hover:text-ink disabled:opacity-50"
+            >
+              Send later
+            </button>
+            {laterOpen && (
+              <div className="absolute bottom-11 right-0 z-50 w-44 overflow-hidden rounded-xl border border-line bg-surface py-1 text-ink shadow-2xl">
+                {(
+                  [
+                    ['In 1 hour', 'hour'],
+                    ['Tonight (6pm)', 'tonight'],
+                    ['Tomorrow morning', 'tomorrow']
+                  ] as [string, 'hour' | 'tonight' | 'tomorrow'][]
+                ).map(([label, kind]) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => {
+                      setLaterOpen(false)
+                      sendLater(kind)
+                    }}
+                    className="block w-full px-3 py-1.5 text-left text-[12px] hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={submit}
             disabled={busy}
-            className="ml-auto flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-accent-ink disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-accent-ink disabled:opacity-50"
           >
             {busy ? <IconRefresh className="h-4 w-4 animate-spin" /> : <IconSend className="h-4 w-4" />}
             {busy ? 'Sending…' : 'Send'}

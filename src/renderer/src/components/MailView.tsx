@@ -3,7 +3,7 @@ import { useMail } from '../state/mail'
 import { useLayout } from '../state/layout'
 import { useApps } from '../state/apps'
 import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
-import type { BulkActionType, FolderSummary, MessageSummary } from '@shared/mail'
+import type { BulkActionType, FolderSummary, MessageSummary, ThreadSummary } from '@shared/mail'
 import { Reader } from './Reader'
 import { Compose } from './Compose'
 import { AccountSetup } from './AccountSetup'
@@ -256,6 +256,20 @@ export function MailView(): ReactNode {
   const expandedThreadIds = useMail((s) => s.expandedThreadIds)
   const toggleThread = useMail((s) => s.toggleThread)
   const setThreaded = useMail((s) => s.setThreaded)
+  const muteThread = useMail((s) => s.muteThread)
+  const pinThread = useMail((s) => s.pinThread)
+  const [threadMenu, setThreadMenu] = useState<{
+    x: number
+    y: number
+    thread: ThreadSummary
+  } | null>(null)
+
+  useEffect(() => {
+    if (!threadMenu) return
+    const close = (): void => setThreadMenu(null)
+    window.addEventListener('resize', close)
+    return () => window.removeEventListener('resize', close)
+  }, [threadMenu])
   const layout = useLayout((s) => s.settings)
   const setLayout = useLayout((s) => s.set)
   const saveLayout = useLayout((s) => s.save)
@@ -900,7 +914,15 @@ export function MailView(): ReactNode {
                       onClick={() =>
                         single && latest ? void selectMessage(latest.id) : toggleThread(t.threadId)
                       }
-                      onContextMenu={(e) => latest && openMenu(e, latest)}
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setThreadMenu({
+                          x: Math.min(e.clientX, window.innerWidth - 220),
+                          y: Math.min(e.clientY, window.innerHeight - 200),
+                          thread: t
+                        })
+                      }}
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData(
@@ -925,6 +947,16 @@ export function MailView(): ReactNode {
                           {t.messageCount > 1 && (
                             <span className="shrink-0 rounded-full bg-canvas/70 px-1.5 text-[10px] text-muted ring-1 ring-line">
                               {t.messageCount}
+                            </span>
+                          )}
+                          {t.pinned && (
+                            <span className="shrink-0 rounded bg-accent/15 px-1 text-[9px] font-semibold text-accent" title="Pinned">
+                              PIN
+                            </span>
+                          )}
+                          {t.muted && (
+                            <span className="shrink-0 rounded bg-line px-1 text-[9px] font-semibold text-muted" title="Muted">
+                              MUTE
                             </span>
                           )}
                           {t.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
@@ -1169,6 +1201,51 @@ export function MailView(): ReactNode {
                 </div>
               </>
             )}
+          </div>
+        </>
+      )}
+
+      {threadMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setThreadMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setThreadMenu(null)
+            }}
+          />
+          <div
+            className="fixed z-50 w-48 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-2xl"
+            style={{ left: threadMenu.x, top: threadMenu.y }}
+          >
+            <MenuItem
+              onClick={() => {
+                void muteThread(threadMenu.thread.threadId, !threadMenu.thread.muted)
+                setThreadMenu(null)
+              }}
+            >
+              {threadMenu.thread.muted ? 'Unmute thread' : 'Mute thread'}
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                void pinThread(threadMenu.thread.threadId, !threadMenu.thread.pinned)
+                setThreadMenu(null)
+              }}
+            >
+              {threadMenu.thread.pinned ? 'Unpin thread' : 'Pin thread'}
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                void bulkIds(
+                  threadMenu.thread.messages.map((x) => x.id),
+                  'markRead'
+                )
+                setThreadMenu(null)
+              }}
+            >
+              Mark thread read
+            </MenuItem>
           </div>
         </>
       )}

@@ -81,6 +81,7 @@ export interface MessageSummary {
   spamScore: number
   isSpam: boolean
   isImportant: boolean
+  threadId: string | null
 }
 
 export interface AttachmentSummary {
@@ -131,6 +132,13 @@ export interface Snippet {
   id: string
   name: string
   body: string
+}
+
+export interface ScheduledSend {
+  id: string
+  accountId: string
+  subject: string
+  sendAt: number
 }
 
 export interface ComposeInput {
@@ -243,6 +251,8 @@ export interface ThreadSummary {
   unreadCount: number
   hasAttachments: boolean
   isImportant: boolean
+  muted: boolean
+  pinned: boolean
   lastDate: number | null
   messages: MessageSummary[]
 }
