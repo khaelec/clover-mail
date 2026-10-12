@@ -61,6 +61,19 @@ function sanitizeWithInlineImages(
   return out
 }
 
+function securityLabel(kind: string): string {
+  switch (kind) {
+    case 'pgp-inline':
+      return 'inline PGP'
+    case 'pgp-mime':
+      return 'PGP/MIME'
+    case 'smime':
+      return 'S/MIME'
+    default:
+      return 'security'
+  }
+}
+
 function blockRemoteImages(html: string): { html: string; blocked: number } {
   const doc = new DOMParser().parseFromString(html, 'text/html')
   let blocked = 0
@@ -235,6 +248,14 @@ export function Reader({
     await window.clover.settings.set(SETTINGS_KEYS.trustedSenders, next)
   }
 
+  async function trustSender(): Promise<void> {
+    if (!detail || !sender) return
+    const next = Array.from(new Set([...trusted, sender]))
+    setTrusted(next)
+    await window.clover.settings.set(SETTINGS_KEYS.trustedSenders, next)
+    await useMail.getState().selectMessage(detail.id)
+  }
+
   function askCopilot(prompt: string): void {
     if (!detail) return
     const text = [
@@ -375,6 +396,41 @@ export function Reader({
           </button>
         </div>
       </header>
+
+      {detail.phishing.suspicious && (
+        <div className="flex items-start gap-3 border-b border-line bg-rose-500/10 px-6 py-2.5 text-[12px] text-rose-600">
+          <span className="mt-0.5 shrink-0 font-semibold">Suspicious message</span>
+          <span className="min-w-0 flex-1">
+            <span className="block">{detail.phishing.reasons[0]}</span>
+            {detail.phishing.reasons.length > 1 && (
+              <span className="mt-0.5 block text-rose-600/80">
+                {detail.phishing.reasons.slice(1).join(' · ')}
+              </span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => void trustSender()}
+            className="shrink-0 font-medium underline"
+          >
+            Trust sender
+          </button>
+        </div>
+      )}
+
+      {(detail.security.signed || detail.security.encrypted) && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-line bg-accent/8 px-6 py-2 text-[12px] text-accent">
+          <span className="font-semibold">
+            {detail.security.encrypted ? 'Encrypted' : 'Signed'} message
+          </span>
+          <span className="text-muted">
+            {securityLabel(
+              detail.security.encrypted ? detail.security.encryption : detail.security.signing
+            )}{' '}
+            detected — signature not verified
+          </span>
+        </div>
+      )}
 
       {rendered.blocked > 0 && (
         <div className="flex items-center gap-3 border-b border-line bg-amber-500/10 px-6 py-2 text-[12px] text-amber-600">

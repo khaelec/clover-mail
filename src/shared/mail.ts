@@ -98,6 +98,22 @@ export interface InlineImage {
   dataUrl: string
 }
 
+export type MessageSigning = 'none' | 'pgp-inline' | 'pgp-mime' | 'smime'
+export type MessageEncryption = 'none' | 'pgp-inline' | 'pgp-mime' | 'smime'
+
+export interface MessageSecurity {
+  signing: MessageSigning
+  encryption: MessageEncryption
+  signed: boolean
+  encrypted: boolean
+  verified: boolean
+}
+
+export interface MessagePhishing {
+  suspicious: boolean
+  reasons: string[]
+}
+
 export interface MessageDetail extends MessageSummary {
   messageId: string | null
   inReplyTo: string | null
@@ -110,6 +126,8 @@ export interface MessageDetail extends MessageSummary {
   attachments: AttachmentSummary[]
   inlineImages: InlineImage[]
   spamReasons: string[]
+  security: MessageSecurity
+  phishing: MessagePhishing
 }
 
 export interface AttachmentRef {

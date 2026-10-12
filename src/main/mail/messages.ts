@@ -12,8 +12,9 @@ import { withImap } from './connection'
 import { indexMessage, removeFromIndex } from './search'
 import { applyAssessment } from './spam'
 import { attachmentAbsolutePath, readAttachmentDataUrl, saveAttachment } from './storage'
+import { assessPhishing, classifySecurity, trustedSenders } from './security'
 import { toAttachmentSummary, toMessageSummary } from './mappers'
-import type { InlineImage, MessageDetail } from '@shared/mail'
+import type { InlineImage, MessageDetail, MessagePhishing, MessageSecurity } from '@shared/mail'
 
 function parseAddresses(json: string | null): string[] {
   if (!json) return []
@@ -46,7 +47,9 @@ function toDetail(
   textPlain: string | null,
   htmlRaw: string | null,
   attachmentRows: (typeof attachments.$inferSelect)[],
-  inlineImages: InlineImage[]
+  inlineImages: InlineImage[],
+  security: MessageSecurity,
+  phishing: MessagePhishing
 ): MessageDetail {
   return {
     ...toMessageSummary(row),
@@ -60,7 +63,9 @@ function toDetail(
     htmlRaw,
     attachments: attachmentRows.map(toAttachmentSummary),
     inlineImages,
-    spamReasons: parseReasons(row.spamReasons)
+    spamReasons: parseReasons(row.spamReasons),
+    security,
+    phishing
   }
 }
 
@@ -151,7 +156,29 @@ export async function getMessageDetail(messageId: string): Promise<MessageDetail
     if (dataUrl) inlineImages.push({ contentId: att.contentId, dataUrl })
   }
 
-  return toDetail(row, body?.textPlain ?? null, body?.htmlRaw ?? null, attachmentRows, inlineImages)
+  const security = classifySecurity(
+    body?.htmlRaw ?? null,
+    body?.textPlain ?? null,
+    attachmentRows.map((att) => att.mimeType ?? '')
+  )
+  const phishing = assessPhishing(
+    row.fromEmail,
+    row.fromName,
+    row.replyToJson,
+    body?.htmlRaw ?? null,
+    body?.textPlain ?? null,
+    trustedSenders()
+  )
+
+  return toDetail(
+    row,
+    body?.textPlain ?? null,
+    body?.htmlRaw ?? null,
+    attachmentRows,
+    inlineImages,
+    security,
+    phishing
+  )
 }
 
 export async function downloadAttachment(
