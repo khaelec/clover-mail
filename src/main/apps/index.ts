@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import { asc, eq } from 'drizzle-orm'
+import { session } from 'electron'
 import { getDb } from '../db'
 import { customWebApps } from '../db/schema'
 import type { CreateAppInput, CustomApp } from '@shared/apps'
@@ -43,13 +44,30 @@ function toApp(row: typeof customWebApps.$inferSelect): CustomApp {
   }
 }
 
+const ALLOWED_PERMISSIONS = new Set(['notifications', 'media', 'fullscreen', 'clipboard-read'])
+
+/** Let embedded apps post notifications (new message alerts) and use the mic/camera. */
+function configureAppSession(appId: string): void {
+  const ses = session.fromPartition(`persist:app-${appId}`)
+  ses.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(ALLOWED_PERMISSIONS.has(permission))
+  })
+  ses.setPermissionCheckHandler((_wc, permission) => ALLOWED_PERMISSIONS.has(permission))
+}
+
+export function configureAppSessions(): void {
+  for (const app of listApps()) configureAppSession(app.id)
+}
+
 export function listApps(): CustomApp[] {
-  return getDb()
+  const apps = getDb()
     .select()
     .from(customWebApps)
     .orderBy(asc(customWebApps.sortOrder), asc(customWebApps.createdAt))
     .all()
     .map(toApp)
+  for (const app of apps) configureAppSession(app.id)
+  return apps
 }
 
 function normalizeUrl(input: string): string {

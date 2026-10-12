@@ -169,6 +169,7 @@ function AppDock(): ReactNode {
   const hostRef = useRef<HTMLDivElement>(null)
   const isCopilot = layout.dockKind === 'copilot'
   const app = isCopilot ? null : (apps.find((a) => a.id === layout.dockAppId) ?? null)
+  const setDisplayed = useApps((s) => s.setDisplayed)
 
   useEffect(() => {
     void load()
@@ -187,14 +188,20 @@ function AppDock(): ReactNode {
       webview.setAttribute('src', app.url)
       webview.setAttribute('partition', `persist:app-${app.id}`)
       webview.setAttribute('allowpopups', 'true')
+      webview.setAttribute('webpreferences', 'backgroundThrottling=false')
+      webview.style.position = 'absolute'
+      webview.style.inset = '0'
       webview.style.width = '100%'
       webview.style.height = '100%'
+      webview.style.display = 'flex'
       host.appendChild(webview)
+      setDisplayed(app.id)
     }
     return () => {
       host.innerHTML = ''
+      setDisplayed(null)
     }
-  }, [app, app?.id, app?.url, isCopilot])
+  }, [app, app?.id, app?.url, isCopilot, setDisplayed])
 
   return (
     <>
@@ -243,7 +250,7 @@ function AppDock(): ReactNode {
             <CopilotView embedded />
           </div>
         ) : (
-          <div ref={hostRef} className="min-h-0 min-w-0 flex-1 overflow-hidden" />
+          <div ref={hostRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden" />
         )}
       </section>
     </>

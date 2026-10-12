@@ -148,6 +148,9 @@ const api: CloverApi = {
     addAlias: (accountId, email, name) =>
       ipcRenderer.invoke(IpcChannels.mail.addAlias, accountId, email, name),
     deleteAlias: (aliasId) => ipcRenderer.invoke(IpcChannels.mail.deleteAlias, aliasId),
+    getDefaultFrom: (accountId) => ipcRenderer.invoke(IpcChannels.mail.getDefaultFrom, accountId),
+    setDefaultFrom: (accountId, email) =>
+      ipcRenderer.invoke(IpcChannels.mail.setDefaultFrom, accountId, email),
     startGoogleOAuth: () => ipcRenderer.invoke(IpcChannels.mail.oauthStart),
     googleConfigured: () => ipcRenderer.invoke(IpcChannels.mail.oauthGoogleConfigured),
     getGoogleConfig: () => ipcRenderer.invoke(IpcChannels.mail.oauthGetGoogleConfig),

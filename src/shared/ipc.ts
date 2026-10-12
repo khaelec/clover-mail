@@ -71,6 +71,8 @@ export interface MailApi {
   listAliases: (accountId: string) => Promise<import('./mail').AccountAlias[]>
   addAlias: (accountId: string, email: string, name?: string) => Promise<import('./mail').AccountAlias>
   deleteAlias: (aliasId: string) => Promise<void>
+  getDefaultFrom: (accountId: string) => Promise<string | null>
+  setDefaultFrom: (accountId: string, email: string | null) => Promise<void>
   startGoogleOAuth: () => Promise<AccountSummary>
   googleConfigured: () => Promise<boolean>
   getGoogleConfig: () => Promise<{ clientId: string }>

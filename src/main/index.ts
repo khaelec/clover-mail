@@ -101,7 +101,8 @@ function createWindow(): void {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
-      webviewTag: true
+      webviewTag: true,
+      backgroundThrottling: false
     }
   })
 
@@ -177,7 +178,28 @@ app.whenReady().then(async () => {
   // Only ever hand web URLs to the OS. Anything else (custom schemes, file paths)
   // is denied, which prevents Windows' "Get an app from the Store" popup.
   app.on('web-contents-created', (_event, contents) => {
+    // Embedded apps (webviews) may open popups — printing, OAuth, media — so let
+    // web/about:blank windows through. Everything else opens in the OS browser.
     contents.setWindowOpenHandler(({ url }) => {
+      if (contents.getType() === 'webview') {
+        if (url === 'about:blank' || /^https?:/i.test(url)) {
+          return {
+            action: 'allow',
+            overrideBrowserWindowOptions: {
+              width: 1024,
+              height: 760,
+              autoHideMenuBar: true,
+              webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                sandbox: true,
+                backgroundThrottling: false
+              }
+            }
+          }
+        }
+        return { action: 'deny' }
+      }
       if (isWebUrl(url)) void shell.openExternal(url)
       return { action: 'deny' }
     })

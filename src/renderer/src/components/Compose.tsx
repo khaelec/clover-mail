@@ -198,6 +198,9 @@ export function Compose({
         ...list.map((a) => ({ name: a.name, email: a.email }))
       ])
     })
+    void window.clover.mail.getDefaultFrom(accountId).then((email) => {
+      setFromEmail(email || accountEmail || '')
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, accountEmail])
 

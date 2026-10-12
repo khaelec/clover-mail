@@ -2,7 +2,21 @@ import { randomUUID } from 'node:crypto'
 import { asc, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { accountAliases } from '../db/schema'
+import { deleteSetting, getSetting, setSetting } from '../settings'
 import type { AccountAlias } from '@shared/mail'
+
+const DEFAULT_FROM_PREFIX = 'mail.defaultFrom.'
+
+/** The address new/reply messages are sent from by default (an alias, or null for the account address). */
+export function getDefaultFrom(accountId: string): string | null {
+  const value = getSetting<string>(DEFAULT_FROM_PREFIX + accountId)
+  return typeof value === 'string' && value ? value : null
+}
+
+export function setDefaultFrom(accountId: string, email: string | null): void {
+  if (!email) deleteSetting(DEFAULT_FROM_PREFIX + accountId)
+  else setSetting(DEFAULT_FROM_PREFIX + accountId, email)
+}
 
 export function listAliases(accountId: string): AccountAlias[] {
   return getDb()

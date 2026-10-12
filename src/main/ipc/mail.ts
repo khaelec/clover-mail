@@ -36,7 +36,7 @@ import { importMboxFile, pickAndImportMbox } from '@main/mail/importMail'
 import { testPop3 } from '@main/mail/pop3'
 import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
-import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
+import { addAlias, deleteAlias, getDefaultFrom, listAliases, setDefaultFrom } from '@main/mail/aliases'
 import { exportFolderMbox } from '@main/mail/archive'
 import { deleteDraft, saveDraft } from '@main/mail/drafts'
 import {
@@ -172,6 +172,11 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     addAlias(accountId, email, name)
   )
   ipcMain.handle(IpcChannels.mail.deleteAlias, (_e, aliasId: string) => deleteAlias(aliasId))
+  ipcMain.handle(IpcChannels.mail.getDefaultFrom, (_e, accountId: string) => getDefaultFrom(accountId))
+  ipcMain.handle(
+    IpcChannels.mail.setDefaultFrom,
+    (_e, accountId: string, email: string | null) => setDefaultFrom(accountId, email)
+  )
   ipcMain.handle(IpcChannels.mail.oauthStart, async () => {
     const account = await startGoogleOAuth()
     startIdle(account.id, emit)

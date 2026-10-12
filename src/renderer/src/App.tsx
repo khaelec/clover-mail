@@ -7,6 +7,7 @@ import { CalendarView } from './components/CalendarView'
 import { CopilotView } from './components/CopilotView'
 import { WallpaperView } from './components/WallpaperView'
 import { WallpaperLayer } from './components/WallpaperLayer'
+import { AppKeepAlive } from './components/AppKeepAlive'
 import { UpdateBanner } from './components/UpdateBanner'
 import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
@@ -88,6 +89,7 @@ export function App(): ReactNode {
         </main>
       </div>
       <UpdateBanner />
+      <AppKeepAlive />
     </div>
   )
 }

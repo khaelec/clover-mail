@@ -40,6 +40,8 @@ export const IpcChannels = {
     listAliases: 'mail:list-aliases',
     addAlias: 'mail:add-alias',
     deleteAlias: 'mail:delete-alias',
+    getDefaultFrom: 'mail:get-default-from',
+    setDefaultFrom: 'mail:set-default-from',
     oauthStart: 'mail:oauth-start',
     oauthGoogleConfigured: 'mail:oauth-google-configured',
     oauthGetGoogleConfig: 'mail:oauth-get-google-config',

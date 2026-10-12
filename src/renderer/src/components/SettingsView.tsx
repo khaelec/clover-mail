@@ -173,6 +173,7 @@ export function SettingsView(): ReactNode {
   const [aliasList, setAliasList] = useState<AccountAlias[]>([])
   const [aliasEmail, setAliasEmail] = useState('')
   const [aliasName, setAliasName] = useState('')
+  const [aliasDefault, setAliasDefault] = useState<string | null>(null)
   const [snippetList, setSnippetList] = useState<Snippet[]>([])
   const [snippetName, setSnippetName] = useState('')
   const [snippetBody, setSnippetBody] = useState('')
@@ -254,6 +255,7 @@ export function SettingsView(): ReactNode {
   useEffect(() => {
     if (!aliasAccountId) return
     void window.clover.mail.listAliases(aliasAccountId).then(setAliasList)
+    void window.clover.mail.getDefaultFrom(aliasAccountId).then(setAliasDefault)
   }, [aliasAccountId])
 
   async function addAliasEntry(): Promise<void> {
@@ -265,8 +267,22 @@ export function SettingsView(): ReactNode {
   }
 
   async function removeAliasEntry(id: string): Promise<void> {
+    const removed = aliasList.find((a) => a.id === id)
     await window.clover.mail.deleteAlias(id)
-    setAliasList(await window.clover.mail.listAliases(aliasAccountId))
+    const next = await window.clover.mail.listAliases(aliasAccountId)
+    setAliasList(next)
+    if (removed && aliasDefault === removed.email) {
+      await window.clover.mail.setDefaultFrom(aliasAccountId, null)
+      setAliasDefault(null)
+    }
+  }
+
+  async function makeDefaultFrom(email: string): Promise<void> {
+    if (!aliasAccountId) return
+    const primary = accounts.find((a) => a.id === aliasAccountId)?.email ?? null
+    const value = email === primary ? null : email
+    await window.clover.mail.setDefaultFrom(aliasAccountId, value)
+    setAliasDefault(value)
   }
 
   useEffect(() => {
@@ -647,28 +663,51 @@ export function SettingsView(): ReactNode {
                     </select>
                   </label>
 
-                  {aliasList.length > 0 && (
-                    <ul className="space-y-1.5">
-                      {aliasList.map((a) => (
-                        <li
-                          key={a.id}
-                          className="flex items-center gap-2 rounded-lg border border-line bg-canvas/40 px-3 py-1.5 text-[13px] text-ink"
-                        >
-                          <span className="min-w-0 flex-1 truncate">
-                            {a.name ? `${a.name} ` : ''}
-                            <span className="text-muted">&lt;{a.email}&gt;</span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => void removeAliasEntry(a.id)}
-                            className="text-muted hover:text-rose-500"
-                          >
-                            Remove
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  {(() => {
+                    const primaryEmail = accounts.find((a) => a.id === aliasAccountId)?.email ?? ''
+                    const rows = [
+                      { id: '__primary__', name: null as string | null, email: primaryEmail },
+                      ...aliasList.map((a) => ({ id: a.id, name: a.name, email: a.email }))
+                    ].filter((row) => row.email)
+                    return (
+                      <ul className="space-y-1.5">
+                        {rows.map((row) => {
+                          const isDefault = (aliasDefault ?? primaryEmail) === row.email
+                          return (
+                            <li
+                              key={row.id}
+                              className="flex items-center gap-2 rounded-lg border border-line bg-canvas/40 px-3 py-1.5 text-[13px] text-ink"
+                            >
+                              <span className="min-w-0 flex-1 truncate">
+                                {row.name ? `${row.name} ` : ''}
+                                <span className="text-muted">&lt;{row.email}&gt;</span>
+                              </span>
+                              {isDefault ? (
+                                <span className="shrink-0 text-[11px] font-medium text-accent">Default</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => void makeDefaultFrom(row.email)}
+                                  className="shrink-0 text-[11px] text-muted hover:text-accent"
+                                >
+                                  Make default
+                                </button>
+                              )}
+                              {row.id !== '__primary__' && (
+                                <button
+                                  type="button"
+                                  onClick={() => void removeAliasEntry(row.id)}
+                                  className="shrink-0 text-muted hover:text-rose-500"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )
+                  })()}
 
                   <div className="flex flex-wrap items-end gap-2">
                     <Field label="Alias email" value={aliasEmail} onChange={setAliasEmail} placeholder="sales@yourdomain.com" hint="An address you can send from on this account. Your provider must allow sending as it (e.g. a Gmail ‘Send mail as’ alias)." />
@@ -682,7 +721,8 @@ export function SettingsView(): ReactNode {
                     </button>
                   </div>
                   <p className="text-[11px] text-muted">
-                    Aliases appear in the composer&apos;s “From” menu. Make sure your provider allows sending as them.
+                    Aliases appear in the composer&apos;s “From” menu. Mark one as Default to send as it
+                    automatically. Make sure your provider allows sending as them.
                   </p>
                 </>
               )}

@@ -4,17 +4,20 @@ import type { CreateAppInput, CustomApp } from '@shared/apps'
 interface AppsState {
   apps: CustomApp[]
   activeAppId: string | null
+  displayedAppId: string | null
   loading: boolean
   creating: boolean
   load: () => Promise<void>
   add: (input: CreateAppInput) => Promise<CustomApp>
   remove: (id: string) => Promise<void>
   select: (id: string | null) => void
+  setDisplayed: (id: string | null) => void
 }
 
 export const useApps = create<AppsState>((set, get) => ({
   apps: [],
   activeAppId: null,
+  displayedAppId: null,
   loading: false,
   creating: false,
 
@@ -47,5 +50,6 @@ export const useApps = create<AppsState>((set, get) => ({
     if (get().activeAppId === id) set({ activeAppId: get().apps[0]?.id ?? null })
   },
 
-  select: (id) => set({ activeAppId: id })
+  select: (id) => set({ activeAppId: id }),
+  setDisplayed: (id) => set({ displayedAppId: id })
 }))
