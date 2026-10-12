@@ -13,6 +13,14 @@ function AppIcon({ iconDataUrl, name }: { iconDataUrl: string | null; name: stri
   )
 }
 
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url
+  }
+}
+
 export function AppsView(): ReactNode {
   const apps = useApps((s) => s.apps)
   const activeAppId = useApps((s) => s.activeAppId)
@@ -75,6 +83,11 @@ export function AppsView(): ReactNode {
             Custom Apps
           </div>
           <p className="mt-0.5 text-[11px] text-muted">Add your PWA or any web app.</p>
+          <p className="mt-2 rounded-lg bg-canvas/50 px-2.5 py-2 text-[11px] leading-relaxed text-muted">
+            Added apps keep running in the background so they can notify you of new messages (e.g.
+            Messenger, WhatsApp). That uses extra memory. Remove an app to stop it. Sign-ins are
+            stored per app and stay after restart.
+          </p>
         </div>
 
         <div className="border-b border-line p-2.5">
@@ -112,7 +125,10 @@ export function AppsView(): ReactNode {
               >
                 <button type="button" onClick={() => select(app.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                   <AppIcon iconDataUrl={app.iconDataUrl} name={app.name} />
-                  <span className="truncate">{app.name}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{app.name}</span>
+                    <span className="block truncate text-[10px] text-muted">{hostOf(app.url)}</span>
+                  </span>
                 </button>
                 <button
                   type="button"

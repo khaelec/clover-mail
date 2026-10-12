@@ -11,6 +11,7 @@ import type { AccountAlias, AccountSummary, Snippet } from '@shared/mail'
 import type { AiSettings, AiStatus, McpSettings } from '@shared/ai'
 import { useTheme } from '../theme/theme'
 import { useUpdate } from '../state/update'
+import { useApps } from '../state/apps'
 import { IconCheck, IconMonitor, IconMoon, IconSignature, IconSun } from './icons'
 
 const MODE_META: Record<ThemeMode, { label: string; icon: (p: { className?: string }) => ReactNode }> = {
@@ -188,6 +189,7 @@ export function SettingsView(): ReactNode {
   const updateVersion = useUpdate((s) => s.version)
   const updatePercent = useUpdate((s) => s.percent)
   const updateError = useUpdate((s) => s.error)
+  const customApps = useApps((s) => s.apps)
   const checkUpdates = useUpdate((s) => s.check)
   const downloadUpdate = useUpdate((s) => s.download)
   const installUpdate = useUpdate((s) => s.install)
@@ -1048,6 +1050,12 @@ export function SettingsView(): ReactNode {
               </dd>
               <dt className="text-muted">Update feed</dt>
               <dd className="text-ink">github: khaelec/clover-mail</dd>
+              <dt className="text-muted">Custom apps</dt>
+              <dd className="text-ink">
+                {customApps.length === 0
+                  ? 'None'
+                  : `${customApps.length} — ${customApps.map((a) => a.name).join(', ')} (run in background)`}
+              </dd>
             </dl>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
