@@ -21,21 +21,25 @@ import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
 import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
 import { addAlias, deleteAlias, listAliases } from '@main/mail/aliases'
 import { bulkAction, deleteSpam, emptyFolder, markFolderRead } from '@main/mail/bulk'
+import { startAllIdle, startIdle, stopIdle } from '@main/mail/idle'
 import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
 
 export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   const emit: Emit = (event) => getWindow()?.webContents.send(IpcChannels.mail.events, event)
 
   ipcMain.handle(IpcChannels.mail.listAccounts, () => accountService.listAccounts())
-  ipcMain.handle(IpcChannels.mail.createAccount, (_e, input: CreateAccountInput) =>
-    accountService.createAccount(input)
-  )
+  ipcMain.handle(IpcChannels.mail.createAccount, (_e, input: CreateAccountInput) => {
+    const account = accountService.createAccount(input)
+    startIdle(account.id, emit)
+    return account
+  })
   ipcMain.handle(IpcChannels.mail.updateAccount, (_e, id: string, input: AccountInput) =>
     accountService.updateAccount(id, input)
   )
-  ipcMain.handle(IpcChannels.mail.deleteAccount, (_e, id: string) =>
+  ipcMain.handle(IpcChannels.mail.deleteAccount, (_e, id: string) => {
+    stopIdle(id)
     accountService.deleteAccount(id)
-  )
+  })
 
   ipcMain.handle(
     IpcChannels.mail.testConnection,
@@ -142,4 +146,6 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.search, (_e, query: string, accountId?: string) =>
     searchMessages(query, accountId)
   )
+
+  startAllIdle(emit)
 }

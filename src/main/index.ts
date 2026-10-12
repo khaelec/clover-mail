@@ -7,6 +7,7 @@ import { initDatabase, closeDatabase } from '@main/db'
 import { registerIpc } from '@main/ipc'
 import { setStorageRoot } from '@main/mail/storage'
 import { setAppsRoot } from '@main/apps'
+import { stopAllIdle } from '@main/mail/idle'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -177,4 +178,7 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('will-quit', () => closeDatabase())
+app.on('will-quit', () => {
+  stopAllIdle()
+  closeDatabase()
+})

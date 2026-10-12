@@ -167,6 +167,13 @@ export const useMail = create<MailState>((set, get) => {
           set({ syncing: false, status: null })
           void reloadFolders()
           void reloadFolder()
+        } else if (event.type === 'mail:new') {
+          set({ status: 'New mail received' })
+          void reloadFolders()
+          void reloadFolder()
+          setTimeout(() => {
+            if (get().status === 'New mail received') set({ status: null })
+          }, 4000)
         }
       })
 

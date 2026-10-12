@@ -133,7 +133,13 @@ export interface SyncResult {
   fetched: number
 }
 
-export type MailEventType = 'sync:start' | 'sync:folder' | 'sync:progress' | 'sync:done' | 'sync:error'
+export type MailEventType =
+  | 'sync:start'
+  | 'sync:folder'
+  | 'sync:progress'
+  | 'sync:done'
+  | 'sync:error'
+  | 'mail:new'
 
 export interface MailEvent {
   type: MailEventType

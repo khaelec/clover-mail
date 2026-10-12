@@ -150,6 +150,16 @@ export function SettingsView(): ReactNode {
     event.target.value = ''
   }
 
+  function execSig(command: string, value?: string): void {
+    sigEditorRef.current?.focus()
+    document.execCommand(command, false, value)
+  }
+
+  function sigLink(): void {
+    const url = window.prompt('Link URL:')
+    if (url) execSig('createLink', url)
+  }
+
   function toggleBlockRemote(): void {
     const next = !blockRemote
     setBlockRemote(next)
@@ -297,11 +307,42 @@ export function SettingsView(): ReactNode {
                       Add to new mail
                     </label>
                   </div>
+                  <div className="flex items-center gap-0.5 rounded-t-lg border border-b-0 border-line bg-canvas/40 px-1 py-1">
+                    {[
+                      { label: 'B', cmd: 'bold', cls: 'font-bold' },
+                      { label: 'I', cmd: 'italic', cls: 'italic' },
+                      { label: 'U', cmd: 'underline', cls: 'underline' },
+                      { label: '•', cmd: 'insertUnorderedList', cls: '' },
+                      { label: '1.', cmd: 'insertOrderedList', cls: '' },
+                      { label: '⌫', cmd: 'removeFormat', cls: '' }
+                    ].map((b) => (
+                      <button
+                        key={b.cmd}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => execSig(b.cmd)}
+                        className={
+                          'grid h-6 min-w-6 place-items-center rounded px-1 text-[12px] text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10 ' +
+                          b.cls
+                        }
+                      >
+                        {b.label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={sigLink}
+                      className="grid h-6 min-w-6 place-items-center rounded px-1 text-[12px] text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
+                    >
+                      🔗
+                    </button>
+                  </div>
                   <div
                     ref={sigEditorRef}
                     contentEditable
                     suppressContentEditableWarning
-                    className="min-h-[110px] rounded-lg border border-line bg-canvas/50 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
+                    className="min-h-[110px] rounded-b-lg border border-line bg-canvas/50 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
                   />
                   <div className="flex items-center gap-3">
                     <button
