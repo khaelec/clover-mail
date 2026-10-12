@@ -19,6 +19,17 @@ const MODE_META: Record<ThemeMode, { label: string; icon: (p: { className?: stri
   system: { label: 'System', icon: IconMonitor }
 }
 
+type TabId = 'appearance' | 'privacy' | 'mail' | 'accounts' | 'ai' | 'about'
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'privacy', label: 'Privacy' },
+  { id: 'mail', label: 'Mail' },
+  { id: 'accounts', label: 'Accounts' },
+  { id: 'ai', label: 'AI & MCP' },
+  { id: 'about', label: 'Updates & About' }
+]
+
 const ACCENT_COLORS: Record<ThemeAccent, string> = {
   clover: '#10b981',
   ocean: '#3b82f6',
@@ -99,6 +110,7 @@ export function SettingsView(): ReactNode {
   const [msClientId, setMsClientId] = useState('')
   const [msSecret, setMsSecret] = useState('')
   const [msMsg, setMsMsg] = useState<string | null>(null)
+  const [tab, setTab] = useState<TabId>('appearance')
   const updateStatus = useUpdate((s) => s.status)
   const updateVersion = useUpdate((s) => s.version)
   const updatePercent = useUpdate((s) => s.percent)
@@ -232,12 +244,29 @@ export function SettingsView(): ReactNode {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl px-8 py-8">
-        <h1 className="text-xl font-semibold tracking-tight text-ink">Settings</h1>
-        <p className="mt-1 text-[13px] text-muted">Appearance and application information.</p>
-
-        <div className="mt-6 space-y-4">
+    <div className="flex h-full">
+      <nav className="w-48 shrink-0 space-y-0.5 overflow-y-auto border-r border-line bg-surface/60 p-3 backdrop-blur-xl">
+        <h1 className="px-2.5 pb-2 text-[15px] font-semibold tracking-tight text-ink">Settings</h1>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={
+              'block w-full rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors ' +
+              (tab === t.id
+                ? 'bg-accent/12 font-medium text-accent'
+                : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+      <div className="min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl space-y-4 px-8 py-8">
+          {tab === 'appearance' && (
+            <>
           <Card title="Theme">
             <div className="grid grid-cols-3 gap-2">
               {THEME_MODES.map((m) => {
@@ -287,7 +316,10 @@ export function SettingsView(): ReactNode {
               })}
             </div>
           </Card>
+            </>
+          )}
 
+          {tab === 'privacy' && (
           <Card title="Privacy">
             <button
               type="button"
@@ -315,7 +347,10 @@ export function SettingsView(): ReactNode {
               </span>
             </button>
           </Card>
+          )}
 
+          {tab === 'mail' && (
+          <>
           <Card title="Signature">
             <div className="space-y-3">
               {accounts.length === 0 ? (
@@ -472,7 +507,10 @@ export function SettingsView(): ReactNode {
               )}
             </div>
           </Card>
+            </>
+          )}
 
+          {tab === 'accounts' && (
           <Card title="OAuth clients (optional)">
             <div className="space-y-4">
               <div className="rounded-xl border border-line p-3">
@@ -511,7 +549,10 @@ export function SettingsView(): ReactNode {
               </div>
             </div>
           </Card>
+          )}
 
+          {tab === 'ai' && (
+          <>
           <Card title="AI copilot">
             <div className="space-y-4">
               <div className="rounded-xl border border-line p-3">
@@ -608,7 +649,11 @@ export function SettingsView(): ReactNode {
               <p className="text-[11px] text-muted">Endpoint: <code>http://127.0.0.1:{mcp?.port ?? 8765}/mcp</code></p>
             </div>
           </Card>
+            </>
+          )}
 
+          {tab === 'about' && (
+          <>
           <Card title="Support">
             <p className="text-[12px] text-muted">
               Clover Mail is free and open source. If it&apos;s useful to you, you can buy me a coffee.
@@ -648,6 +693,8 @@ export function SettingsView(): ReactNode {
               {updateText && <span className="text-[12px] text-muted">{updateText}</span>}
             </div>
           </Card>
+            </>
+          )}
         </div>
       </div>
     </div>
