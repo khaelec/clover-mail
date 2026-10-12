@@ -13,6 +13,22 @@ const api: CloverApi = {
     remove: (id) => ipcRenderer.invoke(IpcChannels.apps.remove, id),
     update: (id, patch) => ipcRenderer.invoke(IpcChannels.apps.update, id, patch)
   },
+  calendar: {
+    listCalendars: () => ipcRenderer.invoke(IpcChannels.calendar.listCalendars),
+    createCalendar: (name, color) =>
+      ipcRenderer.invoke(IpcChannels.calendar.createCalendar, name, color),
+    listOccurrences: (startUtc, endUtc) =>
+      ipcRenderer.invoke(IpcChannels.calendar.listOccurrences, startUtc, endUtc),
+    getEvent: (id) => ipcRenderer.invoke(IpcChannels.calendar.getEvent, id),
+    createEvent: (input) => ipcRenderer.invoke(IpcChannels.calendar.createEvent, input),
+    updateEvent: (id, input) => ipcRenderer.invoke(IpcChannels.calendar.updateEvent, id, input),
+    deleteEvent: (id) => ipcRenderer.invoke(IpcChannels.calendar.deleteEvent, id),
+    importPath: (path) => ipcRenderer.invoke(IpcChannels.calendar.importPath, path),
+    importAttachment: (attachmentId) =>
+      ipcRenderer.invoke(IpcChannels.calendar.importAttachment, attachmentId),
+    pickAndImport: () => ipcRenderer.invoke(IpcChannels.calendar.pickAndImport),
+    exportIcs: (calendarId) => ipcRenderer.invoke(IpcChannels.calendar.exportIcs, calendarId)
+  },
   settings: {
     getAll: () => ipcRenderer.invoke(IpcChannels.settingsGetAll),
     get: (key: string) => ipcRenderer.invoke(IpcChannels.settingsGet, key),

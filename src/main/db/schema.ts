@@ -201,6 +201,56 @@ export const customWebApps = sqliteTable('custom_web_apps', {
   createdAt: integer('created_at').notNull()
 })
 
+export const calendars = sqliteTable('calendars', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id'),
+  name: text('name').notNull(),
+  color: text('color').notNull(),
+  isVisible: integer('is_visible', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at').notNull()
+})
+
+export const calendarEvents = sqliteTable(
+  'calendar_events',
+  {
+    id: text('id').primaryKey(),
+    calendarId: text('calendar_id')
+      .notNull()
+      .references(() => calendars.id, { onDelete: 'cascade' }),
+    uid: text('uid'),
+    sequence: integer('sequence').notNull().default(0),
+    summary: text('summary'),
+    description: text('description'),
+    location: text('location'),
+    startUtc: integer('start_utc').notNull(),
+    endUtc: integer('end_utc').notNull(),
+    isAllDay: integer('is_all_day', { mode: 'boolean' }).notNull().default(false),
+    tzid: text('tzid'),
+    organizer: text('organizer'),
+    status: text('status'),
+    rrule: text('rrule'),
+    exdate: text('exdate'),
+    recurrenceId: text('recurrence_id'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull()
+  },
+  (table) => [index('ix_calendar_events_calendar').on(table.calendarId, table.startUtc)]
+)
+
+export const calendarEventAttendees = sqliteTable(
+  'calendar_event_attendees',
+  {
+    id: text('id').primaryKey(),
+    eventId: text('event_id')
+      .notNull()
+      .references(() => calendarEvents.id, { onDelete: 'cascade' }),
+    email: text('email'),
+    name: text('name'),
+    partstat: text('partstat')
+  },
+  (table) => [index('ix_calendar_attendees_event').on(table.eventId)]
+)
+
 export const schema = {
   appSettings,
   migrationsTable,
@@ -216,5 +266,8 @@ export const schema = {
   rules,
   ruleConditions,
   ruleActions,
-  customWebApps
+  customWebApps,
+  calendars,
+  calendarEvents,
+  calendarEventAttendees
 }

@@ -45,6 +45,19 @@ export const IpcChannels = {
     create: 'apps:create',
     remove: 'apps:remove',
     update: 'apps:update'
+  },
+  calendar: {
+    listCalendars: 'calendar:list-calendars',
+    createCalendar: 'calendar:create-calendar',
+    listOccurrences: 'calendar:list-occurrences',
+    getEvent: 'calendar:get-event',
+    createEvent: 'calendar:create-event',
+    updateEvent: 'calendar:update-event',
+    deleteEvent: 'calendar:delete-event',
+    importPath: 'calendar:import-path',
+    importAttachment: 'calendar:import-attachment',
+    pickAndImport: 'calendar:pick-and-import',
+    exportIcs: 'calendar:export-ics'
   }
 } as const
 

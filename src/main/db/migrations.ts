@@ -207,5 +207,49 @@ export const migrations: Migration[] = [
         created_at INTEGER NOT NULL
       );
     `
+  },
+  {
+    id: '0006_calendar',
+    sql: `
+      CREATE TABLE IF NOT EXISTS calendars (
+        id TEXT PRIMARY KEY NOT NULL,
+        account_id TEXT,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL,
+        is_visible INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS calendar_events (
+        id TEXT PRIMARY KEY NOT NULL,
+        calendar_id TEXT NOT NULL REFERENCES calendars(id) ON DELETE CASCADE,
+        uid TEXT,
+        sequence INTEGER NOT NULL DEFAULT 0,
+        summary TEXT,
+        description TEXT,
+        location TEXT,
+        start_utc INTEGER NOT NULL,
+        end_utc INTEGER NOT NULL,
+        is_all_day INTEGER NOT NULL DEFAULT 0,
+        tzid TEXT,
+        organizer TEXT,
+        status TEXT,
+        rrule TEXT,
+        exdate TEXT,
+        recurrence_id TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ix_calendar_events_calendar ON calendar_events(calendar_id, start_utc);
+
+      CREATE TABLE IF NOT EXISTS calendar_event_attendees (
+        id TEXT PRIMARY KEY NOT NULL,
+        event_id TEXT NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+        email TEXT,
+        name TEXT,
+        partstat TEXT
+      );
+      CREATE INDEX IF NOT EXISTS ix_calendar_attendees_event ON calendar_event_attendees(event_id);
+    `
   }
 ]

@@ -48,6 +48,7 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
   const [allowRemote, setAllowRemote] = useState(false)
   const [trusted, setTrusted] = useState<string[]>([])
   const [blockEnabled, setBlockEnabled] = useState(true)
+  const [calendarNotice, setCalendarNotice] = useState<string | null>(null)
 
   useEffect(() => {
     void (async () => {
@@ -204,24 +205,42 @@ export function Reader({ onReply }: { onReply: () => void }): ReactNode {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {detail.attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 border-b border-line px-6 py-3">
-            {detail.attachments.map((att) => (
-              <button
-                key={att.id}
-                type="button"
-                disabled={!att.available}
-                onClick={() => void window.clover.mail.downloadAttachment(att.id)}
-                title={att.available ? 'Save attachment' : 'Content not cached yet — open the message first'}
-                className={
-                  'flex items-center gap-1.5 rounded-lg border border-line bg-canvas/50 px-2.5 py-1.5 text-[12px] ' +
-                  (att.available ? 'text-ink hover:border-accent hover:text-accent' : 'text-muted opacity-60')
-                }
-              >
-                <IconPaperclip className="h-3.5 w-3.5" />
-                {att.filename ?? 'attachment'}
-                {att.size ? <span className="text-muted">· {Math.round(att.size / 1024)} KB</span> : null}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2 border-b border-line px-6 py-3">
+            {detail.attachments.map((att) => {
+              const isIcs = (att.mimeType ?? '').includes('calendar') || (att.filename ?? '').toLowerCase().endsWith('.ics')
+              return (
+                <span key={att.id} className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={!att.available}
+                    onClick={() => void window.clover.mail.downloadAttachment(att.id)}
+                    title={att.available ? 'Save attachment' : 'Content not cached yet — open the message first'}
+                    className={
+                      'flex items-center gap-1.5 rounded-lg border border-line bg-canvas/50 px-2.5 py-1.5 text-[12px] ' +
+                      (att.available ? 'text-ink hover:border-accent hover:text-accent' : 'text-muted opacity-60')
+                    }
+                  >
+                    <IconPaperclip className="h-3.5 w-3.5" />
+                    {att.filename ?? 'attachment'}
+                    {att.size ? <span className="text-muted">· {Math.round(att.size / 1024)} KB</span> : null}
+                  </button>
+                  {isIcs && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void window.clover.calendar.importAttachment(att.id).then((r) =>
+                          setCalendarNotice(`Added ${r.imported} event(s) to your calendar.`)
+                        )
+                      }
+                      className="rounded-lg bg-accent/12 px-2.5 py-1.5 text-[11px] font-medium text-accent"
+                    >
+                      Add to calendar
+                    </button>
+                  )}
+                </span>
+              )
+            })}
+            {calendarNotice && <span className="text-[11px] text-accent">{calendarNotice}</span>}
           </div>
         )}
 

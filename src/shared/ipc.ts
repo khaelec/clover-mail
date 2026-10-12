@@ -16,6 +16,13 @@ import type {
   SyncResult
 } from './mail'
 import type { CreateAppInput, CustomApp } from './apps'
+import type {
+  Calendar,
+  CalendarEvent,
+  EventInput,
+  ImportResult,
+  Occurrence
+} from './calendar'
 
 export const AppInfoSchema = z.object({
   name: z.string(),
@@ -70,10 +77,25 @@ export interface AppsApi {
   update: (id: string, patch: Partial<CustomApp>) => Promise<void>
 }
 
+export interface CalendarApi {
+  listCalendars: () => Promise<Calendar[]>
+  createCalendar: (name: string, color?: string) => Promise<Calendar>
+  listOccurrences: (startUtc: number, endUtc: number) => Promise<Occurrence[]>
+  getEvent: (id: string) => Promise<CalendarEvent | null>
+  createEvent: (input: EventInput) => Promise<CalendarEvent>
+  updateEvent: (id: string, input: EventInput) => Promise<CalendarEvent>
+  deleteEvent: (id: string) => Promise<void>
+  importPath: (path: string) => Promise<ImportResult>
+  importAttachment: (attachmentId: string) => Promise<ImportResult>
+  pickAndImport: () => Promise<ImportResult | null>
+  exportIcs: (calendarId?: string) => Promise<{ saved: boolean; path?: string }>
+}
+
 export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
   apps: AppsApi
+  calendar: CalendarApi
   settings: {
     getAll: () => Promise<SettingsRecord>
     get: (key: string) => Promise<unknown>

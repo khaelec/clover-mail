@@ -4,6 +4,7 @@ import { AppInfoSchema, type AppInfo } from '@shared/ipc'
 import { getAllSettings, getSetting, setSetting, deleteSetting } from '@main/settings'
 import { registerMailIpc } from './mail'
 import { registerAppsIpc } from './apps'
+import { registerCalendarIpc } from './calendar'
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.appInfo, (): AppInfo => {
@@ -40,4 +41,5 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
 
   registerMailIpc(getWindow)
   registerAppsIpc()
+  registerCalendarIpc()
 }

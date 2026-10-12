@@ -63,6 +63,17 @@ app.whenReady().then(async () => {
       if (appCreated) await window.clover.apps.remove(appCreated.id)
       const appsFinal = await window.clover.apps.list()
 
+      const calList = await window.clover.calendar.listCalendars()
+      const now = Date.now()
+      const ev = await window.clover.calendar.createEvent({
+        calendarId: calList[0].id,
+        summary: 'Integration test',
+        startUtc: now,
+        endUtc: now + 3600000
+      })
+      const occ = await window.clover.calendar.listOccurrences(now - 86400000, now + 86400000)
+      await window.clover.calendar.deleteEvent(ev.id)
+
       await api.deleteAccount(created.id)
       for (const stale of await api.listAccounts()) await api.deleteAccount(stale.id)
       const after = await api.listAccounts()
@@ -81,6 +92,8 @@ app.whenReady().then(async () => {
         appCreated: appCreated ? appCreated.name : null,
         appsAfterCreate: appsAfter.length,
         appsFinal: appsFinal.length,
+        calendars: calList.length,
+        calendarOccurrences: occ.length,
         accountsAfterDelete: after.length
       })
     })()`)

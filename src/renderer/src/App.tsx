@@ -3,6 +3,7 @@ import { TitleBar } from './components/TitleBar'
 import { Sidebar, type SectionId } from './components/Sidebar'
 import { MailView } from './components/MailView'
 import { AppsView } from './components/AppsView'
+import { CalendarView } from './components/CalendarView'
 import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
 import { IconCalendar, IconGrid, IconSparkles, IconWallpaper } from './components/icons'
@@ -28,20 +29,7 @@ function renderSection(section: SectionId): ReactNode {
     case 'settings':
       return <SettingsView />
     case 'calendar':
-      return (
-        <PlaceholderView
-          title="Calendar"
-          blurb="A fast month, week, and agenda calendar — with first-class .ics import from files and email invites."
-          icon={<IconCalendar className="h-6 w-6" />}
-          upcoming={[
-            'Month / week / day / agenda views',
-            'Import .ics files (drag-drop + picker)',
-            'Add emailed invites to calendar with RSVP',
-            'Recurrence (RRULE) and timezone-correct events',
-            'Export events back to .ics'
-          ]}
-        />
-      )
+      return <CalendarView />
     case 'apps':
       return <AppsView />
     case 'wallpaper':
