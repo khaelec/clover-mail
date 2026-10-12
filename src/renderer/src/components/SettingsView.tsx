@@ -578,6 +578,19 @@ export function SettingsView(): ReactNode {
             </div>
           </Card>
 
+          <Card title="Support">
+            <p className="text-[12px] text-muted">
+              Clover Mail is free and open source. If it&apos;s useful to you, you can buy me a coffee.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.open('https://buymeacoffee.com/khaelec')}
+              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#FFDD00] px-4 py-2 text-[13px] font-semibold text-black hover:brightness-95"
+            >
+              ☕ Buy me a coffee
+            </button>
+          </Card>
+
           <Card title="About">
             <dl className="grid grid-cols-[120px_1fr] gap-y-2 text-[13px]">
               <dt className="text-muted">Application</dt>
