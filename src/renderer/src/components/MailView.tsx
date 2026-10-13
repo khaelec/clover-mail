@@ -1053,7 +1053,6 @@ export function MailView(): ReactNode {
             ) : (
               visibleThreads.map((t) => {
                 const expanded = expandedThreadIds.includes(t.threadId)
-                const single = t.messages.length === 1
                 const latest = t.messages[t.messages.length - 1]
                 return (
                   <div
@@ -1064,9 +1063,7 @@ export function MailView(): ReactNode {
                     }
                   >
                     <div
-                      onClick={() =>
-                        single && latest ? void selectMessage(latest.id) : toggleThread(t.threadId)
-                      }
+                      onClick={() => latest && void selectMessage(latest.id)}
                       onContextMenu={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
@@ -1086,7 +1083,7 @@ export function MailView(): ReactNode {
                       }}
                       className={
                         'flex cursor-pointer gap-2 px-3 py-2.5 transition-colors ' +
-                        (single && latest?.id === selectedMessageId
+                        (latest && t.messages.some((m) => m.id === selectedMessageId)
                           ? 'bg-accent/8'
                           : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
                       }
@@ -1123,7 +1120,17 @@ export function MailView(): ReactNode {
                         )}
                       </div>
                       {t.messageCount > 1 && (
-                        <span className="mt-1 shrink-0 text-[10px] text-muted">{expanded ? '▾' : '▸'}</span>
+                        <button
+                          type="button"
+                          title={expanded ? 'Collapse conversation' : 'Expand conversation'}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleThread(t.threadId)
+                          }}
+                          className="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-md text-[11px] text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
+                        >
+                          {expanded ? '▾' : '▸'}
+                        </button>
                       )}
                     </div>
 
