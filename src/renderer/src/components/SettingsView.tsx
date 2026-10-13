@@ -326,14 +326,20 @@ export function SettingsView(): ReactNode {
 
   useEffect(() => {
     if (!sigAccountId) return
+    let cancelled = false
     void (async () => {
       const sig = (await window.clover.settings.get(`signature.${sigAccountId}`)) as
         | { html?: string; enabled?: boolean }
         | undefined
+      if (cancelled) return
       setSigEnabled(sig?.enabled !== false)
       if (sigEditorRef.current) sigEditorRef.current.innerHTML = sig?.html ?? ''
     })()
-  }, [sigAccountId])
+    return () => {
+      cancelled = true
+    }
+    // Re-load when the Mail tab mounts the editor (it only exists on that tab).
+  }, [sigAccountId, tab])
 
   async function saveSignature(): Promise<void> {
     if (!sigAccountId) return

@@ -1,12 +1,15 @@
+import { randomUUID } from 'node:crypto'
 import { simpleParser } from 'mailparser'
 import { getDb } from '../db'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { folders } from '../db/schema'
-import { getAccountById } from './accounts'
+import { getAccountById, protocolFor } from './accounts'
 import { getAccountAuth } from './auth'
 import { buildTransport } from './smtp'
 import { withImap } from './connection'
 import { storeParsedMessage } from './storeMessage'
+import { inferSpecialUse, SPECIAL_USE_ORDER } from './specialUse'
+import type { MailboxRecord } from './sync'
 import type { ComposeInput } from '@shared/mail'
 
 /**
@@ -18,6 +21,80 @@ let syntheticUidCounter = 0
 function nextSyntheticUid(): number {
   syntheticUidCounter += 1
   return -(Date.now() % 2_000_000_000) - syntheticUidCounter
+}
+
+type FolderRow = typeof folders.$inferSelect
+
+function sentFolderFromList(list: FolderRow[]): FolderRow | undefined {
+  return (
+    list.find((f) => f.specialUse === 'sent') ??
+    list.find((f) => inferSpecialUse(f.remotePath, f.name) === 'sent')
+  )
+}
+
+/** Gmail already saves messages you send via its SMTP, so don't APPEND a second copy. */
+function looksLikeGmail(list: FolderRow[]): boolean {
+  return list.some((f) => /\[gmail\]/i.test(f.remotePath) || /^all mail$/i.test(f.name.trim()))
+}
+
+function insertSentFolder(accountId: string, remotePath: string): FolderRow | undefined {
+  const db = getDb()
+  const existing = db
+    .select()
+    .from(folders)
+    .where(and(eq(folders.accountId, accountId), eq(folders.remotePath, remotePath)))
+    .get()
+  if (existing) return existing
+  const id = randomUUID()
+  db.insert(folders)
+    .values({
+      id,
+      accountId,
+      remotePath,
+      name: 'Sent',
+      specialUse: 'sent',
+      sortOrder: SPECIAL_USE_ORDER.sent ?? 2,
+      isSubscribed: true,
+      isVisible: true
+    })
+    .run()
+  return db.select().from(folders).where(eq(folders.id, id)).get()
+}
+
+/**
+ * Find (or create) the folder sent copies belong in. Servers that don't report
+ * IMAP SPECIAL-USE flags still get matched by name, and if none exists we make
+ * one so every send leaves a record.
+ */
+async function resolveSentFolder(accountId: string): Promise<FolderRow | undefined> {
+  const db = getDb()
+  const list = db.select().from(folders).where(eq(folders.accountId, accountId)).all()
+  const found = sentFolderFromList(list)
+  if (found) {
+    if (found.specialUse !== 'sent') {
+      db.update(folders)
+        .set({ specialUse: 'sent', sortOrder: SPECIAL_USE_ORDER.sent ?? 2 })
+        .where(eq(folders.id, found.id))
+        .run()
+      return { ...found, specialUse: 'sent' }
+    }
+    return found
+  }
+  if (protocolFor(accountId) === 'imap') {
+    try {
+      let createdPath = 'Sent'
+      await withImap(accountId, async (client) => {
+        await client.mailboxCreate(createdPath)
+        const refreshed = (await client.list()) as unknown as MailboxRecord[]
+        const sent = refreshed.find((m) => inferSpecialUse(m.path, m.name) === 'sent')
+        if (sent?.path) createdPath = sent.path
+      })
+      return insertSentFolder(accountId, createdPath)
+    } catch {
+      return undefined
+    }
+  }
+  return insertSentFolder(accountId, 'Sent')
 }
 
 interface InlineAttachment {
@@ -97,27 +174,35 @@ export async function sendMessage(input: ComposeInput): Promise<void> {
   // Best-effort: file the sent copy in the account's Sent folder, and cache it
   // locally so it shows up in its conversation immediately (before the next sync).
   try {
-    const sentFolder = getDb()
-      .select()
-      .from(folders)
-      .where(eq(folders.accountId, input.accountId))
-      .all()
-      .find((f) => f.specialUse === 'sent')
-    if (sentFolder && raw) {
-      let serverUid: number | undefined
-      await withImap(input.accountId, async (client) => {
-        const result = await client.append(sentFolder.remotePath, raw as Buffer, ['\\Seen'])
-        if (result && typeof result.uid === 'number') serverUid = result.uid
-      })
-      const parsed = await simpleParser(raw)
-      storeParsedMessage(
-        input.accountId,
-        sentFolder.id,
-        typeof serverUid === 'number' ? serverUid : nextSyntheticUid(),
-        parsed,
-        raw,
-        { assessSpam: false }
-      )
+    if (raw) {
+      const sentFolder = await resolveSentFolder(input.accountId)
+      if (sentFolder) {
+        const accountFolders = getDb()
+          .select()
+          .from(folders)
+          .where(eq(folders.accountId, input.accountId))
+          .all()
+        let serverUid: number | undefined
+        if (protocolFor(input.accountId) === 'imap' && !looksLikeGmail(accountFolders)) {
+          try {
+            await withImap(input.accountId, async (client) => {
+              const result = await client.append(sentFolder.remotePath, raw as Buffer, ['\\Seen'])
+              if (result && typeof result.uid === 'number') serverUid = result.uid
+            })
+          } catch {
+            // Keep the local record even if filing to the server failed.
+          }
+        }
+        const parsed = await simpleParser(raw)
+        storeParsedMessage(
+          input.accountId,
+          sentFolder.id,
+          typeof serverUid === 'number' ? serverUid : nextSyntheticUid(),
+          parsed,
+          raw,
+          { assessSpam: false }
+        )
+      }
     }
   } catch {
     // Ignore: the message was sent; filing it is non-critical.

@@ -10,6 +10,7 @@ import { indexMessage } from './search'
 import { clearSentPlaceholder } from './storeMessage'
 import { applyAssessment } from './spam'
 import { applyRules } from './rules'
+import { inferSpecialUse, SPECIAL_USE_ORDER } from './specialUse'
 import type { MailEvent, SyncResult } from '@shared/mail'
 
 const INITIAL_FETCH = 60
@@ -50,17 +51,10 @@ function normalizeSpecialUse(mailbox: MailboxRecord): string | null {
     if (['inbox', 'sent', 'drafts', 'trash', 'junk', 'archive', 'all'].includes(flag)) return flag
   }
   if (mailbox.path.toUpperCase() === 'INBOX') return 'inbox'
-  return null
+  return inferSpecialUse(mailbox.path, mailbox.name)
 }
 
-const ORDER: Record<string, number> = {
-  inbox: 0,
-  drafts: 1,
-  sent: 2,
-  archive: 3,
-  junk: 4,
-  trash: 5
-}
+const ORDER = SPECIAL_USE_ORDER
 
 export function upsertFolders(accountId: string, list: MailboxRecord[]): string[] {
   const db = getDb()
