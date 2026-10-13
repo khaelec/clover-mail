@@ -98,3 +98,26 @@ body {
   color: var(--muted);
 }
 .prose-clover pre { white-space: pre-wrap; word-break: break-word; }
+
+/* Compose editor — keep replies clean: the quoted original is muted, indented
+   and can be collapsed, and the signature sits above it. */
+.compose-editor [data-clover-quote] {
+  margin-top: 16px;
+  font-size: 12.5px;
+}
+.compose-editor [data-clover-quote][data-collapsed='1'] {
+  display: none;
+}
+.compose-editor [data-clover-quote] > p {
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+.compose-editor [data-clover-quote] blockquote {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+}
+.compose-editor [data-clover-signature] {
+  margin-top: 12px;
+}

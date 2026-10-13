@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Lint, LocalLinter, Suggestion } from 'harper.js'
 import type { ComposeInput, DraftData, Snippet } from '@shared/mail'
 import { SETTINGS_KEYS } from '@shared/theme'
 import { useMail } from '../state/mail'
 import { IconCheck, IconClose, IconHighlight, IconMic, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
 
-const SIGNATURE_MARKER = '<div data-clover-signature="1">'
+const SIGNATURE_ATTR = 'data-clover-signature'
+const QUOTE_ATTR = 'data-clover-quote'
 
 let harperLinter: LocalLinter | null = null
 async function getLinter(): Promise<LocalLinter> {
@@ -74,6 +75,7 @@ export function Compose({
   initialCc,
   initialSubject,
   initialBody,
+  initialQuote,
   inReplyTo,
   references,
   initialAttachments
@@ -85,6 +87,7 @@ export function Compose({
   initialCc?: string
   initialSubject?: string
   initialBody?: string
+  initialQuote?: string
   inReplyTo?: string
   references?: string
   initialAttachments?: { name: string; path: string }[]
@@ -101,6 +104,21 @@ export function Compose({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Plain-text body. A collapsed quote is `display:none`, which innerText skips,
+   * so expand collapsed blocks just long enough to read them (the quote must
+   * still be sent as text).
+   */
+  function editorText(): string {
+    const editor = editorRef.current
+    if (!editor) return ''
+    const collapsed = Array.from(editor.querySelectorAll('[data-collapsed]'))
+    collapsed.forEach((el) => el.removeAttribute('data-collapsed'))
+    const text = editor.innerText
+    collapsed.forEach((el) => el.setAttribute('data-collapsed', '1'))
+    return text
+  }
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [grammarOpen, setGrammarOpen] = useState(false)
   const [grammarBusy, setGrammarBusy] = useState(false)
@@ -116,6 +134,7 @@ export function Compose({
   const [micSupported, setMicSupported] = useState(false)
   const [dictationOn, setDictationOn] = useState(false)
   const [laterOpen, setLaterOpen] = useState(false)
+  const [quoteCollapsed, setQuoteCollapsed] = useState(Boolean(initialQuote))
 
   useEffect(() => {
     void window.clover.mail.listSnippets().then(setSnippets)
@@ -136,7 +155,7 @@ export function Compose({
     cc: parseList(cc),
     bcc: parseList(bcc),
     subject,
-    text: editorRef.current?.innerText ?? '',
+    text: editorText(),
     html: (editorRef.current?.innerHTML ?? '').trim() || undefined,
     fromEmail: fromEmail || undefined,
     fromName: fromOptions.find((o) => o.email === fromEmail)?.name ?? undefined
@@ -209,6 +228,20 @@ export function Compose({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, accountEmail])
 
+  // Put the signature directly under the user's text — above the quoted original,
+  // like Gmail/Outlook — instead of at the very end of a long thread.
+  function insertSignature(html: string): void {
+    const editor = editorRef.current
+    if (!editor || editor.querySelector(`[${SIGNATURE_ATTR}]`)) return
+    const block = document.createElement('div')
+    block.setAttribute(SIGNATURE_ATTR, '1')
+    block.innerHTML = `<br>${html}`
+    const quote = editor.querySelector(`[${QUOTE_ATTR}]`)
+    if (quote) editor.insertBefore(block, quote)
+    else editor.appendChild(block)
+    setSignatureOn(true)
+  }
+
   useEffect(() => {
     void (async () => {
       const sig = (await window.clover.settings.get(`signature.${accountId}`)) as
@@ -216,11 +249,7 @@ export function Compose({
         | undefined
       if (sig?.enabled && sig.html) {
         setSignatureHtml(sig.html)
-        const editor = editorRef.current
-        if (editor) {
-          editor.innerHTML += `${SIGNATURE_MARKER}<br>${sig.html}</div>`
-          setSignatureOn(true)
-        }
+        insertSignature(sig.html)
       }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -229,13 +258,12 @@ export function Compose({
   function toggleSignature(): void {
     const editor = editorRef.current
     if (!editor) return
-    const index = editor.innerHTML.indexOf(SIGNATURE_MARKER)
-    if (index >= 0) {
-      editor.innerHTML = editor.innerHTML.slice(0, index)
+    const existing = editor.querySelector(`[${SIGNATURE_ATTR}]`)
+    if (existing) {
+      existing.remove()
       setSignatureOn(false)
     } else if (signatureHtml) {
-      editor.innerHTML += `${SIGNATURE_MARKER}<br>${signatureHtml}</div>`
-      setSignatureOn(true)
+      insertSignature(signatureHtml)
     }
   }
 
@@ -272,11 +300,37 @@ export function Compose({
     await checkWriting()
   }
 
-  const initialHtml = initialBody
-    ? escapeHtml(initialBody)
-        .replace(/&gt;/g, '>')
-        .replace(/\n/g, '<br>')
-    : ''
+  const initialHtml = useMemo(() => {
+    const body = initialBody
+      ? escapeHtml(initialBody).replace(/&gt;/g, '>').replace(/\n/g, '<br>')
+      : ''
+    if (initialQuote) return `${body || '<div><br></div>'}${initialQuote}`
+    return body
+  }, [initialBody, initialQuote])
+
+  // Reflect the quote's collapsed/expanded state on the editable quote block.
+  useEffect(() => {
+    const quote = editorRef.current?.querySelector(`[${QUOTE_ATTR}]`)
+    if (!quote) return
+    if (quoteCollapsed) quote.setAttribute('data-collapsed', '1')
+    else quote.removeAttribute('data-collapsed')
+  }, [quoteCollapsed])
+
+  // For replies, put the caret at the top of the composer so you can type right away.
+  useEffect(() => {
+    if (!initialQuote) return
+    const editor = editorRef.current
+    if (!editor) return
+    editor.focus()
+    const selection = window.getSelection()
+    if (!selection) return
+    const range = document.createRange()
+    range.selectNodeContents(editor)
+    range.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(range)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function exec(command: string, value?: string): void {
     editorRef.current?.focus()
@@ -290,7 +344,7 @@ export function Compose({
 
   function buildInput(): ComposeInput {
     const html = editorRef.current?.innerHTML ?? ''
-    const text = editorRef.current?.innerText ?? ''
+    const text = editorText()
     return {
       accountId,
       to: parseList(to),
@@ -537,6 +591,15 @@ export function Compose({
               <IconSignature className="h-3.5 w-3.5" />
               Signature
             </button>
+            {initialQuote && (
+              <button
+                type="button"
+                onClick={() => setQuoteCollapsed((v) => !v)}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted hover:text-accent"
+              >
+                {quoteCollapsed ? '⋯ Show quoted text' : 'Hide quoted text'}
+              </button>
+            )}
             <div className="relative">
               <button
                 type="button"
@@ -620,7 +683,7 @@ export function Compose({
                 addFiles(files)
               }
             }}
-            className="mt-2 min-h-0 flex-1 overflow-y-auto bg-transparent text-[13.5px] leading-relaxed text-ink outline-none"
+            className="compose-editor mt-2 min-h-0 flex-1 overflow-y-auto bg-transparent text-[13.5px] leading-relaxed text-ink outline-none"
             dangerouslySetInnerHTML={{ __html: initialHtml }}
           />
 

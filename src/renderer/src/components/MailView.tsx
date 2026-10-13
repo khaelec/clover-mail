@@ -3,7 +3,7 @@ import { useMail } from '../state/mail'
 import { useLayout } from '../state/layout'
 import { useApps } from '../state/apps'
 import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
-import type { BulkActionType, FolderSummary, MessageSummary, ThreadSummary } from '@shared/mail'
+import type { BulkActionType, FolderSummary, MessageDetail, MessageSummary, ThreadSummary } from '@shared/mail'
 import { Reader } from './Reader'
 import { Compose } from './Compose'
 import { CopilotView } from './CopilotView'
@@ -254,6 +254,34 @@ function AppDock(): ReactNode {
   )
 }
 
+function escapeForHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/** Quoted original, rendered as a muted indented block so replies read cleanly. */
+function buildQuote(detail: MessageDetail): string {
+  const name = detail.fromName || detail.fromEmail || 'the sender'
+  const when = new Date(detail.dateUtc ?? Date.now()).toLocaleString()
+  const attribution = escapeForHtml(`On ${when}, ${name} wrote:`)
+  const body = escapeForHtml(detail.textPlain ?? '').replace(/\n/g, '<br>') || '<em>(no text)</em>'
+  return `<div data-clover-quote="1"><p>${attribution}</p><blockquote>${body}</blockquote></div>`
+}
+
+/** Forwarded message, rendered like a clean quote block. */
+function buildForwardQuote(detail: MessageDetail): string {
+  const header = escapeForHtml(
+    [
+      '---------- Forwarded message ----------',
+      `From: ${detail.fromName ? `${detail.fromName} ` : ''}<${detail.fromEmail ?? ''}>`,
+      `Date: ${new Date(detail.dateUtc ?? Date.now()).toLocaleString()}`,
+      `Subject: ${detail.subject ?? ''}`,
+      `To: ${detail.to.join(', ')}`
+    ].join('\n')
+  ).replace(/\n/g, '<br>')
+  const body = escapeForHtml(detail.textPlain ?? '').replace(/\n/g, '<br>')
+  return `<div data-clover-quote="1"><p>${header}</p><blockquote>${body}</blockquote></div>`
+}
+
 export function MailView(): ReactNode {
   const accounts = useMail((s) => s.accounts)
   const activeAccountId = useMail((s) => s.activeAccountId)
@@ -422,6 +450,7 @@ export function MailView(): ReactNode {
     cc?: string
     subject?: string
     body?: string
+    quote?: string
     attachments?: { name: string; path: string }[]
     inReplyTo?: string
     references?: string
@@ -514,12 +543,11 @@ export function MailView(): ReactNode {
     const detail = useMail.getState().detail
     if (!detail) return
     const to = detail.fromEmail ? `${detail.fromName ? `${detail.fromName} <${detail.fromEmail}>` : detail.fromEmail}` : ''
-    const body = `\n\nOn ${new Date(detail.dateUtc ?? Date.now()).toLocaleString()}, ${detail.fromName || detail.fromEmail} wrote:\n> ${(detail.textPlain ?? '').split('\n').join('\n> ')}`
     setComposeState({
       open: true,
       to,
       subject: detail.subject?.startsWith('Re:') ? detail.subject : `Re: ${detail.subject ?? ''}`,
-      body,
+      quote: buildQuote(detail),
       inReplyTo: detail.messageId ?? undefined,
       references: [detail.refs, detail.messageId].filter(Boolean).join(' ') || undefined
     })
@@ -540,13 +568,12 @@ export function MailView(): ReactNode {
       return email && email !== self && email !== detail.fromEmail?.toLowerCase()
     })
     const cc = Array.from(new Set(ccList.map((a) => a.trim()))).join(', ')
-    const body = `\n\nOn ${new Date(detail.dateUtc ?? Date.now()).toLocaleString()}, ${detail.fromName || detail.fromEmail} wrote:\n> ${(detail.textPlain ?? '').split('\n').join('\n> ')}`
     setComposeState({
       open: true,
       to: sender,
       cc,
       subject: detail.subject?.startsWith('Re:') ? detail.subject : `Re: ${detail.subject ?? ''}`,
-      body,
+      quote: buildQuote(detail),
       inReplyTo: detail.messageId ?? undefined,
       references: [detail.refs, detail.messageId].filter(Boolean).join(' ') || undefined
     })
@@ -561,16 +588,6 @@ export function MailView(): ReactNode {
       const path = await window.clover.mail.getAttachmentPath(att.id)
       if (path) attachments.push({ name: att.filename ?? 'attachment', path })
     }
-    const header = [
-      '',
-      '',
-      '---------- Forwarded message ----------',
-      `From: ${detail.fromName ? `${detail.fromName} ` : ''}<${detail.fromEmail ?? ''}>`,
-      `Date: ${new Date(detail.dateUtc ?? Date.now()).toLocaleString()}`,
-      `Subject: ${detail.subject ?? ''}`,
-      `To: ${detail.to.join(', ')}`,
-      ''
-    ].join('\n')
     setComposeState({
       open: true,
       subject: detail.subject
@@ -578,7 +595,7 @@ export function MailView(): ReactNode {
           ? detail.subject
           : `Fwd: ${detail.subject}`
         : '',
-      body: header + (detail.textPlain ?? ''),
+      quote: buildForwardQuote(detail),
       attachments
     })
   }
@@ -1256,6 +1273,7 @@ export function MailView(): ReactNode {
           initialCc={composeState.cc}
           initialSubject={composeState.subject}
           initialBody={composeState.body}
+          initialQuote={composeState.quote}
           initialAttachments={composeState.attachments}
           inReplyTo={composeState.inReplyTo}
           references={composeState.references}
