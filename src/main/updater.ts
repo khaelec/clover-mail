@@ -1,5 +1,5 @@
 import { app, type BrowserWindow } from 'electron'
-import { join } from 'node:path'
+import { join, normalize, sep } from 'node:path'
 import type { AppUpdater } from 'electron-updater'
 import type { UpdateEvent } from '@shared/ipc'
 import { cleanupUpdateDir } from './updateCleanup'
@@ -22,6 +22,23 @@ function emit(event: UpdateEvent): void {
   getWindow()?.webContents.send('update:event', event)
 }
 
+/**
+ * Directory where electron-updater keeps downloaded installers. HARD RULE: this
+ * must never be, contain, or sit inside the user's data directory — an update
+ * may replace program files but must never delete accounts, mail or attachments.
+ */
+function updaterCacheDir(): string | null {
+  const local = process.env.LOCALAPPDATA
+  if (!local) return null
+  const dir = normalize(join(local, `${app.getName()}-updater`))
+  const userData = normalize(app.getPath('userData'))
+  const overlaps =
+    dir === userData ||
+    dir.startsWith(userData + sep) ||
+    userData.startsWith(dir + sep)
+  return overlaps ? null : dir
+}
+
 export async function initUpdater(): Promise<void> {
   if (initialized) return
   initialized = true
@@ -32,8 +49,8 @@ export async function initUpdater(): Promise<void> {
 
   // Remove downloads left behind by a previous update run.
   try {
-    const local = process.env.LOCALAPPDATA
-    if (local) cleanupUpdateDir(join(local, `${app.getName()}-updater`), app.getVersion())
+    const dir = updaterCacheDir()
+    if (dir) cleanupUpdateDir(dir, app.getVersion())
   } catch {
     // best effort
   }
