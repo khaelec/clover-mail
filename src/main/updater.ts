@@ -77,11 +77,40 @@ export async function initUpdater(): Promise<void> {
       emit({ type: 'progress', percent: Math.round(p.percent) })
     )
     autoUpdater.on('update-downloaded', (info) => emit({ type: 'downloaded', version: info.version }))
-    autoUpdater.on('error', (err) => emit({ type: 'error', error: String(err?.message ?? err) }))
+    autoUpdater.on('error', (err) => {
+      // While we're retrying a transient failure, stay quiet until all attempts fail.
+      if (retrying) return
+      emit({ type: 'error', error: String(err?.message ?? err) })
+    })
 
     void autoUpdater.checkForUpdates().catch(() => undefined)
   } catch (error) {
     emit({ type: 'error', error: (error as Error).message })
+  }
+}
+
+let retrying = false
+
+/**
+ * GitHub occasionally answers a release-asset request with a transient 5xx
+ * (often right after publishing, while the large installer replicates). Retry a
+ * few times with backoff so the update heals itself instead of failing.
+ */
+async function withRetry<T>(run: () => Promise<T>, attempts = 3): Promise<T> {
+  retrying = true
+  let lastError: unknown
+  try {
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await run()
+      } catch (error) {
+        lastError = error
+        if (attempt < attempts) await new Promise((r) => setTimeout(r, 1200 * attempt))
+      }
+    }
+    throw lastError
+  } finally {
+    retrying = false
   }
 }
 
@@ -95,18 +124,27 @@ export async function checkForUpdates(): Promise<void> {
     })
     return
   }
+  const active = updater
   try {
-    await updater.checkForUpdates()
+    await withRetry(() => active.checkForUpdates())
   } catch (error) {
     emit({ type: 'error', error: (error as Error).message })
   }
 }
 
 export async function downloadUpdate(): Promise<void> {
+  if (!updater) {
+    emit({ type: 'error', error: 'Update system is not ready yet — try again in a moment.' })
+    return
+  }
+  const active = updater
   try {
-    await updater?.downloadUpdate()
+    await withRetry(() => active.downloadUpdate())
   } catch (error) {
-    emit({ type: 'error', error: (error as Error).message })
+    emit({
+      type: 'error',
+      error: `${(error as Error).message} — the download may have been interrupted. Please try again.`
+    })
   }
 }
 

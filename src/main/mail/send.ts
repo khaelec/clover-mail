@@ -165,7 +165,12 @@ export async function sendMessage(input: ComposeInput): Promise<void> {
       attachments: attachments.length ? attachments : undefined,
       inReplyTo: input.inReplyTo,
       references: input.references
-    })) as { message?: Buffer }
+    })) as { message?: Buffer; accepted?: string[]; rejected?: string[]; response?: string }
+    // A server can accept the connection but reject every recipient — don't
+    // report success when nothing was actually accepted for delivery.
+    if (info.rejected && info.rejected.length > 0 && (!info.accepted || info.accepted.length === 0)) {
+      throw new Error(`The mail server rejected the recipient(s): ${info.rejected.join(', ')}`)
+    }
     raw = info.message
   } finally {
     transport.close()

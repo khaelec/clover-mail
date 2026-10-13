@@ -147,6 +147,8 @@ export function Compose({
   const [fromOptions, setFromOptions] = useState<{ name: string | null; email: string }[]>([])
   const [fromEmail, setFromEmail] = useState(accountEmail ?? '')
   const [pending, setPending] = useState<{ input: ComposeInput; seconds: number } | null>(null)
+  const pendingRef = useRef<{ input: ComposeInput; seconds: number } | null>(null)
+  pendingRef.current = pending
   const sentRef = useRef(false)
   const draftUidRef = useRef<number | null>(null)
   const draftRef = useRef<() => DraftData>(() => ({ to: [], subject: '' }))
@@ -209,6 +211,19 @@ export function Compose({
     )
     return () => clearTimeout(timer)
   }, [pending, send, onClose])
+
+  // If the composer is closed while the undo countdown is still running, send
+  // the message instead of silently dropping it (Undo is an explicit action).
+  useEffect(() => {
+    return () => {
+      const active = pendingRef.current
+      if (active && !sentRef.current) {
+        sentRef.current = true
+        void send(active.input).catch(() => undefined)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     void (async () => {
