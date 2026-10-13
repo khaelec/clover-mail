@@ -35,31 +35,36 @@ export function AppHost(): ReactNode {
       }
     }
 
-    for (const app of apps) {
-      if (nodes.has(app.id)) continue
-      const webview = document.createElement('webview')
-      webview.setAttribute('partition', `persist:app-${app.id}`)
-      webview.setAttribute('src', app.url)
-      webview.setAttribute('allowpopups', 'true')
-      webview.setAttribute('webpreferences', 'backgroundThrottling=false')
-      webview.style.position = 'absolute'
-      webview.style.inset = '0'
-      webview.style.width = '100%'
-      webview.style.height = '100%'
-      webview.style.display = 'flex'
-      webview.style.visibility = 'hidden'
-      container.appendChild(webview)
-      nodes.set(app.id, webview)
+    // Create an app's webview the first time it's shown, so it loads at its real
+    // size (apps like Messenger compute their list from the initial viewport and
+    // mis-render if they're loaded at some other size and then resized). Once
+    // created it stays alive offscreen so background apps can still notify.
+    const displayId = host?.appId ?? null
+    if (displayId && wanted.has(displayId) && !nodes.has(displayId)) {
+      const app = apps.find((a) => a.id === displayId)
+      if (app) {
+        const webview = document.createElement('webview')
+        webview.setAttribute('partition', `persist:app-${app.id}`)
+        webview.setAttribute('src', app.url)
+        webview.setAttribute('allowpopups', 'true')
+        webview.setAttribute('webpreferences', 'backgroundThrottling=false')
+        webview.style.position = 'absolute'
+        webview.style.inset = '0'
+        webview.style.width = '100%'
+        webview.style.height = '100%'
+        webview.style.display = 'flex'
+        webview.style.visibility = 'hidden'
+        container.appendChild(webview)
+        nodes.set(app.id, webview)
+      }
     }
-  }, [apps])
 
-  useEffect(() => {
-    for (const [id, node] of nodesRef.current) {
-      const active = host?.appId === id
+    for (const [id, node] of nodes) {
+      const active = id === displayId
       node.style.visibility = active ? 'visible' : 'hidden'
       node.style.pointerEvents = active ? 'auto' : 'none'
     }
-  }, [host, apps])
+  }, [apps, host])
 
   const style = host
     ? { left: host.rect.left, top: host.rect.top, width: host.rect.width, height: host.rect.height }
@@ -69,6 +74,7 @@ export function AppHost(): ReactNode {
     <div
       ref={hostRef}
       aria-hidden={!host}
+      data-clover-apphost={host ? 'active' : 'idle'}
       className="pointer-events-none fixed z-[5] overflow-hidden"
       style={style}
     />

@@ -247,7 +247,7 @@ function AppDock(): ReactNode {
             <CopilotView embedded />
           </div>
         ) : (
-          <div ref={slotRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden" />
+          <div ref={slotRef} data-clover-appslot className="relative min-h-0 min-w-0 flex-1 overflow-hidden" />
         )}
       </section>
     </>

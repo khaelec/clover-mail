@@ -143,7 +143,7 @@ export function AppsView(): ReactNode {
 
       <section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-canvas">
         {activeApp ? (
-          <div ref={slotRef} className="relative min-h-0 min-w-0 flex-1" />
+          <div ref={slotRef} data-clover-appslot className="relative min-h-0 min-w-0 flex-1" />
         ) : (
           <div className="flex h-full items-center justify-center p-8">
             <div className="max-w-sm rounded-3xl border border-line bg-surface/70 p-8 text-center backdrop-blur-xl">
