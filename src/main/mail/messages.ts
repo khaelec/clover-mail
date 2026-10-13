@@ -2,7 +2,7 @@ import { simpleParser } from 'mailparser'
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import type { ImapFlow } from 'imapflow'
 import { dialog, shell } from 'electron'
 import { eq } from 'drizzle-orm'
@@ -144,11 +144,31 @@ export async function getMessageDetail(messageId: string): Promise<MessageDetail
     body = db.select().from(messageBodies).where(eq(messageBodies.messageId, messageId)).get()
   }
 
-  const attachmentRows = db
+  let attachmentRows = db
     .select()
     .from(attachments)
     .where(eq(attachments.messageId, messageId))
     .all()
+
+  // Older messages cached attachments under a path that contained the raw
+  // `folderId:uid` message id, which Windows rejected (illegal ':'). Re-fetch
+  // the source once so those attachment bytes are written to a valid path.
+  if (
+    protocolFor(row.accountId) === 'imap' &&
+    attachmentRows.length > 0 &&
+    attachmentRows.every((att) => att.contentPath === null)
+  ) {
+    try {
+      await fetchAndStoreBody(messageId)
+      attachmentRows = db
+        .select()
+        .from(attachments)
+        .where(eq(attachments.messageId, messageId))
+        .all()
+    } catch {
+      // Offline or server error — leave attachments marked unavailable.
+    }
+  }
 
   const inlineImages: InlineImage[] = []
   for (const att of attachmentRows) {
@@ -212,10 +232,19 @@ export async function openAttachment(
   const row = getDb().select().from(attachments).where(eq(attachments.id, attachmentId)).get()
   if (!row || !row.contentPath) return { opened: false, error: 'Attachment is not cached yet' }
   try {
-    const dir = join(tmpdir(), 'clover-attachments')
+    const dir = join(tmpdir(), 'clover-attachments', attachmentId)
     mkdirSync(dir, { recursive: true })
-    const target = join(dir, row.filename || `attachment-${attachmentId}`)
-    copyFileSync(attachmentAbsolutePath(row.contentPath), target)
+    const safeName = basename(row.filename || `attachment-${attachmentId}`) || `attachment-${attachmentId}`
+    let target = join(dir, safeName)
+    const source = attachmentAbsolutePath(row.contentPath)
+    try {
+      copyFileSync(source, target)
+    } catch {
+      // The previous copy is still open in its viewer (Windows locks it) — use
+      // a fresh name so re-opening an attachment always works.
+      target = join(dir, `${Date.now()}-${safeName}`)
+      copyFileSync(source, target)
+    }
     const error = await shell.openPath(target)
     return { opened: !error, error: error || undefined }
   } catch (error) {

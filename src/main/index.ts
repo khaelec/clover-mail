@@ -19,6 +19,24 @@ import { syncAllCaldav } from '@main/calendar/caldav'
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
 
+// Launching the app again (e.g. from the desktop icon) should focus the running
+// window instead of starting a second instance that fights over the database.
+const isPrimaryInstance = app.requestSingleInstanceLock()
+if (!isPrimaryInstance) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const win = mainWindow ?? BrowserWindow.getAllWindows()[0] ?? null
+    if (!win) {
+      createWindow()
+      return
+    }
+    if (win.isMinimized()) win.restore()
+    if (!win.isVisible()) win.show()
+    win.focus()
+  })
+}
+
 const isWebUrl = (url: string): boolean => /^https?:\/\//i.test(url) || url.startsWith('mailto:')
 const isNavigable = (url: string): boolean =>
   /^(https?:|file:|about:|devtools:|chrome-extension:|clover-media:|blob:|data:)/i.test(url)
@@ -177,6 +195,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  if (!isPrimaryInstance) return
   electronApp.setAppUserModelId('com.clovermail.app')
 
   app.on('browser-window-created', (_, window) => {

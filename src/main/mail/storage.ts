@@ -11,6 +11,15 @@ function attachmentsRoot(): string {
   return join(root, 'attachments')
 }
 
+/**
+ * Message ids are `folderId:uid`, and Windows forbids ':' (and other reserved
+ * characters) in a path. Fold them to a safe directory name so attachment bytes
+ * can actually be cached on disk.
+ */
+function safeSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
 /** Persist an attachment's bytes and return a storage-relative path. */
 export function saveAttachment(
   messageId: string,
@@ -18,10 +27,11 @@ export function saveAttachment(
   filename: string | null,
   data: Buffer
 ): string {
-  const dir = join(attachmentsRoot(), messageId)
+  const dirName = safeSegment(messageId)
+  const dir = join(attachmentsRoot(), dirName)
   mkdirSync(dir, { recursive: true })
-  const ext = filename ? extname(filename).slice(0, 12) : ''
-  const rel = join(messageId, `${attachmentId}${ext}`)
+  const ext = filename ? extname(filename).replace(/[^a-zA-Z0-9.]/g, '').slice(0, 12) : ''
+  const rel = join(dirName, `${attachmentId}${ext}`)
   writeFileSync(join(attachmentsRoot(), rel), data)
   return rel
 }
