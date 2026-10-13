@@ -106,11 +106,16 @@ export function assessPhishing(
   let linkWarnings = 0
   while ((match = anchorRe.exec(html)) !== null && linkWarnings < 3) {
     const href = match[1]
-    const text = match[2].replace(/<[^>]+>/g, ' ').trim()
+    const anchorHtml = match[0]
+    const text = match[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
     const hrefHost = hostOf(href)
     if (!hrefHost) continue
+    // Anchors that contain an image have no reliable visible text (e.g. a
+    // signature's logo image followed by a bare domain), so don't compare the
+    // leftover text against the href — it produces false "mismatch" warnings.
+    const hasImage = /<\s*img\b/i.test(anchorHtml)
     const textUrl = text.match(/https?:\/\/[^\s]+|(?:[a-z0-9-]+\.)+[a-z]{2,}/i)
-    if (textUrl) {
+    if (textUrl && !hasImage) {
       const textHost = textUrl[0].includes('://')
         ? hostOf(textUrl[0])
         : textUrl[0].replace(/^www\./, '').toLowerCase()

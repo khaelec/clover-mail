@@ -27,6 +27,7 @@ interface MailState {
   searchResults: MessageSummary[] | null
   selectedMessageId: string | null
   detail: MessageDetail | null
+  conversation: MessageDetail[]
   loadingMessages: boolean
   syncing: boolean
   status: string | null
@@ -164,6 +165,7 @@ export const useMail = create<MailState>((set, get) => {
     searchResults: null,
     selectedMessageId: null,
     detail: null,
+    conversation: [],
     loadingMessages: false,
     syncing: false,
     status: null,
@@ -242,9 +244,12 @@ export const useMail = create<MailState>((set, get) => {
         clearTimeout(readTimer)
         readTimer = null
       }
-      set({ selectedMessageId: id, detail: null })
-      const detail = await window.clover.mail.getMessage(id)
-      set({ detail })
+      set({ selectedMessageId: id, detail: null, conversation: [] })
+      const [detail, conversation] = await Promise.all([
+        window.clover.mail.getMessage(id),
+        window.clover.mail.getConversation(id)
+      ])
+      set({ detail, conversation: conversation.length ? conversation : detail ? [detail] : [] })
 
       // Mark read shortly after opening (like most clients), if still viewing it.
       if (detail && !detail.isRead) {

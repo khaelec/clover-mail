@@ -168,6 +168,7 @@ const api: CloverApi = {
     deleteRule: (ruleId) => ipcRenderer.invoke(IpcChannels.mail.deleteRule, ruleId),
     applyRules: (accountId) => ipcRenderer.invoke(IpcChannels.mail.applyRules, accountId),
     getMessage: (messageId) => ipcRenderer.invoke(IpcChannels.mail.getMessage, messageId),
+    getConversation: (messageId) => ipcRenderer.invoke(IpcChannels.mail.getConversation, messageId),
     setFlags: (messageId, flags) =>
       ipcRenderer.invoke(IpcChannels.mail.setFlags, messageId, flags),
     moveMessage: (messageId, targetFolderId) =>

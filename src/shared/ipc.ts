@@ -87,6 +87,7 @@ export interface MailApi {
   deleteRule: (ruleId: string) => Promise<void>
   applyRules: (accountId: string) => Promise<ApplyRulesResult>
   getMessage: (messageId: string) => Promise<MessageDetail | null>
+  getConversation: (messageId: string) => Promise<MessageDetail[]>
   setFlags: (messageId: string, flags: { seen?: boolean; flagged?: boolean; important?: boolean }) => Promise<void>
   moveMessage: (messageId: string, targetFolderId: string) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>

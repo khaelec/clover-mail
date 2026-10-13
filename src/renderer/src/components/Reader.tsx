@@ -8,6 +8,7 @@ import { useAi } from '../state/ai'
 import { useCalendar } from '../state/calendar'
 import { useLayout } from '../state/layout'
 import { IconCalendar, IconClose, IconDownload, IconFlag, IconForward, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
+import type { MessageDetail } from '@shared/mail'
 
 const AI_ACTIONS: { label: string; prompt: string }[] = [
   {
@@ -91,6 +92,90 @@ function blockRemoteImages(html: string): { html: string; blocked: number } {
   return { html: doc.body.innerHTML, blocked }
 }
 
+/** One message's sanitized body, rendered in its own sandboxed frame. */
+function MessageBody({
+  detail,
+  shouldBlock,
+  onLoadImages,
+  onAlwaysAllow
+}: {
+  detail: MessageDetail
+  shouldBlock: boolean
+  onLoadImages: () => void
+  onAlwaysAllow: () => void
+}): ReactNode {
+  const effective = useTheme((s) => s.effective)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  const rendered = useMemo(() => {
+    if (!detail.htmlRaw) return { html: null as string | null, blocked: 0 }
+    const sanitized = sanitizeWithInlineImages(detail.htmlRaw, detail.inlineImages)
+    if (!shouldBlock) return { html: sanitized, blocked: 0 }
+    return blockRemoteImages(sanitized)
+  }, [detail, shouldBlock])
+
+  function sizeFrame(): void {
+    const frame = iframeRef.current
+    const doc = frame?.contentDocument
+    if (frame && doc) frame.style.height = `${doc.documentElement.scrollHeight}px`
+  }
+
+  useEffect(() => {
+    const frame = iframeRef.current
+    if (!frame) return
+    const dark = effective === 'dark'
+    const css = [
+      `html{background:${dark ? '#0a0e13' : '#ffffff'}}`,
+      'html,body{margin:0;padding:0}',
+      "body{background:transparent;font-family:Inter,'Segoe UI',system-ui,sans-serif;font-size:13.5px;line-height:1.6;padding:18px 24px;word-break:break-word;overflow-wrap:anywhere}",
+      'img{max-width:100%;height:auto}',
+      dark ? '' : 'a{color:#2563eb}',
+      `blockquote{border-left:3px solid ${dark ? '#3a4653' : '#d7dbe0'};margin:.5rem 0;padding-left:.75rem;color:${dark ? '#9aa7b4' : '#5b6572'}}`,
+      'table{max-width:100%;border-collapse:collapse}',
+      'pre{white-space:pre-wrap;word-break:break-word}',
+      dark
+        ? 'body{filter:invert(1) hue-rotate(180deg)} img,video,svg,canvas,[style*="background-image"]{filter:invert(1) hue-rotate(180deg)}'
+        : ''
+    ].join('')
+    frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>${css}</style></head><body>${rendered.html ?? ''}</body></html>`
+  }, [rendered.html, effective])
+
+  return (
+    <>
+      {rendered.blocked > 0 && (
+        <div className="flex items-center gap-3 border-b border-line bg-amber-500/10 px-6 py-2 text-[12px] text-amber-600">
+          <span>
+            {rendered.blocked} remote image{rendered.blocked > 1 ? 's' : ''} blocked to protect your privacy.
+          </span>
+          <button type="button" onClick={onLoadImages} className="font-medium underline">
+            Load images
+          </button>
+          <button type="button" onClick={onAlwaysAllow} className="font-medium underline">
+            Always allow from {detail.fromEmail}
+          </button>
+        </div>
+      )}
+      {rendered.html ? (
+        <iframe
+          ref={iframeRef}
+          title="message-body"
+          onLoad={sizeFrame}
+          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+          className="w-full border-0 bg-transparent"
+        />
+      ) : detail.textPlain ? (
+        <pre className="whitespace-pre-wrap px-6 py-5 font-sans text-[13.5px] leading-relaxed text-ink/90">
+          {detail.textPlain}
+        </pre>
+      ) : (
+        <div className="flex items-center gap-2 px-6 py-5 text-[13px] text-muted">
+          <IconRefresh className="h-4 w-4 animate-spin" /> Loading message…
+        </div>
+      )}
+    </>
+  )
+}
+
 export function Reader({
   onReply,
   onReplyAll,
@@ -102,6 +187,7 @@ export function Reader({
 }): ReactNode {
   const {
     detail,
+    conversation,
     toggleFlag,
     toggleImportant,
     toggleRead,
@@ -118,7 +204,6 @@ export function Reader({
   const [trusted, setTrusted] = useState<string[]>([])
   const [blockEnabled, setBlockEnabled] = useState(true)
   const [calendarNotice, setCalendarNotice] = useState<string | null>(null)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
   const effective = useTheme((s) => s.effective)
   const [menu, setMenu] = useState<{ x: number; y: number; mode: 'main' | 'move' | 'snooze' } | null>(
     null
@@ -208,43 +293,16 @@ export function Reader({
   const sender = detail?.fromEmail?.toLowerCase() ?? ''
   const shouldBlock = blockEnabled && !allowRemote && !trusted.includes(sender)
 
-  const rendered = useMemo(() => {
-    if (!detail?.htmlRaw) return { html: null as string | null, blocked: 0 }
-    const sanitized = sanitizeWithInlineImages(detail.htmlRaw, detail.inlineImages)
-    if (!shouldBlock) return { html: sanitized, blocked: 0 }
-    return blockRemoteImages(sanitized)
-  }, [detail, shouldBlock])
+  // The whole conversation, with the focused message kept fresh from `detail`.
+  const messages = useMemo(() => {
+    const base = conversation.length ? conversation : detail ? [detail] : []
+    return base.map((m) => (detail && m.id === detail.id ? detail : m))
+  }, [conversation, detail])
 
-  function sizeFrame(): void {
-    const frame = iframeRef.current
-    const doc = frame?.contentDocument
-    if (frame && doc) {
-      frame.style.height = `${doc.documentElement.scrollHeight}px`
-    }
-  }
-
-  useEffect(() => {
-    const frame = iframeRef.current
-    if (!frame) return
-    const dark = effective === 'dark'
-    const css = [
-      `html{background:${dark ? '#0a0e13' : '#ffffff'}}`,
-      'html,body{margin:0;padding:0}',
-      "body{background:transparent;font-family:Inter,'Segoe UI',system-ui,sans-serif;font-size:13.5px;line-height:1.6;padding:20px 24px;word-break:break-word;overflow-wrap:anywhere}",
-      'img{max-width:100%;height:auto}',
-      dark ? '' : 'a{color:#2563eb}',
-      `blockquote{border-left:3px solid ${dark ? '#3a4653' : '#d7dbe0'};margin:.5rem 0;padding-left:.75rem;color:${dark ? '#9aa7b4' : '#5b6572'}}`,
-      'table{max-width:100%;border-collapse:collapse}',
-      'pre{white-space:pre-wrap;word-break:break-word}',
-      dark
-        ? 'body{filter:invert(1) hue-rotate(180deg)} img,video,svg,canvas,[style*="background-image"]{filter:invert(1) hue-rotate(180deg)}'
-        : ''
-    ].join('')
-    frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>${css}</style></head><body>${rendered.html ?? ''}</body></html>`
-  }, [rendered.html, effective])
-
-  async function alwaysAllowSender(): Promise<void> {
-    const next = Array.from(new Set([...trusted, sender]))
+  async function alwaysAllowSender(email?: string | null): Promise<void> {
+    const target = (email ?? sender).toLowerCase()
+    if (!target) return
+    const next = Array.from(new Set([...trusted, target]))
     setTrusted(next)
     setAllowRemote(true)
     await window.clover.settings.set(SETTINGS_KEYS.trustedSenders, next)
@@ -260,12 +318,12 @@ export function Reader({
     window.dispatchEvent(new Event('clover:open-calendar'))
   }
 
-  async function trustSender(): Promise<void> {
-    if (!detail || !sender) return
-    const next = Array.from(new Set([...trusted, sender]))
+  async function trustSender(email?: string | null): Promise<void> {
+    const target = (email ?? sender).toLowerCase()
+    if (!target) return
+    const next = Array.from(new Set([...trusted, target]))
     setTrusted(next)
     await window.clover.settings.set(SETTINGS_KEYS.trustedSenders, next)
-    await useMail.getState().selectMessage(detail.id)
   }
 
   function askCopilot(prompt: string): void {
@@ -314,8 +372,17 @@ export function Reader({
         <div className="min-w-0">
           <h2 className="truncate text-[15px] font-semibold text-ink">{detail.subject || '(no subject)'}</h2>
           <p className="mt-0.5 truncate text-[12px] text-muted">
-            <span className="text-ink/80">{detail.fromName || detail.fromEmail}</span>
-            {detail.to.length > 0 && <> · to {detail.to.join(', ')}</>} · {formatDate(detail.dateUtc)}
+            {messages.length > 1 ? (
+              <>
+                <span className="text-ink/80">{messages.length} messages</span> ·{' '}
+                {formatDate(messages[messages.length - 1]?.dateUtc ?? detail.dateUtc)}
+              </>
+            ) : (
+              <>
+                <span className="text-ink/80">{detail.fromName || detail.fromEmail}</span>
+                {detail.to.length > 0 && <> · to {detail.to.join(', ')}</>} · {formatDate(detail.dateUtc)}
+              </>
+            )}
           </p>
         </div>
         <div className="ml-auto flex gap-1.5">
@@ -420,182 +487,165 @@ export function Reader({
         </div>
       </header>
 
-      {detail.phishing.suspicious && (
-        <div className="flex items-start gap-3 border-b border-line bg-rose-500/10 px-6 py-2.5 text-[12px] text-rose-600">
-          <span className="mt-0.5 shrink-0 font-semibold">Suspicious message</span>
-          <span className="min-w-0 flex-1">
-            <span className="block">{detail.phishing.reasons[0]}</span>
-            {detail.phishing.reasons.length > 1 && (
-              <span className="mt-0.5 block text-rose-600/80">
-                {detail.phishing.reasons.slice(1).join(' · ')}
-              </span>
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => void trustSender()}
-            className="shrink-0 font-medium underline"
-          >
-            Trust sender
-          </button>
-        </div>
-      )}
-
-      {(detail.security.signed || detail.security.encrypted) && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-line bg-accent/8 px-6 py-2 text-[12px] text-accent">
-          <span className="font-semibold">
-            {detail.security.encrypted ? 'Encrypted' : 'Signed'} message
-          </span>
-          <span className="text-muted">
-            {securityLabel(
-              detail.security.encrypted ? detail.security.encryption : detail.security.signing
-            )}{' '}
-            detected — signature not verified
-          </span>
-        </div>
-      )}
-
-      {rendered.blocked > 0 && (
-        <div className="flex items-center gap-3 border-b border-line bg-amber-500/10 px-6 py-2 text-[12px] text-amber-600">
-          <span>{rendered.blocked} remote image{rendered.blocked > 1 ? 's' : ''} blocked to protect your privacy.</span>
-          <button type="button" onClick={() => setAllowRemote(true)} className="font-medium underline">
-            Load images
-          </button>
-          <button type="button" onClick={alwaysAllowSender} className="font-medium underline">
-            Always allow from {detail.fromEmail}
-          </button>
-        </div>
-      )}
-
-      {(detail.isSpam || detail.spamScore >= 30) && (
-        <div
-          className={
-            'border-b border-line px-6 py-2.5 text-[12px] ' +
-            (detail.isSpam ? 'bg-rose-500/10 text-rose-500' : 'bg-amber-500/10 text-amber-600')
-          }
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">
-              {detail.isSpam ? 'Marked as spam' : 'Possible spam'} · score {detail.spamScore}/100
-            </span>
-            <span className="text-ink/60">{detail.spamReasons.slice(0, 3).join(' · ')}</span>
-            <div className="ml-auto flex items-center gap-2">
-              {!detail.isSpam && (
-                <button
-                  type="button"
-                  onClick={() => void markSpam(detail.id)}
-                  className="rounded-md border border-line px-2 py-1 hover:text-rose-500"
-                >
-                  Spam
-                </button>
-              )}
-              {detail.isSpam && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void markNotSpam(detail.id)}
-                    className="rounded-md border border-line px-2 py-1 hover:text-accent"
-                  >
-                    Not spam
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void allowSender(detail.fromEmail ?? '')}
-                    className="rounded-md border border-line px-2 py-1 hover:text-accent"
-                  >
-                    Allow sender
-                  </button>
-                </>
-              )}
-              {!detail.isSpam && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void markNotSpam(detail.id)}
-                    className="rounded-md border border-line px-2 py-1 hover:text-accent"
-                  >
-                    Not spam
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void blockSender(detail.fromEmail ?? '')}
-                    className="rounded-md border border-line px-2 py-1 hover:text-rose-500"
-                  >
-                    Block sender
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {detail.attachments.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 border-b border-line px-6 py-3">
-            {detail.attachments.map((att) => {
-              const isIcs = (att.mimeType ?? '').includes('calendar') || (att.filename ?? '').toLowerCase().endsWith('.ics')
-              return (
-                <span key={att.id} className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => void previewAttachment(att)}
-                    title={att.available ? 'Open' : 'Content not cached yet — open the message first'}
-                    className={
-                      'flex items-center gap-1.5 rounded-lg border border-line bg-canvas/50 px-2.5 py-1.5 text-[12px] ' +
-                      (att.available ? 'text-ink hover:border-accent hover:text-accent' : 'text-muted opacity-60')
-                    }
-                  >
-                    <IconPaperclip className="h-3.5 w-3.5" />
-                    {att.filename ?? 'attachment'}
-                    {att.size ? <span className="text-muted">· {Math.round(att.size / 1024)} KB</span> : null}
-                  </button>
-                  {att.available && (
-                    <button
-                      type="button"
-                      title="Save as…"
-                      onClick={() => void window.clover.mail.downloadAttachment(att.id)}
-                      className="grid h-7 w-7 place-items-center rounded-lg border border-line text-muted hover:text-accent"
-                    >
-                      <IconDownload className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {isIcs && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void window.clover.calendar.importAttachment(att.id).then((r) =>
-                          setCalendarNotice(`Added ${r.imported} event(s) to your calendar.`)
-                        )
-                      }
-                      className="rounded-lg bg-accent/12 px-2.5 py-1.5 text-[11px] font-medium text-accent"
-                    >
-                      Add to calendar
-                    </button>
+        {messages.map((message) => (
+          <div key={message.id} className="border-b border-line">
+            {messages.length > 1 && (
+              <div className="flex items-center gap-3 bg-canvas/20 px-6 py-3">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent to-accent/60 text-[12px] font-semibold text-accent-ink">
+                  {initials(message.fromName, message.fromEmail)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px] text-ink">
+                    <span className="font-semibold">{message.fromName || message.fromEmail}</span>
+                    {message.to.length > 0 && (
+                      <span className="text-muted"> · to {message.to.join(', ')}</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-muted">{formatDate(message.dateUtc)}</div>
+                </div>
+              </div>
+            )}
+
+            {message.phishing.suspicious && (
+              <div className="flex items-start gap-3 border-b border-line bg-rose-500/10 px-6 py-2 text-[12px] text-rose-600">
+                <span className="mt-0.5 shrink-0 font-semibold">Suspicious message</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block">{message.phishing.reasons[0]}</span>
+                  {message.phishing.reasons.length > 1 && (
+                    <span className="mt-0.5 block text-rose-600/80">
+                      {message.phishing.reasons.slice(1).join(' · ')}
+                    </span>
                   )}
                 </span>
-              )
-            })}
-            {calendarNotice && <span className="text-[11px] text-accent">{calendarNotice}</span>}
-          </div>
-        )}
+                <button
+                  type="button"
+                  onClick={() => void trustSender(message.fromEmail)}
+                  className="shrink-0 font-medium underline"
+                >
+                  Trust sender
+                </button>
+              </div>
+            )}
 
-        {rendered.html ? (
-          <iframe
-            ref={iframeRef}
-            title="message-body"
-            onLoad={sizeFrame}
-            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-            className="w-full border-0 bg-transparent"
-          />
-        ) : detail.textPlain ? (
-          <pre className="whitespace-pre-wrap px-6 py-5 font-sans text-[13.5px] leading-relaxed text-ink/90">
-            {detail.textPlain}
-          </pre>
-        ) : (
-          <div className="flex items-center gap-2 px-6 py-5 text-[13px] text-muted">
-            <IconRefresh className="h-4 w-4 animate-spin" /> Loading message…
+            {(message.security.signed || message.security.encrypted) && (
+              <div className="flex flex-wrap items-center gap-2 border-b border-line bg-accent/8 px-6 py-1.5 text-[12px] text-accent">
+                <span className="font-semibold">
+                  {message.security.encrypted ? 'Encrypted' : 'Signed'} message
+                </span>
+                <span className="text-muted">
+                  {securityLabel(
+                    message.security.encrypted ? message.security.encryption : message.security.signing
+                  )}{' '}
+                  detected — signature not verified
+                </span>
+              </div>
+            )}
+
+            {(message.isSpam || message.spamScore >= 30) && (
+              <div
+                className={
+                  'flex flex-wrap items-center gap-2 border-b border-line px-6 py-1.5 text-[12px] ' +
+                  (message.isSpam ? 'bg-rose-500/10 text-rose-500' : 'bg-amber-500/10 text-amber-600')
+                }
+              >
+                <span className="font-semibold">
+                  {message.isSpam ? 'Marked as spam' : 'Possible spam'} · score {message.spamScore}/100
+                </span>
+                <span className="text-ink/60">{message.spamReasons.slice(0, 3).join(' · ')}</span>
+                <div className="ml-auto flex items-center gap-2">
+                  {message.isSpam ? (
+                    <button
+                      type="button"
+                      onClick={() => void markNotSpam(message.id)}
+                      className="rounded-md border border-line px-2 py-0.5 hover:text-accent"
+                    >
+                      Not spam
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void markSpam(message.id)}
+                        className="rounded-md border border-line px-2 py-0.5 hover:text-rose-500"
+                      >
+                        Spam
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void markNotSpam(message.id)}
+                        className="rounded-md border border-line px-2 py-0.5 hover:text-accent"
+                      >
+                        Not spam
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {message.attachments.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 border-b border-line px-6 py-2.5">
+                {message.attachments.map((att) => {
+                  const isIcs =
+                    (att.mimeType ?? '').includes('calendar') ||
+                    (att.filename ?? '').toLowerCase().endsWith('.ics')
+                  return (
+                    <span key={att.id} className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => void previewAttachment(att)}
+                        title={att.available ? 'Open' : 'Content not cached yet — open the message first'}
+                        className={
+                          'flex items-center gap-1.5 rounded-lg border border-line bg-canvas/50 px-2.5 py-1.5 text-[12px] ' +
+                          (att.available ? 'text-ink hover:border-accent hover:text-accent' : 'text-muted opacity-60')
+                        }
+                      >
+                        <IconPaperclip className="h-3.5 w-3.5" />
+                        {att.filename ?? 'attachment'}
+                        {att.size ? <span className="text-muted">· {Math.round(att.size / 1024)} KB</span> : null}
+                      </button>
+                      {att.available && (
+                        <button
+                          type="button"
+                          title="Save as…"
+                          onClick={() => void window.clover.mail.downloadAttachment(att.id)}
+                          className="grid h-7 w-7 place-items-center rounded-lg border border-line text-muted hover:text-accent"
+                        >
+                          <IconDownload className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {isIcs && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void window.clover.calendar.importAttachment(att.id).then((r) =>
+                              setCalendarNotice(`Added ${r.imported} event(s) to your calendar.`)
+                            )
+                          }
+                          className="rounded-lg bg-accent/12 px-2.5 py-1.5 text-[11px] font-medium text-accent"
+                        >
+                          Add to calendar
+                        </button>
+                      )}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+
+            <MessageBody
+              detail={message}
+              shouldBlock={
+                blockEnabled && !allowRemote && !trusted.includes((message.fromEmail ?? '').toLowerCase())
+              }
+              onLoadImages={() => setAllowRemote(true)}
+              onAlwaysAllow={() => void alwaysAllowSender(message.fromEmail)}
+            />
           </div>
+        ))}
+        {calendarNotice && (
+          <div className="px-6 py-2 text-[11px] text-accent">{calendarNotice}</div>
         )}
       </div>
       {menu && detail && (

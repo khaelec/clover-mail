@@ -57,6 +57,7 @@ export const IpcChannels = {
     deleteRule: 'mail:delete-rule',
     applyRules: 'mail:apply-rules',
     getMessage: 'mail:get-message',
+    getConversation: 'mail:get-conversation',
     setFlags: 'mail:set-flags',
     moveMessage: 'mail:move-message',
     deleteMessage: 'mail:delete-message',

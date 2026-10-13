@@ -15,7 +15,7 @@ import { testImap } from '@main/mail/imap'
 import { testSmtp } from '@main/mail/smtp'
 import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@main/mail/sync'
 import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount } from '@main/mail/queries'
-import { deleteMessage, downloadAttachment, getAttachmentPath, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@main/mail/messages'
+import { deleteMessage, downloadAttachment, getAttachmentPath, getConversation, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@main/mail/messages'
 import { sendMessage } from '@main/mail/send'
 import { searchMessages, searchServer } from '@main/mail/search'
 import { addSnippet, deleteSnippet, listSnippets } from '@main/mail/snippets'
@@ -214,6 +214,9 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.applyRules, (_e, accountId: string) => applyRules(accountId))
   ipcMain.handle(IpcChannels.mail.getMessage, (_e, messageId: string) =>
     getMessageDetail(messageId)
+  )
+  ipcMain.handle(IpcChannels.mail.getConversation, (_e, messageId: string) =>
+    getConversation(messageId)
   )
   ipcMain.handle(
     IpcChannels.mail.setFlags,

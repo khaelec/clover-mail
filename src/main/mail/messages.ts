@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { ImapFlow } from 'imapflow'
 import { dialog, shell } from 'electron'
-import { eq } from 'drizzle-orm'
+import { and, asc, eq, or } from 'drizzle-orm'
 import { getDb } from '../db'
 import { attachments, folders, messageBodies, messages } from '../db/schema'
 import { protocolFor } from './accounts'
@@ -14,6 +14,7 @@ import { indexMessage, removeFromIndex } from './search'
 import { applyAssessment } from './spam'
 import { attachmentAbsolutePath, readAttachmentDataUrl, saveAttachment } from './storage'
 import { assessPhishing, classifySecurity, trustedSenders } from './security'
+import { inferSpecialUse } from './specialUse'
 import { toAttachmentSummary, toMessageSummary } from './mappers'
 import type { InlineImage, MessageDetail, MessagePhishing, MessageSecurity } from '@shared/mail'
 
@@ -182,14 +183,23 @@ export async function getMessageDetail(messageId: string): Promise<MessageDetail
     body?.textPlain ?? null,
     attachmentRows.map((att) => att.mimeType ?? '')
   )
-  const phishing = assessPhishing(
-    row.fromEmail,
-    row.fromName,
-    row.replyToJson,
-    body?.htmlRaw ?? null,
-    body?.textPlain ?? null,
-    trustedSenders()
-  )
+  // Never warn about your own mail: messages you sent (or drafted) are not
+  // phishing, even if a signature link looks odd.
+  const folderRow = db.select().from(folders).where(eq(folders.id, row.folderId)).get()
+  const folderRole =
+    folderRow?.specialUse ??
+    (folderRow ? inferSpecialUse(folderRow.remotePath, folderRow.name) : null)
+  const phishing: MessagePhishing =
+    folderRole === 'sent' || folderRole === 'drafts'
+      ? { suspicious: false, reasons: [] }
+      : assessPhishing(
+          row.fromEmail,
+          row.fromName,
+          row.replyToJson,
+          body?.htmlRaw ?? null,
+          body?.textPlain ?? null,
+          trustedSenders()
+        )
 
   return toDetail(
     row,
@@ -200,6 +210,33 @@ export async function getMessageDetail(messageId: string): Promise<MessageDetail
     security,
     phishing
   )
+}
+
+/** All cached messages in the conversation that contains `messageId`, oldest first. */
+export async function getConversation(messageId: string): Promise<MessageDetail[]> {
+  const db = getDb()
+  const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
+  if (!row) return []
+  const threadId = row.threadId ?? row.id
+  const siblings = db
+    .select()
+    .from(messages)
+    .where(
+      and(
+        eq(messages.accountId, row.accountId),
+        or(eq(messages.threadId, threadId), eq(messages.id, threadId))
+      )
+    )
+    .orderBy(asc(messages.dateUtc), asc(messages.uid))
+    .all()
+
+  const ordered = (siblings.length > 0 ? siblings : [row]).slice(-30)
+  const details: MessageDetail[] = []
+  for (const sibling of ordered) {
+    const detail = await getMessageDetail(sibling.id)
+    if (detail) details.push(detail)
+  }
+  return details
 }
 
 export async function downloadAttachment(
