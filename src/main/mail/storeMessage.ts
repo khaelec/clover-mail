@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import type { ParsedMail } from 'mailparser'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, lt } from 'drizzle-orm'
 import { getDb } from '../db'
 import { attachments, folders, messageBodies, messages } from '../db/schema'
-import { indexMessage } from './search'
+import { indexMessage, removeFromIndex } from './search'
 import { applyAssessment } from './spam'
 import { saveAttachment } from './storage'
 
@@ -67,14 +67,33 @@ export function ensureFolder(accountId: string, name: string): string {
   return id
 }
 
-/** Store a parsed message (used by POP3 fetch and mbox import) and index it. */
+/** Same conversation-linking rule the IMAP sync uses: follow In-Reply-To to the parent's thread. */
+function resolveThreadId(
+  accountId: string,
+  id: string,
+  messageId: string | null,
+  inReplyTo: string | null
+): string {
+  if (inReplyTo) {
+    const parent = getDb()
+      .select()
+      .from(messages)
+      .where(and(eq(messages.accountId, accountId), eq(messages.messageId, inReplyTo)))
+      .get()
+    if (parent?.threadId) return parent.threadId
+    return inReplyTo
+  }
+  return messageId ?? id
+}
+
+/** Store a parsed message (used by POP3 fetch, mbox import and sent copies) and index it. */
 export function storeParsedMessage(
   accountId: string,
   folderId: string,
   uid: number,
   parsed: ParsedMail,
   source: Buffer,
-  options: { pop3Uidl?: string | null; unread?: boolean } = {}
+  options: { pop3Uidl?: string | null; unread?: boolean; assessSpam?: boolean } = {}
 ): string {
   const db = getDb()
   const id = `${folderId}:${uid}`
@@ -82,7 +101,7 @@ export function storeParsedMessage(
   const textPlain = typeof parsed.text === 'string' ? parsed.text : null
   const htmlRaw = typeof parsed.html === 'string' ? parsed.html : null
   const snippet = (textPlain ?? '').replace(/\s+/g, ' ').trim().slice(0, 240) || null
-  const threadId = parsed.inReplyTo ?? parsed.messageId ?? id
+  const threadId = resolveThreadId(accountId, id, parsed.messageId ?? null, parsed.inReplyTo ?? null)
 
   db.insert(messages)
     .values({
@@ -146,8 +165,38 @@ export function storeParsedMessage(
   }
 
   indexMessage(id)
-  applyAssessment(id)
+  if (options.assessSpam !== false) applyAssessment(id)
   return id
+}
+
+/**
+ * Remove a locally cached sent copy (a negative placeholder UID) so the real
+ * message pulled from the server doesn't show up twice. Returns true if one
+ * was cleared.
+ */
+export function clearSentPlaceholder(
+  accountId: string,
+  folderId: string,
+  messageId: string
+): boolean {
+  if (!messageId) return false
+  const db = getDb()
+  const placeholder = db
+    .select()
+    .from(messages)
+    .where(
+      and(
+        eq(messages.accountId, accountId),
+        eq(messages.folderId, folderId),
+        eq(messages.messageId, messageId),
+        lt(messages.uid, 0)
+      )
+    )
+    .get()
+  if (!placeholder) return false
+  db.delete(messages).where(eq(messages.id, placeholder.id)).run()
+  removeFromIndex(placeholder.id)
+  return true
 }
 
 export function nextUidForFolder(folderId: string): number {

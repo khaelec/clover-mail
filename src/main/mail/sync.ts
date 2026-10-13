@@ -7,6 +7,7 @@ import { getAccountById, protocolFor } from './accounts'
 import { buildAccountClient } from './auth'
 import { fetchPop3 } from './pop3'
 import { indexMessage } from './search'
+import { clearSentPlaceholder } from './storeMessage'
 import { applyAssessment } from './spam'
 import { applyRules } from './rules'
 import type { MailEvent, SyncResult } from '@shared/mail'
@@ -193,6 +194,10 @@ export function upsertMessage(accountId: string, folderId: string, msg: FetchMes
     hasAttachments: hasAttachment(msg.bodyStructure),
     threadId: resolveThreadId(accountId, id, env.messageId ?? null, env.inReplyTo ?? null)
   }
+
+  // Drop a locally cached sent copy (negative placeholder UID) once the real
+  // message arrives from the server, so it isn't listed twice.
+  if (base.messageId) clearSentPlaceholder(accountId, folderId, base.messageId)
 
   db.insert(messages)
     .values({ id, ...base })

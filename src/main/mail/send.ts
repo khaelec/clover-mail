@@ -1,3 +1,4 @@
+import { simpleParser } from 'mailparser'
 import { getDb } from '../db'
 import { eq } from 'drizzle-orm'
 import { folders } from '../db/schema'
@@ -5,7 +6,19 @@ import { getAccountById } from './accounts'
 import { getAccountAuth } from './auth'
 import { buildTransport } from './smtp'
 import { withImap } from './connection'
+import { storeParsedMessage } from './storeMessage'
 import type { ComposeInput } from '@shared/mail'
+
+/**
+ * UID to file a sent copy under when the server does not report one (no UIDPLUS).
+ * Negative UIDs can never collide with real IMAP UIDs, and sync replaces the
+ * placeholder once the server copy comes down.
+ */
+let syntheticUidCounter = 0
+function nextSyntheticUid(): number {
+  syntheticUidCounter += 1
+  return -(Date.now() % 2_000_000_000) - syntheticUidCounter
+}
 
 interface InlineAttachment {
   filename: string
@@ -81,7 +94,8 @@ export async function sendMessage(input: ComposeInput): Promise<void> {
     transport.close()
   }
 
-  // Best-effort: file the sent copy in the account's Sent folder.
+  // Best-effort: file the sent copy in the account's Sent folder, and cache it
+  // locally so it shows up in its conversation immediately (before the next sync).
   try {
     const sentFolder = getDb()
       .select()
@@ -90,9 +104,20 @@ export async function sendMessage(input: ComposeInput): Promise<void> {
       .all()
       .find((f) => f.specialUse === 'sent')
     if (sentFolder && raw) {
+      let serverUid: number | undefined
       await withImap(input.accountId, async (client) => {
-        await client.append(sentFolder.remotePath, raw as Buffer, ['\\Seen'])
+        const result = await client.append(sentFolder.remotePath, raw as Buffer, ['\\Seen'])
+        if (result && typeof result.uid === 'number') serverUid = result.uid
       })
+      const parsed = await simpleParser(raw)
+      storeParsedMessage(
+        input.accountId,
+        sentFolder.id,
+        typeof serverUid === 'number' ? serverUid : nextSyntheticUid(),
+        parsed,
+        raw,
+        { assessSpam: false }
+      )
     }
   } catch {
     // Ignore: the message was sent; filing it is non-critical.

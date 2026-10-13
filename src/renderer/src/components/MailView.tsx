@@ -423,6 +423,8 @@ export function MailView(): ReactNode {
     subject?: string
     body?: string
     attachments?: { name: string; path: string }[]
+    inReplyTo?: string
+    references?: string
   }>({ open: false })
   const [query, setQuery] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
@@ -517,7 +519,9 @@ export function MailView(): ReactNode {
       open: true,
       to,
       subject: detail.subject?.startsWith('Re:') ? detail.subject : `Re: ${detail.subject ?? ''}`,
-      body
+      body,
+      inReplyTo: detail.messageId ?? undefined,
+      references: [detail.refs, detail.messageId].filter(Boolean).join(' ') || undefined
     })
   }
 
@@ -542,7 +546,9 @@ export function MailView(): ReactNode {
       to: sender,
       cc,
       subject: detail.subject?.startsWith('Re:') ? detail.subject : `Re: ${detail.subject ?? ''}`,
-      body
+      body,
+      inReplyTo: detail.messageId ?? undefined,
+      references: [detail.refs, detail.messageId].filter(Boolean).join(' ') || undefined
     })
   }
 
@@ -1251,6 +1257,8 @@ export function MailView(): ReactNode {
           initialSubject={composeState.subject}
           initialBody={composeState.body}
           initialAttachments={composeState.attachments}
+          inReplyTo={composeState.inReplyTo}
+          references={composeState.references}
           onClose={() => setComposeState({ open: false })}
         />
       )}

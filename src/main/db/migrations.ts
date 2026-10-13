@@ -361,5 +361,11 @@ export const migrations: Migration[] = [
       ALTER TABLE accounts ADD COLUMN is_local INTEGER NOT NULL DEFAULT 0;
       ALTER TABLE messages ADD COLUMN pop3_uidl TEXT;
     `
+  },
+  {
+    id: '0016_message_id_index',
+    sql: `
+      CREATE INDEX IF NOT EXISTS ix_messages_account_message ON messages(account_id, message_id);
+    `
   }
 ]

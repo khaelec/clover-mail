@@ -534,6 +534,9 @@ export const useMail = create<MailState>((set, get) => {
 
     send: async (input) => {
       await window.clover.mail.sendMessage(input)
+      // The sent copy is cached locally, so refresh to show it in its thread.
+      await reloadFolders()
+      await reloadFolder()
     },
 
     createAccount: async (input) => {
