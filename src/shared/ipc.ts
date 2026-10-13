@@ -96,6 +96,9 @@ export interface MailApi {
   markFolderRead: (folderId: string) => Promise<number>
   deleteSpam: (accountId: string) => Promise<{ deleted: number }>
   sendMessage: (input: ComposeInput) => Promise<void>
+  listOutbox: () => Promise<import('./mail').OutboxItem[]>
+  retryOutbox: (id: string) => Promise<void>
+  discardOutbox: (id: string) => Promise<void>
   saveDraft: (accountId: string, draft: import('./mail').DraftData, existingUid?: number | null) => Promise<number | null>
   deleteDraft: (accountId: string, uid: number) => Promise<void>
   downloadAttachment: (attachmentId: string) => Promise<{ saved: boolean; path?: string }>

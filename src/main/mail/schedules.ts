@@ -1,8 +1,4 @@
-import { randomUUID } from 'node:crypto'
-import { asc, eq, lt } from 'drizzle-orm'
-import { getDb } from '../db'
-import { scheduledSends } from '../db/schema'
-import { sendMessage } from './send'
+import { enqueueOutbox, listOutbox, cancelOutbox, processOutbox } from './outbox'
 import type { ComposeInput } from '@shared/mail'
 
 export interface ScheduledSend {
@@ -12,55 +8,28 @@ export interface ScheduledSend {
   sendAt: number
 }
 
+/** Schedule a send by queueing it in the outbox with a future send time. */
 export function scheduleSend(payload: ComposeInput, sendAt: number): string {
-  const id = randomUUID()
-  getDb()
-    .insert(scheduledSends)
-    .values({
-      id,
-      accountId: payload.accountId,
-      payload: JSON.stringify(payload),
-      sendAt,
-      createdAt: Date.now()
-    })
-    .run()
-  return id
+  return enqueueOutbox(payload, sendAt)
 }
 
 export function listScheduled(): ScheduledSend[] {
-  return getDb()
-    .select()
-    .from(scheduledSends)
-    .orderBy(asc(scheduledSends.sendAt))
-    .all()
-    .map((row) => {
-      let subject = ''
-      try {
-        subject = (JSON.parse(row.payload) as ComposeInput).subject
-      } catch {
-        subject = ''
-      }
-      return { id: row.id, accountId: row.accountId, subject, sendAt: row.sendAt }
-    })
+  const now = Date.now()
+  return listOutbox()
+    .filter((item) => item.sendAt > now)
+    .map((item) => ({
+      id: item.id,
+      accountId: item.accountId,
+      subject: item.subject,
+      sendAt: item.sendAt
+    }))
 }
 
 export function cancelScheduled(id: string): void {
-  getDb().delete(scheduledSends).where(eq(scheduledSends.id, id)).run()
+  cancelOutbox(id)
 }
 
-/** Send any due scheduled messages; returns how many were sent. */
+/** Send any due queued messages; returns how many were sent. */
 export async function processDueSends(now: number): Promise<number> {
-  const db = getDb()
-  const due = db.select().from(scheduledSends).where(lt(scheduledSends.sendAt, now)).all()
-  let sent = 0
-  for (const row of due) {
-    try {
-      await sendMessage(JSON.parse(row.payload) as ComposeInput)
-      sent += 1
-    } catch {
-      // leave it? we delete regardless to avoid loops
-    }
-    db.delete(scheduledSends).where(eq(scheduledSends.id, row.id)).run()
-  }
-  return sent
+  return processOutbox(now)
 }

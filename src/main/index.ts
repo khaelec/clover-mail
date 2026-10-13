@@ -12,7 +12,7 @@ import { stopAllIdle } from '@main/mail/idle'
 import { initUpdater } from '@main/updater'
 import { createTray } from '@main/tray'
 import { clearDueSnoozes } from '@main/mail/snooze'
-import { processDueSends } from '@main/mail/schedules'
+import { processOutbox } from '@main/mail/outbox'
 import { dueReminders, markReminded } from '@main/calendar/reminders'
 import { syncAllCaldav } from '@main/calendar/caldav'
 
@@ -278,14 +278,14 @@ app.whenReady().then(async () => {
     }
   }, 60_000)
 
-  // Send scheduled messages when due.
+  // Send queued/scheduled outbox messages when due (and retry recent failures).
   setInterval(() => {
-    void processDueSends(Date.now()).then((sent) => {
+    void processOutbox(Date.now()).then((sent) => {
       if (sent > 0) {
         mainWindow?.webContents.send(IpcChannels.mail.events, { type: 'mail:refresh', accountId: '' })
       }
     })
-  }, 30_000)
+  }, 20_000)
 
   // Event reminders shortly before they start.
   setInterval(() => {
@@ -315,6 +315,9 @@ app.whenReady().then(async () => {
   // Pull-sync CalDAV calendars on startup and periodically.
   setTimeout(() => void syncAllCaldav(), 20_000)
   setInterval(() => void syncAllCaldav(), 15 * 60_000)
+
+  // Deliver anything left in the outbox from a previous session.
+  setTimeout(() => void processOutbox(), 5_000)
 })
 
 app.on('window-all-closed', () => {

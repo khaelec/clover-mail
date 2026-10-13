@@ -9,6 +9,20 @@ export const JUNK_FOLDER_ID = 'junk'
 export const IMPORTANT_FOLDER_ID = 'important'
 /** Synthetic (local) folder id for the cross-account unified inbox. */
 export const UNIFIED_FOLDER_ID = 'unified'
+/** Synthetic (local) folder id for messages queued or waiting to be sent. */
+export const OUTBOX_FOLDER_ID = 'outbox'
+
+export interface OutboxItem {
+  id: string
+  accountId: string
+  subject: string
+  to: string[]
+  status: 'queued' | 'sending' | 'failed'
+  error: string | null
+  attempts: number
+  sendAt: number
+  createdAt: number
+}
 
 export interface EndpointInput {
   host: string

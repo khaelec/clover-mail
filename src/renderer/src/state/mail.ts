@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
+import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, OUTBOX_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
 import { SETTINGS_KEYS } from '@shared/theme'
 import type {
   AccountSummary,
@@ -11,6 +11,7 @@ import type {
   Label,
   MessageDetail,
   MessageSummary,
+  OutboxItem,
   Rule,
   RuleInput,
   SavedSearch,
@@ -34,6 +35,10 @@ interface MailState {
   error: string | null
   spamCount: number
   importantCount: number
+  outbox: OutboxItem[]
+  loadOutbox: () => Promise<void>
+  retryOutbox: (id: string) => Promise<void>
+  discardOutbox: (id: string) => Promise<void>
   rules: Rule[]
   selectedIds: string[]
   threaded: boolean
@@ -116,7 +121,10 @@ export const useMail = create<MailState>((set, get) => {
     set({ loadingMessages: true })
 
     const synthetic = folderId === JUNK_FOLDER_ID || folderId === IMPORTANT_FOLDER_ID
-    if (labelId) {
+    if (folderId === OUTBOX_FOLDER_ID) {
+      const outbox = await window.clover.mail.listOutbox()
+      set({ outbox, messages: [], threads: [], loadingMessages: false })
+    } else if (labelId) {
       const messages = await window.clover.mail.listLabelMessages(labelId)
       set({ messages, threads: [], loadingMessages: false })
     } else if (folderId === UNIFIED_FOLDER_ID) {
@@ -172,6 +180,7 @@ export const useMail = create<MailState>((set, get) => {
     error: null,
     spamCount: 0,
     importantCount: 0,
+    outbox: [],
     rules: [],
     selectedIds: [],
     threaded: true,
@@ -205,12 +214,14 @@ export const useMail = create<MailState>((set, get) => {
         } else if (event.type === 'mail:refresh') {
           void reloadFolders()
           void reloadFolder()
+          void get().loadOutbox()
         }
       })
 
       await get().refreshAccounts()
       await get().loadLabels()
       void get().loadSavedSearches()
+      void get().loadOutbox()
       const settings = await window.clover.settings.getAll()
       set({
         threaded: settings[SETTINGS_KEYS.threadedView] !== false,
@@ -542,6 +553,22 @@ export const useMail = create<MailState>((set, get) => {
       // The sent copy is cached locally, so refresh to show it in its thread.
       await reloadFolders()
       await reloadFolder()
+      await get().loadOutbox()
+    },
+
+    loadOutbox: async () => {
+      const outbox = await window.clover.mail.listOutbox()
+      set({ outbox })
+    },
+
+    retryOutbox: async (id) => {
+      await window.clover.mail.retryOutbox(id)
+      await get().loadOutbox()
+    },
+
+    discardOutbox: async (id) => {
+      await window.clover.mail.discardOutbox(id)
+      await get().loadOutbox()
     },
 
     createAccount: async (input) => {

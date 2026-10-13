@@ -189,6 +189,18 @@ export const scheduledSends = sqliteTable('scheduled_sends', {
   createdAt: integer('created_at').notNull()
 })
 
+export const outbox = sqliteTable('outbox', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id').notNull(),
+  payload: text('payload').notNull(),
+  status: text('status').notNull().default('queued'),
+  error: text('error'),
+  attempts: integer('attempts').notNull().default(0),
+  sendAt: integer('send_at').notNull(),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull()
+})
+
 export const threadSettings = sqliteTable('thread_settings', {
   threadId: text('thread_id').primaryKey(),
   muted: integer('muted', { mode: 'boolean' }).notNull().default(false),
@@ -341,6 +353,7 @@ export const schema = {
   accountOauth,
   snippets,
   scheduledSends,
+  outbox,
   threadSettings,
   labels,
   messageLabels,

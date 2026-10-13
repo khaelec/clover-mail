@@ -130,7 +130,7 @@ function extractInlineImages(html: string | undefined): {
   return { html: out, inline }
 }
 
-export async function sendMessage(input: ComposeInput): Promise<void> {
+export async function deliverMessage(input: ComposeInput): Promise<void> {
   const account = getAccountById(input.accountId)
   if (!account) throw new Error('Account not found')
   const auth = await getAccountAuth(input.accountId)

@@ -367,5 +367,22 @@ export const migrations: Migration[] = [
     sql: `
       CREATE INDEX IF NOT EXISTS ix_messages_account_message ON messages(account_id, message_id);
     `
+  },
+  {
+    id: '0017_outbox',
+    sql: `
+      CREATE TABLE IF NOT EXISTS outbox (
+        id TEXT PRIMARY KEY NOT NULL,
+        account_id TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'queued',
+        error TEXT,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        send_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ix_outbox_status_send ON outbox(status, send_at);
+    `
   }
 ]

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEven
 import { useMail } from '../state/mail'
 import { useLayout } from '../state/layout'
 import { useApps } from '../state/apps'
-import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
+import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, OUTBOX_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
 import type { BulkActionType, FolderSummary, MessageDetail, MessageSummary, ThreadSummary } from '@shared/mail'
 import { Reader } from './Reader'
 import { Compose } from './Compose'
@@ -28,7 +28,8 @@ import {
   IconThreads,
   IconTrash,
   IconUnread,
-  IconShield
+  IconShield,
+  IconSend
 } from './icons'
 
 function formatListDate(value: number | null): string {
@@ -296,6 +297,9 @@ export function MailView(): ReactNode {
   const error = useMail((s) => s.error)
   const spamCount = useMail((s) => s.spamCount)
   const importantCount = useMail((s) => s.importantCount)
+  const outbox = useMail((s) => s.outbox)
+  const retryOutbox = useMail((s) => s.retryOutbox)
+  const discardOutbox = useMail((s) => s.discardOutbox)
   const selectedIds = useMail((s) => s.selectedIds)
   const threaded = useMail((s) => s.threaded)
   const threads = useMail((s) => s.threads)
@@ -501,7 +505,7 @@ export function MailView(): ReactNode {
     [accounts, activeAccountId]
   )
   const list = searchResults ?? messages
-  const isSynthetic = activeFolderId === JUNK_FOLDER_ID || activeFolderId === IMPORTANT_FOLDER_ID
+  const isSynthetic = activeFolderId === JUNK_FOLDER_ID || activeFolderId === IMPORTANT_FOLDER_ID || activeFolderId === OUTBOX_FOLDER_ID
   const showingThreads = threaded && !isSynthetic && !searchResults
   const visibleList = unreadOnly ? list.filter((m) => !m.isRead) : list
   const visibleThreads = unreadOnly ? threads.filter((t) => t.unreadCount > 0) : threads
@@ -780,6 +784,36 @@ export function MailView(): ReactNode {
             {importantCount > 0 && (
               <span className={'shrink-0 text-[11px] ' + (activeFolderId === IMPORTANT_FOLDER_ID ? 'text-accent' : 'text-muted')}>
                 {importantCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void selectFolder(OUTBOX_FOLDER_ID)}
+            className={
+              'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
+              (activeFolderId === OUTBOX_FOLDER_ID
+                ? 'bg-accent/12 font-medium text-accent'
+                : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
+            }
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <IconSend className="h-4 w-4" />
+              <span className="truncate">Outbox</span>
+            </span>
+            {outbox.length > 0 && (
+              <span
+                className={
+                  'shrink-0 rounded-full px-1.5 text-[10px] ' +
+                  (outbox.some((o) => o.status === 'failed')
+                    ? 'bg-rose-500/15 text-rose-500'
+                    : activeFolderId === OUTBOX_FOLDER_ID
+                      ? 'text-accent'
+                      : 'text-muted')
+                }
+              >
+                {outbox.length}
               </span>
             )}
           </button>
@@ -1173,7 +1207,75 @@ export function MailView(): ReactNode {
           </div>
         ) : null}
 
-        {!showingThreads && visibleList.length === 0 && (
+        {activeFolderId === OUTBOX_FOLDER_ID && (
+          <div>
+            {outbox.length === 0 ? (
+              <div className="px-4 py-10 text-center text-[12px] text-muted">
+                Nothing waiting to send. Messages appear here if a send is queued, scheduled or fails.
+              </div>
+            ) : (
+              outbox.map((item) => (
+                <div key={item.id} className="flex items-start gap-3 border-b border-line/70 px-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-[13px] font-medium text-ink">
+                        {item.subject || '(no subject)'}
+                      </span>
+                      <span
+                        className={
+                          'shrink-0 rounded-full px-1.5 text-[10px] ' +
+                          (item.status === 'failed'
+                            ? 'bg-rose-500/15 text-rose-500'
+                            : item.status === 'sending'
+                              ? 'bg-accent/15 text-accent'
+                              : 'bg-canvas/70 text-muted ring-1 ring-line')
+                        }
+                      >
+                        {item.status === 'failed'
+                          ? 'Failed'
+                          : item.status === 'sending'
+                            ? 'Sending'
+                            : item.sendAt > Date.now()
+                              ? 'Scheduled'
+                              : 'Queued'}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 truncate text-[12px] text-muted">
+                      to {item.to.join(', ') || '(no recipient)'}
+                    </div>
+                    {item.status === 'failed' && item.error && (
+                      <div className="mt-0.5 truncate text-[11px] text-rose-500">{item.error}</div>
+                    )}
+                    <div className="mt-0.5 text-[11px] text-muted">
+                      {item.sendAt > Date.now()
+                        ? `Scheduled for ${formatListDate(item.sendAt)}`
+                        : `Queued ${formatListDate(item.createdAt)}`}
+                      {item.attempts > 0 ? ` · ${item.attempts} attempt${item.attempts > 1 ? 's' : ''}` : ''}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void retryOutbox(item.id)}
+                      className="rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:text-accent"
+                    >
+                      Send now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void discardOutbox(item.id)}
+                      className="rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:text-rose-500"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {!showingThreads && activeFolderId !== OUTBOX_FOLDER_ID && visibleList.length === 0 && (
             <div className="px-4 py-10 text-center text-[12px] text-muted">
               {searchQuery
                 ? 'No results.'
@@ -1182,7 +1284,7 @@ export function MailView(): ReactNode {
                   : 'Select a folder.'}
             </div>
           )}
-          {!showingThreads && visibleList.map((m: MessageSummary) => {
+          {!showingThreads && activeFolderId !== OUTBOX_FOLDER_ID && visibleList.map((m: MessageSummary) => {
             const active = m.id === selectedMessageId
             const selected = selectedIds.includes(m.id)
             return (

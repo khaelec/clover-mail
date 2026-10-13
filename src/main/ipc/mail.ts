@@ -16,7 +16,7 @@ import { testSmtp } from '@main/mail/smtp'
 import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@main/mail/sync'
 import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount } from '@main/mail/queries'
 import { deleteMessage, downloadAttachment, getAttachmentPath, getConversation, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@main/mail/messages'
-import { sendMessage } from '@main/mail/send'
+import { listOutbox, retryOutbox, cancelOutbox, sendNow } from '@main/mail/outbox'
 import { searchMessages, searchServer } from '@main/mail/search'
 import { addSnippet, deleteSnippet, listSnippets } from '@main/mail/snippets'
 import { snooze, unsnooze } from '@main/mail/snooze'
@@ -233,7 +233,10 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.emptyFolder, (_e, folderId: string) => emptyFolder(folderId))
   ipcMain.handle(IpcChannels.mail.markFolderRead, (_e, folderId: string) => markFolderRead(folderId))
   ipcMain.handle(IpcChannels.mail.deleteSpam, (_e, accountId: string) => deleteSpam(accountId))
-  ipcMain.handle(IpcChannels.mail.sendMessage, (_e, input: ComposeInput) => sendMessage(input))
+  ipcMain.handle(IpcChannels.mail.sendMessage, (_e, input: ComposeInput) => sendNow(input))
+  ipcMain.handle(IpcChannels.mail.outboxList, () => listOutbox())
+  ipcMain.handle(IpcChannels.mail.outboxRetry, (_e, id: string) => retryOutbox(id))
+  ipcMain.handle(IpcChannels.mail.outboxDiscard, (_e, id: string) => cancelOutbox(id))
   ipcMain.handle(
     IpcChannels.mail.saveDraft,
     (_e, accountId: string, draft: DraftData, existingUid?: number | null) =>

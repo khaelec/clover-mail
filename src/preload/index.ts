@@ -179,6 +179,9 @@ const api: CloverApi = {
     markFolderRead: (folderId) => ipcRenderer.invoke(IpcChannels.mail.markFolderRead, folderId),
     deleteSpam: (accountId) => ipcRenderer.invoke(IpcChannels.mail.deleteSpam, accountId),
     sendMessage: (input) => ipcRenderer.invoke(IpcChannels.mail.sendMessage, input),
+    listOutbox: () => ipcRenderer.invoke(IpcChannels.mail.outboxList),
+    retryOutbox: (id) => ipcRenderer.invoke(IpcChannels.mail.outboxRetry, id),
+    discardOutbox: (id) => ipcRenderer.invoke(IpcChannels.mail.outboxDiscard, id),
     saveDraft: (accountId, draft, existingUid) =>
       ipcRenderer.invoke(IpcChannels.mail.saveDraft, accountId, draft, existingUid),
     deleteDraft: (accountId, uid) =>
