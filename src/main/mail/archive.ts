@@ -1,6 +1,6 @@
 import { createWriteStream } from 'node:fs'
 import { eq } from 'drizzle-orm'
-import { dialog } from 'electron'
+import { platform } from '../platform'
 import { getDb } from '../db'
 import { folders, messageBodies, messages } from '../db/schema'
 import { protocolFor } from './accounts'
@@ -33,10 +33,9 @@ export async function exportFolderMbox(
     .all()
   if (rows.length === 0) return { saved: false }
 
-  const result = await dialog.showSaveDialog({
-    title: 'Export folder to mbox',
-    defaultPath: `${folder.name.replace(/[^\w.-]+/g, '_')}.mbox`
-  })
+  const result = await platform().showSaveDialog(
+    `${folder.name.replace(/[^\w.-]+/g, '_')}.mbox`
+  )
   if (result.canceled || !result.filePath) return { saved: false }
 
   const out = createWriteStream(result.filePath)

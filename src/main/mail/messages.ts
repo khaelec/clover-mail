@@ -4,7 +4,7 @@ import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { ImapFlow } from 'imapflow'
-import { dialog, shell } from 'electron'
+import { platform } from '../platform'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { attachments, folders, messageBodies, messages } from '../db/schema'
@@ -241,9 +241,7 @@ export async function downloadAttachment(
   const row = db.select().from(attachments).where(eq(attachments.id, attachmentId)).get()
   if (!row || !row.contentPath) return { saved: false }
 
-  const result = await dialog.showSaveDialog({
-    defaultPath: row.filename ?? 'attachment'
-  })
+  const result = await platform().showSaveDialog(row.filename ?? 'attachment')
   if (result.canceled || !result.filePath) return { saved: false }
 
   copyFileSync(attachmentAbsolutePath(row.contentPath), result.filePath)
@@ -277,7 +275,7 @@ export async function openAttachment(
       target = join(dir, `${Date.now()}-${safeName}`)
       copyFileSync(source, target)
     }
-    const error = await shell.openPath(target)
+    const error = await platform().openPath(target)
     return { opened: !error, error: error || undefined }
   } catch (error) {
     return { opened: false, error: (error as Error).message }

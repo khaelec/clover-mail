@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import ical from 'node-ical'
 import { RRule } from 'rrule'
 import { asc, eq } from 'drizzle-orm'
-import { dialog } from 'electron'
+import { platform } from '../platform'
 import { getDb } from '../db'
 import { attachments, calendarEventAttendees, calendarEvents, calendars } from '../db/schema'
 import { attachmentAbsolutePath } from '../mail/storage'
@@ -387,19 +387,15 @@ export function buildIcs(calendarId?: string, startUtc?: number, endUtc?: number
 export async function exportIcs(
   calendarId?: string
 ): Promise<{ saved: boolean; path?: string }> {
-  const result = await dialog.showSaveDialog({
-    title: 'Export calendar',
-    defaultPath: 'clover-calendar.ics'
-  })
+  const result = await platform().showSaveDialog('clover-calendar.ics')
   if (result.canceled || !result.filePath) return { saved: false }
   writeFileSync(result.filePath, buildIcs(calendarId), 'utf8')
   return { saved: true, path: result.filePath }
 }
 
 export async function pickAndImport(calendarId?: string): Promise<ImportResult | null> {
-  const result = await dialog.showOpenDialog({
+  const result = await platform().showOpenDialog({
     title: 'Import .ics',
-    properties: ['openFile'],
     filters: [{ name: 'Calendar', extensions: ['ics', 'ical', 'ifb'] }]
   })
   if (result.canceled || result.filePaths.length === 0) return null

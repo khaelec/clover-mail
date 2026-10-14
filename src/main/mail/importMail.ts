@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { simpleParser } from 'mailparser'
-import { dialog } from 'electron'
+import { platform } from '../platform'
 import { ensureLocalAccount } from './accounts'
 import { ensureFolder, nextUidForFolder, storeParsedMessage } from './storeMessage'
 
@@ -53,9 +53,8 @@ export async function importMboxFile(filePath: string): Promise<MboxImportResult
 }
 
 export async function pickAndImportMbox(): Promise<MboxImportResult | null> {
-  const result = await dialog.showOpenDialog({
+  const result = await platform().showOpenDialog({
     title: 'Import mailbox',
-    properties: ['openFile'],
     filters: [
       { name: 'Mailbox', extensions: ['mbox', 'mbx', 'eml'] },
       { name: 'All files', extensions: ['*'] }

@@ -16,6 +16,7 @@ import { processOutbox } from '@main/mail/outbox'
 import { syncAccount } from '@main/mail/sync'
 import { listAccounts } from '@main/mail/accounts'
 import { createMailEmit } from '@main/mail/events'
+import { registerElectronPlatform } from '@main/platformElectron'
 import { dueReminders, markReminded } from '@main/calendar/reminders'
 import { syncAllCaldav } from '@main/calendar/caldav'
 
@@ -202,6 +203,8 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   if (!isPrimaryInstance) return
+  // Engine platform services (dialogs, shell, secret encryption) before any use.
+  registerElectronPlatform()
   electronApp.setAppUserModelId('com.clovermail.app')
 
   app.on('browser-window-created', (_, window) => {
