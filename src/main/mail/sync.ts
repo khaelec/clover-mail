@@ -296,7 +296,19 @@ export function isAccountSyncing(accountId: string): boolean {
 export function syncAccount(accountId: string, emit: Emit): Promise<SyncResult> {
   const running = inFlight.get(accountId)
   if (running) return running
-  const promise = runSyncAccount(accountId, emit).finally(() => inFlight.delete(accountId))
+  const promise = runSyncAccount(accountId, emit)
+    .catch((error: unknown) => {
+      // Account-level failure (bad password, network drop, connect refused). Emit
+      // it so the per-account status can show an error; the caller still sees the
+      // rejection. This carries no folderId, unlike the per-folder sync:error.
+      emit({
+        type: 'sync:error',
+        accountId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      throw error
+    })
+    .finally(() => inFlight.delete(accountId))
   inFlight.set(accountId, promise)
   return promise
 }

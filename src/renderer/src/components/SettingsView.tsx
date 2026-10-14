@@ -226,6 +226,17 @@ export function SettingsView(): ReactNode {
   const [msSecret, setMsSecret] = useState('')
   const [msMsg, setMsMsg] = useState<string | null>(null)
   const [tab, setTab] = useState<TabId>('appearance')
+
+  // Lets other views (e.g. an account's sync-error dot) open a specific tab.
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const detail = (e as CustomEvent<{ tab?: TabId }>).detail
+      if (detail?.tab) setTab(detail.tab)
+    }
+    window.addEventListener('clover:open-settings', handler)
+    return () => window.removeEventListener('clover:open-settings', handler)
+  }, [])
+
   const [licensesOpen, setLicensesOpen] = useState(false)
   const [licensesText, setLicensesText] = useState<string | null>(null)
   const updateStatus = useUpdate((s) => s.status)

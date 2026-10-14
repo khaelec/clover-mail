@@ -21,6 +21,7 @@ import {
   IconInbox,
   IconLayout,
   IconPlus,
+  IconRefresh,
   IconSearch,
   IconThreads,
   IconTrash,
@@ -33,6 +34,15 @@ import { BenchProfiler } from '../bench'
 import { useToasts } from '../state/toasts'
 import { resolveShortcut } from '../lib/shortcuts'
 import { ShortcutHelp } from './ShortcutHelp'
+
+function syncAgo(at: number): string {
+  const minutes = Math.floor((Date.now() - at) / 60000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return new Date(at).toLocaleDateString()
+}
 
 function folderIcon(folder: FolderSummary): ReactNode {
   if (folder.specialUse === 'trash') return <IconTrash className="h-4 w-4" />
@@ -273,6 +283,7 @@ function buildForwardQuote(detail: MessageDetail): string {
 
 export function MailView(): ReactNode {
   const accounts = useMail((s) => s.accounts)
+  const accountSync = useMail((s) => s.accountSync)
   const activeAccountId = useMail((s) => s.activeAccountId)
   const folders = useMail((s) => s.folders)
   const activeFolderId = useMail((s) => s.activeFolderId)
@@ -746,6 +757,31 @@ export function MailView(): ReactNode {
                   style={{ backgroundColor: account.color ?? 'var(--accent)' }}
                 />
                 <span className="truncate">{account.email}</span>
+                {accountSync[account.id]?.status === 'syncing' && (
+                  <IconRefresh className="ml-auto h-3.5 w-3.5 shrink-0 animate-spin text-muted" />
+                )}
+                {accountSync[account.id]?.status === 'error' && (
+                  <button
+                    type="button"
+                    title={`Sync error: ${accountSync[account.id]?.error ?? 'unknown'} — open account settings`}
+                    aria-label="Sync error — open account settings"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      window.dispatchEvent(
+                        new CustomEvent('clover:open-settings', { detail: { tab: 'accounts' } })
+                      )
+                    }}
+                    className="ml-auto grid h-3.5 w-3.5 shrink-0 place-items-center"
+                  >
+                    <span className="block h-2.5 w-2.5 rounded-full bg-rose-500" />
+                  </button>
+                )}
+                {accountSync[account.id]?.status === 'synced' && (
+                  <span
+                    title={`Synced ${syncAgo(accountSync[account.id]?.at ?? 0)}`}
+                    className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500/70"
+                  />
+                )}
               </button>
             )
           })}

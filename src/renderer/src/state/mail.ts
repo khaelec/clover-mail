@@ -22,8 +22,15 @@ import type {
   ThreadSummary
 } from '@shared/mail'
 
+export interface AccountSyncInfo {
+  status: 'syncing' | 'synced' | 'error'
+  at: number
+  error?: string
+}
+
 interface MailState {
   accounts: AccountSummary[]
+  accountSync: Record<string, AccountSyncInfo>
   activeAccountId: string | null
   folders: FolderSummary[]
   activeFolderId: string | null
@@ -158,6 +165,11 @@ export const useMail = create<MailState>((set, get) => {
     return next.map((m) => bySig.get(messageSignature(m)) ?? m)
   }
 
+  function setAccountSync(accountId: string, info: AccountSyncInfo): void {
+    if (!accountId) return
+    set({ accountSync: { ...get().accountSync, [accountId]: info } })
+  }
+
   async function reloadFolder(): Promise<void> {
     const folderId = get().activeFolderId
     if (!folderId) return
@@ -211,6 +223,7 @@ export const useMail = create<MailState>((set, get) => {
 
   return {
     accounts: [],
+    accountSync: {},
     activeAccountId: null,
     folders: [],
     activeFolderId: null,
@@ -239,7 +252,10 @@ export const useMail = create<MailState>((set, get) => {
     savedSearches: [],
 
     init: async () => {
-      window.clover.mail.onEvent((event) => {        if (event.type === 'sync:folder') {
+      window.clover.mail.onEvent((event) => {
+        if (event.type === 'sync:start') {
+          setAccountSync(event.accountId, { status: 'syncing', at: Date.now() })
+        } else if (event.type === 'sync:folder') {
           set({ status: `Scanning ${event.folderName ?? ''}…` })
         } else if (event.type === 'sync:progress') {
           set({
@@ -248,9 +264,19 @@ export const useMail = create<MailState>((set, get) => {
         } else if (event.type === 'sync:error') {
           set({ status: `Sync error: ${event.error}` })
           reportSyncError(event.error)
+          // A folder error leaves the account as syncing (the sync continues); an
+          // account-level error (no folderId) marks the whole account failed.
+          if (!event.folderId) {
+            setAccountSync(event.accountId, {
+              status: 'error',
+              at: Date.now(),
+              error: event.error
+            })
+          }
         } else if (event.type === 'sync:done') {
           set({ syncing: false, status: null })
           lastSyncError = null
+          setAccountSync(event.accountId, { status: 'synced', at: Date.now() })
           void reloadFolders()
           void reloadFolder()
         } else if (event.type === 'mail:new') {

@@ -79,6 +79,12 @@ export function App(): ReactNode {
     return () => window.removeEventListener('clover:open-calendar', handler)
   }, [])
 
+  useEffect(() => {
+    const handler = (): void => setSection('settings')
+    window.addEventListener('clover:open-settings', handler)
+    return () => window.removeEventListener('clover:open-settings', handler)
+  }, [])
+
   // Opening a notification jumps to Mail and focuses the message it refers to.
   useEffect(() => {
     const handler = (event: Event): void => {
