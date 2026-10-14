@@ -509,6 +509,15 @@ export function MailView(): ReactNode {
   const showingThreads = threaded && !isSynthetic && !searchResults
   const visibleList = unreadOnly ? list.filter((m) => !m.isRead) : list
   const visibleThreads = unreadOnly ? threads.filter((t) => t.unreadCount > 0) : threads
+
+  // Split the list into Unread and Read sections (only when both exist and we're
+  // not already filtering to unread-only).
+  const unreadThreads = visibleThreads.filter((t) => t.unreadCount > 0)
+  const readThreads = visibleThreads.filter((t) => t.unreadCount === 0)
+  const unreadMessages = visibleList.filter((m) => !m.isRead)
+  const readMessages = visibleList.filter((m) => m.isRead)
+  const splitThreads = !unreadOnly && unreadThreads.length > 0 && readThreads.length > 0
+  const splitMessages = !unreadOnly && unreadMessages.length > 0 && readMessages.length > 0
   const visibleFolders = showHidden ? folders : folders.filter((f) => f.isVisible)
 
   const [confirm, setConfirm] = useState<{ title: string; body: string; action: () => void } | null>(
@@ -602,6 +611,203 @@ export function MailView(): ReactNode {
       quote: buildForwardQuote(detail),
       attachments
     })
+  }
+
+  function renderThreadRow(t: ThreadSummary): ReactNode {
+    const expanded = expandedThreadIds.includes(t.threadId)
+    const latest = t.messages[t.messages.length - 1]
+    return (
+      <div
+        key={t.threadId}
+        className={
+          'border-b border-line/70 ' +
+          (t.isImportant ? 'border-l-2 border-l-accent' : 'border-l-2 border-l-transparent')
+        }
+      >
+        <div
+          onClick={() => latest && void selectMessage(latest.id)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setThreadMenu({
+              x: Math.min(e.clientX, window.innerWidth - 220),
+              y: Math.min(e.clientY, window.innerHeight - 200),
+              thread: t
+            })
+          }}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(
+              'application/x-clover-messages',
+              JSON.stringify(t.messages.map((x) => x.id))
+            )
+            e.dataTransfer.effectAllowed = 'move'
+          }}
+          className={
+            'flex cursor-pointer gap-2 px-3 py-2.5 transition-colors ' +
+            (latest && t.messages.some((m) => m.id === selectedMessageId)
+              ? 'bg-accent/8'
+              : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
+          }
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              {t.unreadCount > 0 && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
+              <span className={'truncate text-[13px] ' + (t.unreadCount > 0 ? 'font-semibold text-ink' : 'text-ink/85')}>
+                {t.fromName || t.fromEmail || '(unknown sender)'}
+              </span>
+              {t.messageCount > 1 && (
+                <span className="shrink-0 rounded-full bg-canvas/70 px-1.5 text-[10px] text-muted ring-1 ring-line">
+                  {t.messageCount}
+                </span>
+              )}
+              {t.pinned && (
+                <span className="shrink-0 rounded bg-accent/15 px-1 text-[9px] font-semibold text-accent" title="Pinned">
+                  PIN
+                </span>
+              )}
+              {t.muted && (
+                <span className="shrink-0 rounded bg-line px-1 text-[9px] font-semibold text-muted" title="Muted">
+                  MUTE
+                </span>
+              )}
+              {t.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
+              <span className="ml-auto shrink-0 text-[11px] text-muted">{formatListDate(t.lastDate)}</span>
+            </div>
+            <div className={'mt-0.5 truncate text-[13px] ' + (t.unreadCount > 0 ? 'font-medium text-ink' : 'text-muted')}>
+              {t.subject || '(no subject)'}
+            </div>
+            {!expanded && latest?.snippet && (
+              <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{latest.snippet}</div>
+            )}
+          </div>
+          {t.messageCount > 1 && (
+            <button
+              type="button"
+              title={expanded ? 'Collapse conversation' : 'Expand conversation'}
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleThread(t.threadId)
+              }}
+              className="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-md text-[11px] text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
+            >
+              {expanded ? '▾' : '▸'}
+            </button>
+          )}
+        </div>
+
+        {expanded && t.messageCount > 1 && (
+          <div className="bg-canvas/30">
+            {[...t.messages].reverse().map((m) => (
+              <div
+                key={m.id}
+                onClick={() => void selectMessage(m.id)}
+                onContextMenu={(e) => openMenu(e, m)}
+                className={
+                  'flex cursor-pointer items-center gap-2 border-t border-line/60 py-1.5 pl-7 pr-3 ' +
+                  (m.id === selectedMessageId
+                    ? 'bg-accent/8'
+                    : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
+                }
+              >
+                <span className={'w-28 shrink-0 truncate text-[11px] ' + (m.isRead ? 'text-muted' : 'font-medium text-ink')}>
+                  {m.fromName || m.fromEmail}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[12px] text-ink/80">{m.snippet || ''}</span>
+                <span className="shrink-0 text-[10px] text-muted">{formatListDate(m.dateUtc)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function renderMessageRow(m: MessageSummary): ReactNode {
+    const active = m.id === selectedMessageId
+    const selected = selectedIds.includes(m.id)
+    return (
+      <div
+        key={m.id}
+        onClick={() => void selectMessage(m.id)}
+        onContextMenu={(e) => openMenu(e, m)}
+        draggable
+        onDragStart={(e) => {
+          const ids = selectedIds.includes(m.id) && selectedIds.length > 1 ? selectedIds : [m.id]
+          e.dataTransfer.setData('application/x-clover-messages', JSON.stringify(ids))
+          e.dataTransfer.effectAllowed = 'move'
+        }}
+        className={
+          'group flex cursor-pointer gap-2 border-b border-line/70 px-3 py-2.5 transition-colors ' +
+          (m.isImportant ? 'border-l-2 border-l-accent ' : 'border-l-2 border-l-transparent ') +
+          (active ? 'bg-accent/8' : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
+        }
+      >
+        <input
+          type="checkbox"
+          checked={selected}
+          onClick={(e) => e.stopPropagation()}
+          onChange={() => toggleSelect(m.id)}
+          className={
+            'mt-1 h-3.5 w-3.5 shrink-0 accent-[var(--accent)] transition-opacity ' +
+            (selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+          }
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {!m.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
+            <span className={'truncate text-[13px] ' + (m.isRead ? 'text-ink/85' : 'font-semibold text-ink')}>
+              {m.fromName || m.fromEmail || '(unknown sender)'}
+            </span>
+            {m.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
+            <span className="ml-auto flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                title="Mark important"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void toggleImportant(m)
+                }}
+                className="grid h-5 w-5 place-items-center"
+              >
+                <IconImportance
+                  className={'h-3.5 w-3.5 ' + (m.isImportant ? 'text-accent' : 'text-muted/40 hover:text-accent')}
+                />
+              </button>
+              <button
+                type="button"
+                title="Star"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void toggleFlag(m)
+                }}
+                className="grid h-5 w-5 place-items-center"
+              >
+                <IconStar
+                  className={'h-3.5 w-3.5 ' + (m.isFlagged ? 'text-amber-400' : 'text-muted/40 hover:text-amber-400')}
+                />
+              </button>
+              <span className="text-[11px] text-muted">{formatListDate(m.dateUtc)}</span>
+            </span>
+          </div>
+          <div className={'mt-0.5 truncate text-[13px] ' + (m.isRead ? 'text-muted' : 'font-medium text-ink')}>
+            {m.subject || '(no subject)'}
+          </div>
+          {m.snippet && <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{m.snippet}</div>}
+        </div>
+      </div>
+    )
+  }
+
+  function ListHeader({ label, count }: { label: string; count: number }): ReactNode {
+    return (
+      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-line bg-surface/95 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted backdrop-blur">
+        {label}
+        <span className="rounded-full bg-canvas/70 px-1.5 text-[10px] font-normal text-muted ring-1 ring-line">
+          {count}
+        </span>
+      </div>
+    )
   }
 
   return (
@@ -1084,116 +1290,15 @@ export function MailView(): ReactNode {
               <div className="px-4 py-10 text-center text-[12px] text-muted">
                 No messages. Hit sync to fetch.
               </div>
+            ) : splitThreads ? (
+              <>
+                <ListHeader label="Unread" count={unreadThreads.length} />
+                {unreadThreads.map(renderThreadRow)}
+                <ListHeader label="Read" count={readThreads.length} />
+                {readThreads.map(renderThreadRow)}
+              </>
             ) : (
-              visibleThreads.map((t) => {
-                const expanded = expandedThreadIds.includes(t.threadId)
-                const latest = t.messages[t.messages.length - 1]
-                return (
-                  <div
-                    key={t.threadId}
-                    className={
-                      'border-b border-line/70 ' +
-                      (t.isImportant ? 'border-l-2 border-l-accent' : 'border-l-2 border-l-transparent')
-                    }
-                  >
-                    <div
-                      onClick={() => latest && void selectMessage(latest.id)}
-                      onContextMenu={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setThreadMenu({
-                          x: Math.min(e.clientX, window.innerWidth - 220),
-                          y: Math.min(e.clientY, window.innerHeight - 200),
-                          thread: t
-                        })
-                      }}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData(
-                          'application/x-clover-messages',
-                          JSON.stringify(t.messages.map((x) => x.id))
-                        )
-                        e.dataTransfer.effectAllowed = 'move'
-                      }}
-                      className={
-                        'flex cursor-pointer gap-2 px-3 py-2.5 transition-colors ' +
-                        (latest && t.messages.some((m) => m.id === selectedMessageId)
-                          ? 'bg-accent/8'
-                          : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
-                      }
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          {t.unreadCount > 0 && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
-                          <span className={'truncate text-[13px] ' + (t.unreadCount > 0 ? 'font-semibold text-ink' : 'text-ink/85')}>
-                            {t.fromName || t.fromEmail || '(unknown sender)'}
-                          </span>
-                          {t.messageCount > 1 && (
-                            <span className="shrink-0 rounded-full bg-canvas/70 px-1.5 text-[10px] text-muted ring-1 ring-line">
-                              {t.messageCount}
-                            </span>
-                          )}
-                          {t.pinned && (
-                            <span className="shrink-0 rounded bg-accent/15 px-1 text-[9px] font-semibold text-accent" title="Pinned">
-                              PIN
-                            </span>
-                          )}
-                          {t.muted && (
-                            <span className="shrink-0 rounded bg-line px-1 text-[9px] font-semibold text-muted" title="Muted">
-                              MUTE
-                            </span>
-                          )}
-                          {t.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
-                          <span className="ml-auto shrink-0 text-[11px] text-muted">{formatListDate(t.lastDate)}</span>
-                        </div>
-                        <div className={'mt-0.5 truncate text-[13px] ' + (t.unreadCount > 0 ? 'font-medium text-ink' : 'text-muted')}>
-                          {t.subject || '(no subject)'}
-                        </div>
-                        {!expanded && latest?.snippet && (
-                          <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{latest.snippet}</div>
-                        )}
-                      </div>
-                      {t.messageCount > 1 && (
-                        <button
-                          type="button"
-                          title={expanded ? 'Collapse conversation' : 'Expand conversation'}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleThread(t.threadId)
-                          }}
-                          className="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-md text-[11px] text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
-                        >
-                          {expanded ? '▾' : '▸'}
-                        </button>
-                      )}
-                    </div>
-
-                    {expanded && t.messageCount > 1 && (
-                      <div className="bg-canvas/30">
-                        {[...t.messages].reverse().map((m) => (
-                          <div
-                            key={m.id}
-                            onClick={() => void selectMessage(m.id)}
-                            onContextMenu={(e) => openMenu(e, m)}
-                            className={
-                              'flex cursor-pointer items-center gap-2 border-t border-line/60 py-1.5 pl-7 pr-3 ' +
-                              (m.id === selectedMessageId
-                                ? 'bg-accent/8'
-                                : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
-                            }
-                          >
-                            <span className={'w-28 shrink-0 truncate text-[11px] ' + (m.isRead ? 'text-muted' : 'font-medium text-ink')}>
-                              {m.fromName || m.fromEmail}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-[12px] text-ink/80">{m.snippet || ''}</span>
-                            <span className="shrink-0 text-[10px] text-muted">{formatListDate(m.dateUtc)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })
+              visibleThreads.map(renderThreadRow)
             ))}
 
           {searchQuery && selectedIds.length === 0 ? (
@@ -1284,81 +1389,15 @@ export function MailView(): ReactNode {
                   : 'Select a folder.'}
             </div>
           )}
-          {!showingThreads && activeFolderId !== OUTBOX_FOLDER_ID && visibleList.map((m: MessageSummary) => {
-            const active = m.id === selectedMessageId
-            const selected = selectedIds.includes(m.id)
-            return (
-              <div
-                key={m.id}
-                onClick={() => void selectMessage(m.id)}
-                onContextMenu={(e) => openMenu(e, m)}
-                draggable
-                onDragStart={(e) => {
-                  const ids = selectedIds.includes(m.id) && selectedIds.length > 1 ? selectedIds : [m.id]
-                  e.dataTransfer.setData('application/x-clover-messages', JSON.stringify(ids))
-                  e.dataTransfer.effectAllowed = 'move'
-                }}
-                className={
-                  'group flex cursor-pointer gap-2 border-b border-line/70 px-3 py-2.5 transition-colors ' +
-                  (m.isImportant ? 'border-l-2 border-l-accent ' : 'border-l-2 border-l-transparent ') +
-                  (active ? 'bg-accent/8' : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={selected}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={() => toggleSelect(m.id)}
-                  className={
-                    'mt-1 h-3.5 w-3.5 shrink-0 accent-[var(--accent)] transition-opacity ' +
-                    (selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
-                  }
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    {!m.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
-                    <span className={'truncate text-[13px] ' + (m.isRead ? 'text-ink/85' : 'font-semibold text-ink')}>
-                      {m.fromName || m.fromEmail || '(unknown sender)'}
-                    </span>
-                    {m.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
-                    <span className="ml-auto flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        title="Mark important"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void toggleImportant(m)
-                        }}
-                        className="grid h-5 w-5 place-items-center"
-                      >
-                        <IconImportance
-                          className={'h-3.5 w-3.5 ' + (m.isImportant ? 'text-accent' : 'text-muted/40 hover:text-accent')}
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        title="Star"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void toggleFlag(m)
-                        }}
-                        className="grid h-5 w-5 place-items-center"
-                      >
-                        <IconStar
-                          className={'h-3.5 w-3.5 ' + (m.isFlagged ? 'text-amber-400' : 'text-muted/40 hover:text-amber-400')}
-                        />
-                      </button>
-                      <span className="text-[11px] text-muted">{formatListDate(m.dateUtc)}</span>
-                    </span>
-                  </div>
-                  <div className={'mt-0.5 truncate text-[13px] ' + (m.isRead ? 'text-muted' : 'font-medium text-ink')}>
-                    {m.subject || '(no subject)'}
-                  </div>
-                  {m.snippet && <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{m.snippet}</div>}
-                </div>
-              </div>
-            )
-          })}
+          {!showingThreads && activeFolderId !== OUTBOX_FOLDER_ID && splitMessages && (
+            <>
+              <ListHeader label="Unread" count={unreadMessages.length} />
+              {unreadMessages.map(renderMessageRow)}
+              <ListHeader label="Read" count={readMessages.length} />
+              {readMessages.map(renderMessageRow)}
+            </>
+          )}
+          {!showingThreads && activeFolderId !== OUTBOX_FOLDER_ID && !splitMessages && visibleList.map(renderMessageRow)}
         </div>
       </section>
 
