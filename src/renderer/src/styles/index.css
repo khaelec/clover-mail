@@ -121,3 +121,22 @@ body {
 .compose-editor [data-clover-signature] {
   margin-top: 12px;
 }
+
+/* Horizontal divider used in signatures / composer */
+.compose-editor hr,
+.sig-editor hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 10px 0;
+}
+
+/* Links in the composer / signature editor */
+.compose-editor a,
+.sig-editor a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+[data-theme='dark'] .compose-editor a,
+[data-theme='dark'] .sig-editor a {
+  color: #60a5fa;
+}

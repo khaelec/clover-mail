@@ -13,6 +13,8 @@ import { useTheme } from '../theme/theme'
 import { useUpdate } from '../state/update'
 import { useApps } from '../state/apps'
 import { IconCheck, IconMonitor, IconMoon, IconSignature, IconSun } from './icons'
+import { LinkDialog } from './LinkDialog'
+import { linkifyElement } from '../lib/linkify'
 
 const MODE_META: Record<ThemeMode, { label: string; icon: (p: { className?: string }) => ReactNode }> = {
   light: { label: 'Light', icon: IconSun },
@@ -207,6 +209,8 @@ export function SettingsView(): ReactNode {
   const [sigMsg, setSigMsg] = useState<string | null>(null)
   const sigEditorRef = useRef<HTMLDivElement>(null)
   const sigFileRef = useRef<HTMLInputElement>(null)
+  const [sigLinkOpen, setSigLinkOpen] = useState(false)
+  const savedSigRangeRef = useRef<Range | null>(null)
   const [aliasAccountId, setAliasAccountId] = useState('')
   const [aliasList, setAliasList] = useState<AccountAlias[]>([])
   const [aliasEmail, setAliasEmail] = useState('')
@@ -341,8 +345,56 @@ export function SettingsView(): ReactNode {
     // Re-load when the Mail tab mounts the editor (it only exists on that tab).
   }, [sigAccountId, tab])
 
+  /** Trim trailing separators ( | • · ) and stray line breaks so a signature
+   *  never ends with a dangling pipe. */
+  function cleanSignatureTrailing(): void {
+    const editor = sigEditorRef.current
+    if (!editor) return
+    let node: ChildNode | null = editor.lastChild
+    while (node) {
+      if (node.nodeType === 1 && (node as HTMLElement).tagName === 'BR') {
+        const prev = node.previousSibling
+        node.remove()
+        node = prev
+        continue
+      }
+      if (node.nodeType === 3) {
+        const text = (node.textContent ?? '').replace(/[\s\u00a0|•·]+$/, '')
+        if (text.trim()) {
+          node.textContent = text
+          return
+        }
+        const prev = node.previousSibling
+        node.remove()
+        node = prev
+        continue
+      }
+      return
+    }
+  }
+
+  function applySignatureTemplate(kind: 'simple' | 'role' | 'contact'): void {
+    const editor = sigEditorRef.current
+    if (!editor) return
+    const account = accounts.find((a) => a.id === sigAccountId)
+    const name = account?.displayName?.trim() || 'Your Name'
+    const email = account?.email || 'you@example.com'
+    const domain = email.includes('@') ? email.split('@')[1] : ''
+    const esc = (value: string): string =>
+      value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const html =
+      kind === 'simple'
+        ? `<p><strong>${esc(name)}</strong><br>${esc(email)}</p>`
+        : kind === 'role'
+          ? `<p><strong>${esc(name)}</strong><br>Role · Company</p><p>📞 phone<br>🌐 ${esc(domain)}<br>✉️ ${esc(email)}</p>`
+          : `<p><strong>${esc(name)}</strong><br>Company</p><hr><p>📞 phone&nbsp;&nbsp;🌐 ${esc(domain)}<br>✉️ ${esc(email)}</p>`
+    editor.innerHTML = html
+    setSigMsg(null)
+  }
+
   async function saveSignature(): Promise<void> {
     if (!sigAccountId) return
+    cleanSignatureTrailing()
     await window.clover.settings.set(`signature.${sigAccountId}`, {
       html: sigEditorRef.current?.innerHTML ?? '',
       enabled: sigEnabled
@@ -368,8 +420,36 @@ export function SettingsView(): ReactNode {
   }
 
   function sigLink(): void {
-    const url = window.prompt('Link URL:')
-    if (url) execSig('createLink', url)
+    const editor = sigEditorRef.current
+    if (!editor) return
+    const selection = window.getSelection()
+    savedSigRangeRef.current =
+      selection && selection.rangeCount > 0 && editor.contains(selection.anchorNode)
+        ? selection.getRangeAt(0).cloneRange()
+        : null
+    setSigLinkOpen(true)
+  }
+
+  function applySigLink(url: string): void {
+    setSigLinkOpen(false)
+    const clean = url.trim()
+    if (!clean) return
+    const href = /^[a-z]+:/i.test(clean) ? clean : `https://${clean}`
+    const editor = sigEditorRef.current
+    if (!editor) return
+    editor.focus()
+    const selection = window.getSelection()
+    if (savedSigRangeRef.current && selection) {
+      selection.removeAllRanges()
+      selection.addRange(savedSigRangeRef.current)
+    }
+    if (selection?.toString()) {
+      document.execCommand('createLink', false, href)
+    } else {
+      const safe = href.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+      const label = clean.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      document.execCommand('insertHTML', false, `<a href="${safe}">${label}</a>&nbsp;`)
+    }
   }
 
   function toggleBlockRemote(): void {
@@ -632,6 +712,30 @@ export function SettingsView(): ReactNode {
                       Add to new mail
                     </label>
                   </div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
+                    <span>Start from:</span>
+                    <button
+                      type="button"
+                      onClick={() => applySignatureTemplate('simple')}
+                      className="rounded-md border border-line px-2 py-0.5 hover:text-accent"
+                    >
+                      Simple
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applySignatureTemplate('role')}
+                      className="rounded-md border border-line px-2 py-0.5 hover:text-accent"
+                    >
+                      With role
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applySignatureTemplate('contact')}
+                      className="rounded-md border border-line px-2 py-0.5 hover:text-accent"
+                    >
+                      With divider
+                    </button>
+                  </div>
                   <div className="flex items-center gap-0.5 rounded-t-lg border border-b-0 border-line bg-canvas/40 px-1 py-1">
                     {[
                       { label: 'B', cmd: 'bold', cls: 'font-bold' },
@@ -657,6 +761,15 @@ export function SettingsView(): ReactNode {
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => execSig('insertHorizontalRule')}
+                      title="Divider line"
+                      className="grid h-6 min-w-6 place-items-center rounded px-1 text-[12px] text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
+                    >
+                      ―
+                    </button>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={sigLink}
                       className="grid h-6 min-w-6 place-items-center rounded px-1 text-[12px] text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
                     >
@@ -667,7 +780,11 @@ export function SettingsView(): ReactNode {
                     ref={sigEditorRef}
                     contentEditable
                     suppressContentEditableWarning
-                    className="min-h-[110px] rounded-b-lg border border-line bg-canvas/50 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
+                    onBlur={() => {
+                      const editor = sigEditorRef.current
+                      if (editor) linkifyElement(editor)
+                    }}
+                    className="sig-editor min-h-[110px] rounded-b-lg border border-line bg-canvas/50 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
                   />
                   <div className="flex items-center gap-3">
                     <button
@@ -1178,6 +1295,7 @@ export function SettingsView(): ReactNode {
           )}
         </div>
       </div>
+      <LinkDialog open={sigLinkOpen} onCancel={() => setSigLinkOpen(false)} onSubmit={applySigLink} />
     </div>
   )
 }

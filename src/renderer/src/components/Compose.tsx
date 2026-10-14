@@ -4,6 +4,8 @@ import type { ComposeInput, DraftData, Snippet } from '@shared/mail'
 import { SETTINGS_KEYS } from '@shared/theme'
 import { useMail } from '../state/mail'
 import { IconCheck, IconClose, IconHighlight, IconMic, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
+import { LinkDialog } from './LinkDialog'
+import { linkifyElement } from '../lib/linkify'
 
 const SIGNATURE_ATTR = 'data-clover-signature'
 const QUOTE_ATTR = 'data-clover-quote'
@@ -135,6 +137,8 @@ export function Compose({
   const [dictationOn, setDictationOn] = useState(false)
   const [laterOpen, setLaterOpen] = useState(false)
   const [quoteCollapsed, setQuoteCollapsed] = useState(Boolean(initialQuote))
+  const [linkOpen, setLinkOpen] = useState(false)
+  const savedRangeRef = useRef<Range | null>(null)
 
   useEffect(() => {
     void window.clover.mail.listSnippets().then(setSnippets)
@@ -353,8 +357,37 @@ export function Compose({
   }
 
   function addLink(): void {
-    const url = window.prompt('Link URL:')
-    if (url) exec('createLink', url)
+    const editor = editorRef.current
+    if (!editor) return
+    const selection = window.getSelection()
+    savedRangeRef.current =
+      selection && selection.rangeCount > 0 && editor.contains(selection.anchorNode)
+        ? selection.getRangeAt(0).cloneRange()
+        : null
+    setLinkOpen(true)
+  }
+
+  function applyLink(url: string): void {
+    setLinkOpen(false)
+    const clean = url.trim()
+    if (!clean) return
+    const href = /^[a-z]+:/i.test(clean) ? clean : `https://${clean}`
+    const editor = editorRef.current
+    if (!editor) return
+    editor.focus()
+    const selection = window.getSelection()
+    if (savedRangeRef.current && selection) {
+      selection.removeAllRanges()
+      selection.addRange(savedRangeRef.current)
+    }
+    const selected = selection?.toString() ?? ''
+    if (selected) {
+      document.execCommand('createLink', false, href)
+    } else {
+      const safe = href.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+      const label = clean.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      document.execCommand('insertHTML', false, `<a href="${safe}">${label}</a>&nbsp;`)
+    }
   }
 
   function buildInput(): ComposeInput {
@@ -698,6 +731,10 @@ export function Compose({
                 addFiles(files)
               }
             }}
+            onBlur={() => {
+              const editor = editorRef.current
+              if (editor) linkifyElement(editor)
+            }}
             className="compose-editor mt-2 min-h-0 flex-1 overflow-y-auto bg-transparent text-[13.5px] leading-relaxed text-ink outline-none"
             dangerouslySetInnerHTML={{ __html: initialHtml }}
           />
@@ -831,6 +868,7 @@ export function Compose({
           </button>
         </footer>
       </div>
+      <LinkDialog open={linkOpen} onCancel={() => setLinkOpen(false)} onSubmit={applyLink} />
     </div>
   )
 }
