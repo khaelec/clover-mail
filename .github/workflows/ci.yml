@@ -1,0 +1,33 @@
+name: CI
+
+# Catch typecheck / IPC-contract breakage on every push and PR, instead of at
+# release time. test:smoke needs Electron and a display, so it isn't run here.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: IPC contract check
+        run: npm run test:ipc
