@@ -1,5 +1,5 @@
 import type { ImapFlow } from 'imapflow'
-import { and, eq, desc } from 'drizzle-orm'
+import { and, eq, desc, ne } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { getAccountById, listAccounts, protocolFor } from './accounts'
@@ -38,33 +38,65 @@ async function connect(handle: Handle, emit: Emit): Promise<void> {
       await client.logout().catch(() => undefined)
       return
     }
-    await client.idle()
+    // Re-arm IDLE after every event (a new message ends IDLE); without this the
+    // account stops receiving live updates after the first notification.
+    while (!handle.stopped && client.usable) {
+      try {
+        await client.idle()
+      } catch {
+        break
+      }
+    }
+    if (!handle.stopped) reconnect(handle, emit)
   } catch {
     reconnect(handle, emit)
   }
 }
 
 async function onNewMail(handle: Handle, emit: Emit): Promise<void> {
-  const inbox = getDb()
+  const db = getDb()
+  const inbox = db
     .select()
     .from(folders)
     .where(and(eq(folders.accountId, handle.accountId), eq(folders.specialUse, 'inbox')))
     .get()
-  if (inbox) {
-    try {
-      await syncFolder(inbox.id, emit)
-    } catch {
-      // ignore; next event or manual sync will reconcile
-    }
-  }
-  const newest = getDb()
+  if (!inbox) return
+
+  const before = db
     .select()
     .from(messages)
-    .where(eq(messages.accountId, handle.accountId))
+    .where(and(eq(messages.accountId, handle.accountId), eq(messages.folderId, inbox.id)))
     .orderBy(desc(messages.dateUtc))
     .limit(1)
     .get()
-  if (newest && isThreadMuted(newest.threadId)) {
+
+  try {
+    await syncFolder(inbox.id, emit)
+  } catch {
+    // ignore; next event or manual sync will reconcile
+  }
+
+  const newest = db
+    .select()
+    .from(messages)
+    .where(
+      and(
+        eq(messages.accountId, handle.accountId),
+        eq(messages.folderId, inbox.id),
+        ne(messages.isSpam, true)
+      )
+    )
+    .orderBy(desc(messages.dateUtc))
+    .limit(1)
+    .get()
+
+  // Only announce a message that actually landed in the inbox (and isn't junk),
+  // so the notification always matches something visible in the list.
+  if (!newest || newest.id === before?.id) {
+    emit({ type: 'mail:refresh', accountId: handle.accountId })
+    return
+  }
+  if (isThreadMuted(newest.threadId)) {
     // Muted conversation — refresh quietly without a notification.
     emit({ type: 'mail:refresh', accountId: handle.accountId })
     return
@@ -72,8 +104,8 @@ async function onNewMail(handle: Handle, emit: Emit): Promise<void> {
   emit({
     type: 'mail:new',
     accountId: handle.accountId,
-    title: newest?.fromName || newest?.fromEmail || 'New mail',
-    body: newest?.subject ?? ''
+    title: newest.fromName || newest.fromEmail || 'New mail',
+    body: newest.subject ?? ''
   })
 }
 
