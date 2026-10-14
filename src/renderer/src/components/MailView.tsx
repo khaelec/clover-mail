@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { useMail } from '../state/mail'
 import { useLayout } from '../state/layout'
 import { useApps } from '../state/apps'
@@ -20,31 +20,16 @@ import {
   IconImportance,
   IconInbox,
   IconLayout,
-  IconPaperclip,
   IconPlus,
-  IconRefresh,
   IconSearch,
-  IconStar,
   IconThreads,
   IconTrash,
   IconUnread,
   IconShield,
   IconSend
 } from './icons'
-
-function formatListDate(value: number | null): string {
-  if (!value) return ''
-  const date = new Date(value)
-  const now = new Date()
-  const sameDay = date.toDateString() === now.toDateString()
-  if (sameDay) return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-  const sameYear = date.getFullYear() === now.getFullYear()
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    ...(sameYear ? {} : { year: 'numeric' })
-  })
-}
+import { ListHeader, MessageRow, SyncButton, SyncStatus, ThreadRow, formatListDate } from './MailList'
+import { BenchProfiler } from '../bench'
 
 function folderIcon(folder: FolderSummary): ReactNode {
   if (folder.specialUse === 'trash') return <IconTrash className="h-4 w-4" />
@@ -226,7 +211,7 @@ function AppDock(): ReactNode {
           >
             <option value="__copilot__">Copilot</option>
             {apps.length === 0 && !isCopilot && (
-              <option value="">No apps — add one in the Apps tab</option>
+              <option value="">No apps â€” add one in the Apps tab</option>
             )}
             {apps.map((a) => (
               <option key={a.id} value={a.id}>
@@ -292,9 +277,6 @@ export function MailView(): ReactNode {
   const searchResults = useMail((s) => s.searchResults)
   const searchQuery = useMail((s) => s.searchQuery)
   const selectedMessageId = useMail((s) => s.selectedMessageId)
-  const syncing = useMail((s) => s.syncing)
-  const status = useMail((s) => s.status)
-  const error = useMail((s) => s.error)
   const spamCount = useMail((s) => s.spamCount)
   const importantCount = useMail((s) => s.importantCount)
   const outbox = useMail((s) => s.outbox)
@@ -420,14 +402,27 @@ export function MailView(): ReactNode {
     })
   }
 
-  function openMenu(e: ReactMouseEvent, message: MessageSummary): void {
+  const openMessageMenu = useCallback((e: ReactMouseEvent, message: MessageSummary): void => {
     e.preventDefault()
     e.stopPropagation()
-    const x = Math.min(e.clientX, window.innerWidth - 220)
-    const y = Math.min(e.clientY, window.innerHeight - 280)
-    setMenu({ x, y, message, mode: 'main' })
+    setMenu({
+      x: Math.min(e.clientX, window.innerWidth - 220),
+      y: Math.min(e.clientY, window.innerHeight - 280),
+      message,
+      mode: 'main'
+    })
     setMenuLabelIds([])
-  }
+  }, [])
+
+  const openThreadMenu = useCallback((e: ReactMouseEvent, thread: ThreadSummary): void => {
+    e.preventDefault()
+    e.stopPropagation()
+    setThreadMenu({
+      x: Math.min(e.clientX, window.innerWidth - 220),
+      y: Math.min(e.clientY, window.innerHeight - 200),
+      thread
+    })
+  }, [])
 
   const menuTargets =
     menu && selectedIds.includes(menu.message.id) && selectedIds.length > 1
@@ -462,6 +457,14 @@ export function MailView(): ReactNode {
   const [query, setQuery] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  function scrollRowIntoView(messageId: string): void {
+    const container = listRef.current
+    if (!container) return
+    const el = container.querySelector(`[data-row-key="${CSS.escape(messageId)}"]`)
+    if (el instanceof HTMLElement) el.scrollIntoView({ block: 'nearest' })
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -484,11 +487,29 @@ export function MailView(): ReactNode {
         e.preventDefault()
         searchRef.current?.focus()
       } else if (e.key === 'j' || e.key === 'k') {
-        const list = store.searchResults ?? store.messages
-        if (list.length === 0) return
-        const idx = list.findIndex((m) => m.id === store.selectedMessageId)
-        const next = e.key === 'j' ? Math.min(list.length - 1, idx + 1) : Math.max(0, idx - 1)
-        if (list[next]) void store.selectMessage(list[next].id)
+        // Walk the same rows the list shows (threads or messages), so j/k works
+        // in both views and scrolls the newly selected row into sight.
+        const isSynthetic = [JUNK_FOLDER_ID, IMPORTANT_FOLDER_ID, OUTBOX_FOLDER_ID].includes(
+          store.activeFolderId ?? ''
+        )
+        const isDrafts = store.folders.find((f) => f.id === store.activeFolderId)?.specialUse === 'drafts'
+        const threadsView = store.threaded && !isSynthetic && !isDrafts && !store.searchResults
+        const ids = threadsView
+          ? store.threads
+              .filter((t) => !store.unreadOnly || t.unreadCount > 0)
+              .map((t) => t.messages[t.messages.length - 1]?.id)
+              .filter((id): id is string => !!id)
+          : (store.searchResults ?? store.messages)
+              .filter((m) => !store.unreadOnly || !m.isRead)
+              .map((m) => m.id)
+        if (ids.length === 0) return
+        const idx = ids.indexOf(store.selectedMessageId ?? '')
+        const next = e.key === 'j' ? Math.min(ids.length - 1, idx + 1) : Math.max(0, idx - 1)
+        const id = ids[next]
+        if (id) {
+          void store.selectMessage(id)
+          requestAnimationFrame(() => scrollRowIntoView(id))
+        }
       } else if (e.key === 'r') {
         if (store.detail) openReply()
       } else if (e.key === 'a') {
@@ -520,6 +541,27 @@ export function MailView(): ReactNode {
   const splitThreads = !unreadOnly && unreadThreads.length > 0 && readThreads.length > 0
   const splitMessages = !unreadOnly && unreadMessages.length > 0 && readMessages.length > 0
   const visibleFolders = showHidden ? folders : folders.filter((f) => f.isVisible)
+
+  // Built once per render so each row only does a Set lookup, not an array scan.
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
+
+  // Stable callbacks so memoized rows skip re-rendering when unrelated state
+  // (selection, sync status, â€¦) changes.
+  const handleSelectMessage = useCallback((messageId: string): void => {
+    void useMail.getState().selectMessage(messageId)
+  }, [])
+  const handleToggleThread = useCallback((threadId: string): void => {
+    useMail.getState().toggleThread(threadId)
+  }, [])
+  const handleMessageDragStart = useCallback(
+    (e: ReactDragEvent<HTMLDivElement>, message: MessageSummary): void => {
+      const ids = useMail.getState().selectedIds
+      const dragIds = ids.includes(message.id) && ids.length > 1 ? ids : [message.id]
+      e.dataTransfer.setData('application/x-clover-messages', JSON.stringify(dragIds))
+      e.dataTransfer.effectAllowed = 'move'
+    },
+    []
+  )
 
   const [confirm, setConfirm] = useState<{ title: string; body: string; action: () => void } | null>(
     null
@@ -614,200 +656,35 @@ export function MailView(): ReactNode {
     })
   }
 
-  function renderThreadRow(t: ThreadSummary): ReactNode {
-    const expanded = expandedThreadIds.includes(t.threadId)
-    const latest = t.messages[t.messages.length - 1]
+  function threadRowProps(t: ThreadSummary): ReactNode {
     return (
-      <div
+      <ThreadRow
         key={t.threadId}
-        className={
-          'border-b border-line/70 ' +
-          (t.isImportant ? 'border-l-2 border-l-accent' : 'border-l-2 border-l-transparent')
-        }
-      >
-        <div
-          onClick={() => latest && void selectMessage(latest.id)}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            setThreadMenu({
-              x: Math.min(e.clientX, window.innerWidth - 220),
-              y: Math.min(e.clientY, window.innerHeight - 200),
-              thread: t
-            })
-          }}
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData(
-              'application/x-clover-messages',
-              JSON.stringify(t.messages.map((x) => x.id))
-            )
-            e.dataTransfer.effectAllowed = 'move'
-          }}
-          className={
-            'flex cursor-pointer gap-2 px-3 py-2.5 transition-colors ' +
-            (latest && t.messages.some((m) => m.id === selectedMessageId)
-              ? 'bg-accent/8'
-              : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
-          }
-        >
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              {t.unreadCount > 0 && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
-              <span className={'truncate text-[13px] ' + (t.unreadCount > 0 ? 'font-semibold text-ink' : 'text-ink/85')}>
-                {t.fromName || t.fromEmail || '(unknown sender)'}
-              </span>
-              {t.messageCount > 1 && (
-                <span className="shrink-0 rounded-full bg-canvas/70 px-1.5 text-[10px] text-muted ring-1 ring-line">
-                  {t.messageCount}
-                </span>
-              )}
-              {t.pinned && (
-                <span className="shrink-0 rounded bg-accent/15 px-1 text-[9px] font-semibold text-accent" title="Pinned">
-                  PIN
-                </span>
-              )}
-              {t.muted && (
-                <span className="shrink-0 rounded bg-line px-1 text-[9px] font-semibold text-muted" title="Muted">
-                  MUTE
-                </span>
-              )}
-              {t.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
-              <span className="ml-auto shrink-0 text-[11px] text-muted">{formatListDate(t.lastDate)}</span>
-            </div>
-            <div className={'mt-0.5 truncate text-[13px] ' + (t.unreadCount > 0 ? 'font-medium text-ink' : 'text-muted')}>
-              {t.subject || '(no subject)'}
-            </div>
-            {!expanded && latest?.snippet && (
-              <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{latest.snippet}</div>
-            )}
-          </div>
-          {t.messageCount > 1 && (
-            <button
-              type="button"
-              title={expanded ? 'Collapse conversation' : 'Expand conversation'}
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleThread(t.threadId)
-              }}
-              className="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-md text-[11px] text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
-            >
-              {expanded ? '▾' : '▸'}
-            </button>
-          )}
-        </div>
-
-        {expanded && t.messageCount > 1 && (
-          <div className="bg-canvas/30">
-            {[...t.messages].reverse().map((m) => (
-              <div
-                key={m.id}
-                onClick={() => void selectMessage(m.id)}
-                onContextMenu={(e) => openMenu(e, m)}
-                className={
-                  'flex cursor-pointer items-center gap-2 border-t border-line/60 py-1.5 pl-7 pr-3 ' +
-                  (m.id === selectedMessageId
-                    ? 'bg-accent/8'
-                    : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
-                }
-              >
-                <span className={'w-28 shrink-0 truncate text-[11px] ' + (m.isRead ? 'text-muted' : 'font-medium text-ink')}>
-                  {m.fromName || m.fromEmail}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[12px] text-ink/80">{m.snippet || ''}</span>
-                <span className="shrink-0 text-[10px] text-muted">{formatListDate(m.dateUtc)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        thread={t}
+        activeChildId={t.messages.some((m) => m.id === selectedMessageId) ? selectedMessageId : null}
+        isExpanded={expandedThreadIds.includes(t.threadId)}
+        onSelect={handleSelectMessage}
+        onToggleExpand={handleToggleThread}
+        onContextMenu={openThreadMenu}
+        onMessageContextMenu={openMessageMenu}
+      />
     )
   }
 
-  function renderMessageRow(m: MessageSummary): ReactNode {
-    const active = m.id === selectedMessageId
-    const selected = selectedIds.includes(m.id)
+  function messageRowProps(m: MessageSummary): ReactNode {
     return (
-      <div
+      <MessageRow
         key={m.id}
-        onClick={() => void selectMessage(m.id)}
-        onContextMenu={(e) => openMenu(e, m)}
-        draggable
-        onDragStart={(e) => {
-          const ids = selectedIds.includes(m.id) && selectedIds.length > 1 ? selectedIds : [m.id]
-          e.dataTransfer.setData('application/x-clover-messages', JSON.stringify(ids))
-          e.dataTransfer.effectAllowed = 'move'
-        }}
-        className={
-          'group flex cursor-pointer gap-2 border-b border-line/70 px-3 py-2.5 transition-colors ' +
-          (m.isImportant ? 'border-l-2 border-l-accent ' : 'border-l-2 border-l-transparent ') +
-          (active ? 'bg-accent/8' : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]')
-        }
-      >
-        <input
-          type="checkbox"
-          checked={selected}
-          onClick={(e) => e.stopPropagation()}
-          onChange={() => toggleSelect(m.id)}
-          className={
-            'mt-1 h-3.5 w-3.5 shrink-0 accent-[var(--accent)] transition-opacity ' +
-            (selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
-          }
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            {!m.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
-            <span className={'truncate text-[13px] ' + (m.isRead ? 'text-ink/85' : 'font-semibold text-ink')}>
-              {m.fromName || m.fromEmail || '(unknown sender)'}
-            </span>
-            {m.hasAttachments && <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-muted" />}
-            <span className="ml-auto flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                title="Mark important"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  void toggleImportant(m)
-                }}
-                className="grid h-5 w-5 place-items-center"
-              >
-                <IconImportance
-                  className={'h-3.5 w-3.5 ' + (m.isImportant ? 'text-accent' : 'text-muted/40 hover:text-accent')}
-                />
-              </button>
-              <button
-                type="button"
-                title="Star"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  void toggleFlag(m)
-                }}
-                className="grid h-5 w-5 place-items-center"
-              >
-                <IconStar
-                  className={'h-3.5 w-3.5 ' + (m.isFlagged ? 'text-amber-400' : 'text-muted/40 hover:text-amber-400')}
-                />
-              </button>
-              <span className="text-[11px] text-muted">{formatListDate(m.dateUtc)}</span>
-            </span>
-          </div>
-          <div className={'mt-0.5 truncate text-[13px] ' + (m.isRead ? 'text-muted' : 'font-medium text-ink')}>
-            {m.subject || '(no subject)'}
-          </div>
-          {m.snippet && <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{m.snippet}</div>}
-        </div>
-      </div>
-    )
-  }
-
-  function ListHeader({ label, count }: { label: string; count: number }): ReactNode {
-    return (
-      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-line bg-surface/95 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted backdrop-blur">
-        {label}
-        <span className="rounded-full bg-canvas/70 px-1.5 text-[10px] font-normal text-muted ring-1 ring-line">
-          {count}
-        </span>
-      </div>
+        message={m}
+        isActive={m.id === selectedMessageId}
+        isSelected={selectedSet.has(m.id)}
+        onSelect={handleSelectMessage}
+        onContextMenu={openMessageMenu}
+        onDragStart={handleMessageDragStart}
+        onToggleSelect={toggleSelect}
+        onToggleImportant={toggleImportant}
+        onToggleFlag={toggleFlag}
+      />
     )
   }
 
@@ -1219,19 +1096,9 @@ export function MailView(): ReactNode {
           >
             <IconFilter className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            title="Sync now"
-            onClick={() => void sync()}
-            className="grid h-7 w-7 place-items-center rounded-md text-muted hover:text-accent"
-          >
-            <IconRefresh className={syncing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-          </button>
+          <SyncButton onSync={sync} />
         </div>
-        {status && /error/i.test(status) && (
-          <div className="border-b border-line px-3.5 py-1 text-[11px] text-rose-500">{status}</div>
-        )}
-        {error && <div className="border-b border-line px-3.5 py-1 text-[11px] text-rose-500">{error}</div>}
+        <SyncStatus />
 
         {selectedIds.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5 border-b border-line bg-accent/8 px-3 py-2 text-[12px]">
@@ -1271,7 +1138,7 @@ export function MailView(): ReactNode {
               defaultValue=""
               className="rounded-md border border-line bg-canvas/60 px-2 py-1 text-[12px] text-ink outline-none"
             >
-              <option value="">Move to…</option>
+              <option value="">Move toâ€¦</option>
               {folders.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.name}
@@ -1287,7 +1154,8 @@ export function MailView(): ReactNode {
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
+          <BenchProfiler>
           {showingThreads &&
             (visibleThreads.length === 0 ? (
               <div className="px-4 py-10 text-center text-[12px] text-muted">
@@ -1296,18 +1164,18 @@ export function MailView(): ReactNode {
             ) : splitThreads ? (
               <>
                 <ListHeader label="Unread" count={unreadThreads.length} />
-                {unreadThreads.map(renderThreadRow)}
+                {unreadThreads.map(threadRowProps)}
                 <ListHeader label="Read" count={readThreads.length} />
-                {readThreads.map(renderThreadRow)}
+                {readThreads.map(threadRowProps)}
               </>
             ) : (
-              visibleThreads.map(renderThreadRow)
+              visibleThreads.map(threadRowProps)
             ))}
 
           {searchQuery && selectedIds.length === 0 ? (
           <div className="flex items-center gap-2 border-b border-line bg-accent/8 px-3 py-1.5 text-[12px] text-accent">
             <span>
-              {searchResults ? searchResults.length : 0} result{(searchResults?.length ?? 0) === 1 ? '' : 's'} for “{searchQuery}”
+              {searchResults ? searchResults.length : 0} result{(searchResults?.length ?? 0) === 1 ? '' : 's'} for â€œ{searchQuery}â€
             </span>
             <button type="button" onClick={clearSearch} className="ml-auto text-muted hover:text-ink">
               Clear
@@ -1358,7 +1226,7 @@ export function MailView(): ReactNode {
                       {item.sendAt > Date.now()
                         ? `Scheduled for ${formatListDate(item.sendAt)}`
                         : `Queued ${formatListDate(item.createdAt)}`}
-                      {item.attempts > 0 ? ` · ${item.attempts} attempt${item.attempts > 1 ? 's' : ''}` : ''}
+                      {item.attempts > 0 ? ` Â· ${item.attempts} attempt${item.attempts > 1 ? 's' : ''}` : ''}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
@@ -1395,12 +1263,13 @@ export function MailView(): ReactNode {
           {!showingThreads && activeFolderId !== OUTBOX_FOLDER_ID && splitMessages && (
             <>
               <ListHeader label="Unread" count={unreadMessages.length} />
-              {unreadMessages.map(renderMessageRow)}
+              {unreadMessages.map(messageRowProps)}
               <ListHeader label="Read" count={readMessages.length} />
-              {readMessages.map(renderMessageRow)}
+              {readMessages.map(messageRowProps)}
             </>
           )}
-          {!showingThreads && activeFolderId !== OUTBOX_FOLDER_ID && !splitMessages && visibleList.map(renderMessageRow)}
+          {!showingThreads && activeFolderId !== OUTBOX_FOLDER_ID && !splitMessages && visibleList.map(messageRowProps)}
+          </BenchProfiler>
         </div>
       </section>
 
@@ -1490,14 +1359,14 @@ export function MailView(): ReactNode {
                 >
                   Forward
                 </MenuItem>
-                <MenuItem onClick={() => setMenu({ ...menu, mode: 'move' })}>Move to folder ›</MenuItem>
+                <MenuItem onClick={() => setMenu({ ...menu, mode: 'move' })}>Move to folder â€º</MenuItem>
                 <MenuItem
                   onClick={() => {
                     void window.clover.mail.labelsForMessage(menu.message.id).then(setMenuLabelIds)
                     setMenu({ ...menu, mode: 'label' })
                   }}
                 >
-                  Labels ›
+                  Labels â€º
                 </MenuItem>
                 <MenuItem danger onClick={menuDelete}>
                   Delete
@@ -1505,7 +1374,7 @@ export function MailView(): ReactNode {
               </>
             ) : menu.mode === 'move' ? (
               <>
-                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>‹ Back</MenuItem>
+                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>â€¹ Back</MenuItem>
                 <MenuDivider />
                 <div className="max-h-64 overflow-y-auto">
                   {folders.map((folder) => (
@@ -1517,7 +1386,7 @@ export function MailView(): ReactNode {
               </>
             ) : (
               <>
-                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>‹ Back</MenuItem>
+                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>â€¹ Back</MenuItem>
                 <MenuDivider />
                 <div className="max-h-64 overflow-y-auto">
                   {labels.length === 0 && (
@@ -1544,7 +1413,7 @@ export function MailView(): ReactNode {
                             style={{ background: label.color }}
                           />
                           <span className="flex-1">{label.name}</span>
-                          {on && <span className="text-accent">✓</span>}
+                          {on && <span className="text-accent">âœ“</span>}
                         </span>
                       </MenuItem>
                     )
@@ -1677,7 +1546,7 @@ export function MailView(): ReactNode {
                     if (folder) void exportMbox(folder.id)
                   }}
                 >
-                  Export to mbox…
+                  Export to mboxâ€¦
                 </MenuItem>
                 <MenuItem
                   onClick={() => {
@@ -1700,7 +1569,7 @@ export function MailView(): ReactNode {
                     })
                   }}
                 >
-                  New folder…
+                  New folderâ€¦
                 </MenuItem>
                 <MenuItem
                   onClick={() => {
@@ -1717,7 +1586,7 @@ export function MailView(): ReactNode {
                     }
                   }}
                 >
-                  Rename…
+                  Renameâ€¦
                 </MenuItem>
                 {folderMenu.folder?.specialUse !== 'trash' && folderMenu.folder?.specialUse !== 'inbox' && (
                   <MenuItem
@@ -1726,7 +1595,7 @@ export function MailView(): ReactNode {
                       const folder = folderMenu.folder
                       setFolderMenu(null)
                       if (folder) {
-                        ask('Delete folder', `Delete the folder “${folder.name}”?`, () =>
+                        ask('Delete folder', `Delete the folder â€œ${folder.name}â€?`, () =>
                           void deleteFolder(folder.id)
                         )
                       }

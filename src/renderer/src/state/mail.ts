@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, OUTBOX_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
 import { SETTINGS_KEYS } from '@shared/theme'
 import { useNotifications } from './notifications'
+import { benchInstallStore } from '../bench'
 import type {
   AccountSummary,
   ApplyRulesResult,
@@ -113,9 +114,63 @@ function patchMessage(list: MessageSummary[], id: string, patch: Partial<Message
   return list.map((m) => (m.id === id ? { ...m, ...patch } : m))
 }
 
+// Signatures of everything a list row actually shows. Used to reuse the previous
+// object for rows whose contents didn't change, so React.memo can skip them on
+// the frequent reloads (sync:done, new mail) that rebuild the list from the DB.
+function messageSignature(m: MessageSummary): string {
+  return [
+    m.id,
+    m.isRead,
+    m.isFlagged,
+    m.isImportant,
+    m.subject,
+    m.snippet,
+    m.dateUtc,
+    m.fromName,
+    m.fromEmail,
+    m.hasAttachments,
+    m.isSpam,
+    m.spamScore,
+    m.folderId
+  ].join('\u0001')
+}
+
+function threadSignature(t: ThreadSummary): string {
+  return [
+    t.threadId,
+    t.messageCount,
+    t.unreadCount,
+    t.hasAttachments,
+    t.isImportant,
+    t.muted,
+    t.pinned,
+    t.lastDate,
+    t.subject,
+    t.fromName,
+    t.fromEmail,
+    t.messages.map(messageSignature).join('\u0002')
+  ].join('\u0001')
+}
+
 let readTimer: ReturnType<typeof setTimeout> | null = null
 
 export const useMail = create<MailState>((set, get) => {
+  // Reuse the previous object for any row whose signature is unchanged. Without
+  // this, every reload creates new objects for all rows and React.memo can never
+  // skip a re-render.
+  function stableThreads(next: ThreadSummary[]): ThreadSummary[] {
+    const prev = get().threads
+    if (prev.length === 0) return next
+    const bySig = new Map(prev.map((t) => [threadSignature(t), t]))
+    return next.map((t) => bySig.get(threadSignature(t)) ?? t)
+  }
+  function stableMessages(next: MessageSummary[]): MessageSummary[] {
+    const prev = get().messages
+    if (prev.length === 0) return next
+    const bySig = new Map(prev.map((m) => [messageSignature(m), m]))
+    return next.map((m) => bySig.get(messageSignature(m)) ?? m)
+  }
+
   async function reloadFolder(): Promise<void> {
     const folderId = get().activeFolderId
     if (!folderId) return
@@ -130,27 +185,27 @@ export const useMail = create<MailState>((set, get) => {
       set({ outbox, messages: [], threads: [], loadingMessages: false })
     } else if (labelId) {
       const messages = await window.clover.mail.listLabelMessages(labelId)
-      set({ messages, threads: [], loadingMessages: false })
+      set({ messages: stableMessages(messages), threads: [], loadingMessages: false })
     } else if (folderId === UNIFIED_FOLDER_ID) {
       if (get().threaded) {
         const threads = await window.clover.mail.listUnifiedThreads()
-        set({ threads, messages: [], loadingMessages: false })
+        set({ threads: stableThreads(threads), messages: [], loadingMessages: false })
       } else {
         const messages = await window.clover.mail.listUnifiedMessages()
-        set({ messages, threads: [], loadingMessages: false })
+        set({ messages: stableMessages(messages), threads: [], loadingMessages: false })
       }
     } else if (synthetic && accountId) {
       const messages =
         folderId === JUNK_FOLDER_ID
           ? await window.clover.mail.listJunk(accountId)
           : await window.clover.mail.listImportant(accountId)
-      set({ messages, threads: [], loadingMessages: false })
+      set({ messages: stableMessages(messages), threads: [], loadingMessages: false })
     } else if (get().threaded && get().folders.find((f) => f.id === folderId)?.specialUse !== 'drafts') {
       const threads = await window.clover.mail.listThreads(folderId)
-      set({ threads, messages: [], loadingMessages: false })
+      set({ threads: stableThreads(threads), messages: [], loadingMessages: false })
     } else {
       const messages = await window.clover.mail.listMessages(folderId)
-      set({ messages, threads: [], loadingMessages: false })
+      set({ messages: stableMessages(messages), threads: [], loadingMessages: false })
     }
   }
 
@@ -728,3 +783,7 @@ export const useMail = create<MailState>((set, get) => {
     }
   }
 })
+
+// Benchmark-only: expose the store so the bench runner can drive it. Removed by
+// dead-code elimination in a normal build.
+if (__CLOVER_BENCH__) benchInstallStore(useMail)
