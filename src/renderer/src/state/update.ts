@@ -9,6 +9,7 @@ export type UpdateStatus =
   | 'ready'
   | 'none'
   | 'dev'
+  | 'managed'
   | 'error'
 
 interface UpdateState {
@@ -55,6 +56,9 @@ export const useUpdate = create<UpdateState>((set) => ({
           break
         case 'unavailable-dev':
           set({ status: 'dev' })
+          break
+        case 'unavailable-managed':
+          set({ status: 'managed' })
           break
       }
     })

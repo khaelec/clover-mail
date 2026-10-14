@@ -247,9 +247,11 @@ export function SettingsView(): ReactNode {
               ? 'Up to date'
               : updateStatus === 'dev'
                 ? 'Updates are disabled in development builds'
-                : updateStatus === 'error'
-                  ? (updateError ?? 'Could not check')
-                  : ''
+                : updateStatus === 'managed'
+                  ? 'Updates are managed by Flatpak/Snap'
+                  : updateStatus === 'error'
+                    ? (updateError ?? 'Could not check')
+                    : ''
 
   useEffect(() => {
     void window.clover.appInfo().then(setInfo)
@@ -940,12 +942,32 @@ export function SettingsView(): ReactNode {
               <div className="rounded-xl border border-line p-3">
                 <div className="mb-1 text-[12px] font-medium text-ink">Google</div>
                 <p className="mb-2 text-[11px] text-muted">
-                  Desktop-app OAuth client from Google Cloud Console. Redirect: loopback. Secret optional (PKCE).
+                  Sign-in uses your own free Google OAuth client (Google requires every app to
+                  register one). One-time setup:
                 </p>
+                <ol className="mb-2 list-decimal space-y-0.5 pl-5 text-[11px] text-muted">
+                  <li>
+                    Open <code>console.cloud.google.com</code> and create a project.
+                  </li>
+                  <li>
+                    APIs &amp; Services → <strong>OAuth consent screen</strong> → External. Add the
+                    scope <code>https://mail.google.com/</code> and add your own address under{' '}
+                    <strong>Test users</strong>.
+                  </li>
+                  <li>
+                    Credentials → <strong>Create credentials</strong> → OAuth client ID → type{' '}
+                    <strong>Desktop app</strong>.
+                  </li>
+                  <li>Paste the Client ID below, Save, then use “Sign in with Google”.</li>
+                </ol>
                 <Field label="Client ID" value={googleClientId} onChange={setGoogleClientId} placeholder="xxxxx.apps.googleusercontent.com" hint="Google Cloud Console → Credentials → OAuth client ID (type: Desktop app). Enables “Sign in with Google” instead of an app password." />
                 <div className="mt-2">
                   <Field label="Client Secret (optional)" type="password" value={googleSecret} onChange={setGoogleSecret} hint="Only required for ‘Web application’ OAuth clients. Desktop clients use PKCE, so leave this blank." />
                 </div>
+                <p className="mt-2 text-[11px] text-muted">
+                  Prefer to skip OAuth? Add the account below with a Gmail <strong>app password</strong>{' '}
+                  instead.
+                </p>
                 <div className="mt-2 flex items-center gap-3">
                   <button type="button" onClick={() => void saveGoogleConfig()} className="rounded-lg bg-accent px-3.5 py-2 text-[12px] font-semibold text-accent-ink">
                     Save Google
@@ -956,10 +978,17 @@ export function SettingsView(): ReactNode {
 
               <div className="rounded-xl border border-line p-3">
                 <div className="mb-1 text-[12px] font-medium text-ink">Microsoft / Outlook</div>
-                <p className="mb-2 text-[11px] text-muted">
-                  Register an app in Azure (Entra) → “Mobile and desktop applications”, redirect <code>http://localhost</code>.
-                  Public client (no secret needed).
-                </p>
+                <ol className="mb-2 list-decimal space-y-0.5 pl-5 text-[11px] text-muted">
+                  <li>
+                    Open <code>portal.azure.com</code> → Microsoft Entra ID →{' '}
+                    <strong>App registrations</strong> → New registration.
+                  </li>
+                  <li>
+                    Add a redirect URI under <strong>Mobile and desktop applications</strong>:{' '}
+                    <code>http://localhost</code>.
+                  </li>
+                  <li>Copy the Application (client) ID below and Save. No secret needed (public client).</li>
+                </ol>
                 <Field label="Application (client) ID" value={msClientId} onChange={setMsClientId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" hint="Azure/Entra → App registrations → Application (client) ID. Add a ‘Mobile and desktop applications’ redirect of http://localhost." />
                 <div className="mt-2">
                   <Field label="Client Secret (optional)" type="password" value={msSecret} onChange={setMsSecret} hint="Only needed if you made it a confidential client. Public clients don’t require a secret." />
@@ -1284,6 +1313,14 @@ export function SettingsView(): ReactNode {
                 Open source licenses
               </button>
             </div>
+            {info?.platform === 'linux' && (
+              <p className="mt-3 rounded-lg border border-line bg-canvas/40 p-2.5 text-[11px] text-muted">
+                <strong className="text-ink">Linux updates:</strong> the AppImage does{' '}
+                <strong>not</strong> self-update on immutable systems (e.g. Fedora Kinoite, Silverblue).
+                Use the <strong>Flatpak</strong>, or download the latest AppImage from the releases page and
+                replace the old file. The <code>.deb</code> is updated with your package manager.
+              </p>
+            )}
             {updateStatus === 'ready' && (
               <p className="mt-2 text-[12px] text-muted">
                 If the app doesn&apos;t restart by itself, quit Clover Mail from the tray and run the

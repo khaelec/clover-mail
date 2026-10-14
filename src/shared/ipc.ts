@@ -186,6 +186,7 @@ export interface UpdateEvent {
     | 'downloaded'
     | 'error'
     | 'unavailable-dev'
+    | 'unavailable-managed'
   version?: string
   percent?: number
   error?: string

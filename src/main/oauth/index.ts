@@ -24,18 +24,10 @@ const GOOGLE_SECRET = 'oauth.google.clientSecret'
 const MS_ID = 'oauth.microsoft.clientId'
 const MS_SECRET = 'oauth.microsoft.clientSecret'
 
-// Built-in OAuth clients so users don't have to configure their own. Desktop-app
-// OAuth clients are not confidential (PKCE is used), so shipping them is fine.
-// Leave blank to require per-user configuration in Settings → Accounts.
-const DEFAULT_GOOGLE_CLIENT_ID = ''
-const DEFAULT_GOOGLE_CLIENT_SECRET = ''
-const DEFAULT_MS_CLIENT_ID = ''
-const DEFAULT_MS_CLIENT_SECRET = ''
-
 export function getGoogleConfig(): { clientId: string; clientSecret: string } {
   return {
-    clientId: getSetting<string>(GOOGLE_ID) || DEFAULT_GOOGLE_CLIENT_ID,
-    clientSecret: getSecret(GOOGLE_SECRET) || DEFAULT_GOOGLE_CLIENT_SECRET
+    clientId: getSetting<string>(GOOGLE_ID) ?? '',
+    clientSecret: getSecret(GOOGLE_SECRET) ?? ''
   }
 }
 export function setGoogleConfig(clientId: string, clientSecret?: string): void {
@@ -48,8 +40,8 @@ export function googleConfigured(): boolean {
 
 export function getMicrosoftConfig(): { clientId: string; clientSecret: string } {
   return {
-    clientId: getSetting<string>(MS_ID) || DEFAULT_MS_CLIENT_ID,
-    clientSecret: getSecret(MS_SECRET) || DEFAULT_MS_CLIENT_SECRET
+    clientId: getSetting<string>(MS_ID) ?? '',
+    clientSecret: getSecret(MS_SECRET) ?? ''
   }
 }
 export function setMicrosoftConfig(clientId: string, clientSecret?: string): void {

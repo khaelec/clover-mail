@@ -1,4 +1,5 @@
 import { app, type BrowserWindow } from 'electron'
+import { existsSync } from 'node:fs'
 import { join, normalize, sep } from 'node:path'
 import type { AppUpdater } from 'electron-updater'
 import type { UpdateEvent } from '@shared/ipc'
@@ -8,6 +9,7 @@ let updater: AppUpdater | null = null
 let getWindow: () => BrowserWindow | null = () => null
 let initialized = false
 let forceQuit: () => void = () => undefined
+let managedRuntime = false
 
 /** Registered by the main process so quitForUpdate can bypass close-to-tray. */
 export function setForceQuit(fn: () => void): void {
@@ -44,6 +46,15 @@ export async function initUpdater(): Promise<void> {
   initialized = true
   if (!app.isPackaged) {
     emit({ type: 'unavailable-dev' })
+    return
+  }
+
+  // Flatpak/Snap installs are updated by the platform, not by electron-updater.
+  managedRuntime =
+    process.platform === 'linux' &&
+    (Boolean(process.env.FLATPAK_ID) || existsSync('/.flatpak-info') || Boolean(process.env.SNAP))
+  if (managedRuntime) {
+    emit({ type: 'unavailable-managed' })
     return
   }
 
@@ -115,6 +126,10 @@ async function withRetry<T>(run: () => Promise<T>, attempts = 3): Promise<T> {
 }
 
 export async function checkForUpdates(): Promise<void> {
+  if (managedRuntime) {
+    emit({ type: 'unavailable-managed' })
+    return
+  }
   if (!updater) {
     emit({
       type: 'error',

@@ -35,6 +35,23 @@ linux:
     - target: deb
       arch:
         - x64
+# Built separately in CI (needs flatpak-builder + runtimes). Recommended for
+# immutable systems like Fedora Kinoite, where the AppImage can't self-update.
+flatpak:
+  base: org.electronjs.Electron2.BaseApp
+  baseVersion: '23.08'
+  runtime: org.freedesktop.Platform
+  runtimeVersion: '23.08'
+  sdk: org.freedesktop.Sdk
+  finishArgs:
+    - --share=network
+    - --socket=x11
+    - --socket=wayland
+    - --device=dri
+    - --socket=pulseaudio
+    - --talk-name=org.freedesktop.Notifications
+    - --talk-name=org.freedesktop.secrets
+    - --filesystem=xdg-download
 nsis:
   oneClick: false
   perMachine: false

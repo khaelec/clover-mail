@@ -1,6 +1,6 @@
 # Clover Mail
 
-A fast, good-looking desktop email client for Windows — with live wallpapers, custom apps, calendar/ICS, a rules engine, smart spam protection, and an AI copilot.
+A fast, good-looking desktop email client for **Windows and Linux** — with live wallpapers, custom apps, calendar/ICS, a rules engine, smart spam protection, and an AI copilot.
 
 Built with **Electron + React + TypeScript**, local-first (SQLite), by [@khaelec](https://github.com/khaelec).
 
@@ -51,6 +51,53 @@ npm run dist       # build the Windows installer (electron-builder)
 ```
 
 Requires **Node 20+** on Windows. `better-sqlite3` ships N-API prebuilds, so no C++ toolchain is needed.
+
+## Installing (Linux)
+
+Download the latest from the [Releases](https://github.com/khaelec/clover-mail/releases) page:
+
+- **AppImage (portable):**
+  ```bash
+  chmod +x CloverMail-<version>-x86_64.AppImage
+  ./CloverMail-<version>-x86_64.AppImage
+  ```
+- **Debian/Ubuntu (.deb):**
+  ```bash
+  sudo apt install ./CloverMail-<version>-amd64.deb
+  ```
+- **Flatpak** (recommended on immutable systems — see below): download `CloverMail-<version>.flatpak` and
+  ```bash
+  flatpak install ./CloverMail-<version>.flatpak
+  flatpak run com.clovermail.app
+  ```
+
+### Updates on Linux
+
+- **AppImage:** auto-update works on normal distributions, but **not on immutable systems** (Fedora
+  **Kinoite/Silverblue**, openSUSE MicroOS, etc.), where the AppImage can't replace itself. On those,
+  use the **Flatpak**, or download the latest AppImage and replace the old file by hand.
+- **.deb:** update with your package manager (`apt`/`dnf`) when a new release is available.
+- **Flatpak:** updated by Flatpak (`flatpak update`); the in-app updater is disabled under Flatpak.
+
+## Connecting Gmail / Outlook (OAuth)
+
+Clover Mail signs in with your **own** OAuth client — Google and Microsoft require every app to
+register one. You only do this once. (Alternatively, add Gmail with an **app password** and skip OAuth.)
+
+**Google**
+1. <https://console.cloud.google.com> → create a project.
+2. **APIs & Services → OAuth consent screen** → External. Add scope `https://mail.google.com/` and add
+   your own address under **Test users**.
+3. **Credentials → Create credentials → OAuth client ID** → type **Desktop app**.
+4. Paste the **Client ID** into **Settings → Accounts → OAuth clients** and Save. Then use **Sign in with Google**.
+
+Sign-in opens in your **system browser**; when you finish, the app catches the result automatically.
+(Google limits unverified apps to test users; large-scale distribution requires verifying the client.)
+
+**Microsoft / Outlook**
+1. <https://portal.azure.com> → Microsoft Entra ID → **App registrations** → New registration.
+2. Add a redirect URI under **Mobile and desktop applications**: `http://localhost`.
+3. Paste the **Application (client) ID** into Settings → Accounts → OAuth clients and Save.
 
 ## Data & privacy
 

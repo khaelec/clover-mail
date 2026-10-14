@@ -37,12 +37,25 @@ jobs:
       - name: Package Linux
         run: npx electron-builder --linux --publish never
 
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder elfutils
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub \
+            org.electronjs.Electron2.BaseApp//23.08 \
+            org.freedesktop.Sdk//23.08 \
+            org.freedesktop.Platform//23.08
+
+      - name: Package Flatpak
+        run: npx electron-builder --linux flatpak --publish never
+
       - name: Attach Linux assets to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
         run: |
           shopt -s nullglob
-          files=(release/CloverMail-*.AppImage release/CloverMail-*.deb release/latest-linux.yml)
+          files=(release/CloverMail-*.AppImage release/CloverMail-*.deb release/CloverMail-*.flatpak release/latest-linux.yml)
           ls -la "${files[@]}"
           gh release upload "$TAG" "${files[@]}" --clobber
