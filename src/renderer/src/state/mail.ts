@@ -2,10 +2,12 @@ import { create } from 'zustand'
 import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, OUTBOX_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
 import { SETTINGS_KEYS } from '@shared/theme'
 import { useNotifications } from './notifications'
+import { useToasts } from './toasts'
 import { benchInstallStore } from '../bench'
 import type {
   AccountSummary,
   ApplyRulesResult,
+  BulkActionResult,
   BulkActionType,
   ComposeInput,
   CreateAccountInput,
@@ -114,42 +116,17 @@ function patchMessage(list: MessageSummary[], id: string, patch: Partial<Message
   return list.map((m) => (m.id === id ? { ...m, ...patch } : m))
 }
 
-// Signatures of everything a list row actually shows. Used to reuse the previous
-// object for rows whose contents didn't change, so React.memo can skip them on
-// the frequent reloads (sync:done, new mail) that rebuild the list from the DB.
+// Signature of the whole object, used to reuse the previous item for rows whose
+// contents didn't change so React.memo can skip them on the frequent reloads
+// (sync:done, new mail) that rebuild the list from the DB. Serialising every
+// field (not a hand-picked list) means a new field — uid, threadId, accountId, or
+// anything added later — can never leave a stale object behind.
 function messageSignature(m: MessageSummary): string {
-  return [
-    m.id,
-    m.isRead,
-    m.isFlagged,
-    m.isImportant,
-    m.subject,
-    m.snippet,
-    m.dateUtc,
-    m.fromName,
-    m.fromEmail,
-    m.hasAttachments,
-    m.isSpam,
-    m.spamScore,
-    m.folderId
-  ].join('\u0001')
+  return JSON.stringify(m)
 }
 
 function threadSignature(t: ThreadSummary): string {
-  return [
-    t.threadId,
-    t.messageCount,
-    t.unreadCount,
-    t.hasAttachments,
-    t.isImportant,
-    t.muted,
-    t.pinned,
-    t.lastDate,
-    t.subject,
-    t.fromName,
-    t.fromEmail,
-    t.messages.map(messageSignature).join('\u0002')
-  ].join('\u0001')
+  return JSON.stringify(t)
 }
 
 let readTimer: ReturnType<typeof setTimeout> | null = null
@@ -260,6 +237,9 @@ export const useMail = create<MailState>((set, get) => {
           })
         } else if (event.type === 'sync:error') {
           set({ status: `Sync error: ${event.error}` })
+          if (event.error) {
+            useToasts.getState().push({ message: `Sync error: ${event.error}`, kind: 'error' })
+          }
         } else if (event.type === 'sync:done') {
           set({ syncing: false, status: null })
           void reloadFolders()
@@ -368,7 +348,9 @@ export const useMail = create<MailState>((set, get) => {
       try {
         await window.clover.mail.syncAccount(accountId)
       } catch (error) {
-        set({ syncing: false, error: (error as Error).message, status: null })
+        const message = (error as Error).message
+        set({ syncing: false, error: message, status: null })
+        useToasts.getState().push({ message: `Sync failed: ${message}`, kind: 'error' })
         return
       }
       // Clear on completion too: this call may have joined a sync that already
@@ -473,10 +455,42 @@ export const useMail = create<MailState>((set, get) => {
 
     bulkIds: async (ids, action, targetFolderId) => {
       if (ids.length === 0) return
-      await window.clover.mail.bulkAction({ messageIds: ids, action, targetFolderId })
+      let result: BulkActionResult
+      try {
+        result = await window.clover.mail.bulkAction({ messageIds: ids, action, targetFolderId })
+      } catch (error) {
+        useToasts.getState().push({ message: `Action failed: ${(error as Error).message}`, kind: 'error' })
+        return
+      }
       set({ selectedIds: [], selectedMessageId: null, detail: null })
       await reloadFolder()
       await reloadFolders()
+
+      // Offer undo for reversible moves (archive, move, delete-to-Trash).
+      const undo = result.undo ?? []
+      if (undo.length > 0) {
+        const label = action === 'archive' ? 'Archived' : action === 'trash' ? 'Moved to Trash' : 'Moved'
+        useToasts.getState().push({
+          message: `${label} ${undo.length} ${undo.length === 1 ? 'conversation' : 'conversations'}`,
+          kind: 'info',
+          actionLabel: 'Undo',
+          onAction: () => {
+            void (async () => {
+              try {
+                const res = await window.clover.mail.undoMoves(undo)
+                if (res.restored === 0) {
+                  useToasts.getState().push({ message: 'Could not undo', kind: 'error' })
+                  return
+                }
+                await reloadFolder()
+                await reloadFolders()
+              } catch (error) {
+                useToasts.getState().push({ message: `Could not undo: ${(error as Error).message}`, kind: 'error' })
+              }
+            })()
+          }
+        })
+      }
     },
 
     emptyFolder: async (folderId) => {

@@ -8,6 +8,7 @@ import type {
   CreateAccountInput,
   CreateFolderInput,
   DraftData,
+  MovedMessage,
   RuleInput
 } from '@shared/mail'
 import * as accountService from '@main/mail/accounts'
@@ -49,7 +50,7 @@ import {
   startGoogleOAuth,
   startMicrosoftOAuth
 } from '@main/oauth'
-import { bulkAction, deleteSpam, emptyFolder, markFolderRead } from '@main/mail/bulk'
+import { bulkAction, deleteSpam, emptyFolder, markFolderRead, undoMoves } from '@main/mail/bulk'
 import { startAllIdle, startIdle, stopIdle } from '@main/mail/idle'
 import { createMailEmit } from '@main/mail/events'
 import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
@@ -213,6 +214,14 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
     deleteMessage(messageId)
   )
   ipcMain.handle(IpcChannels.mail.bulkAction, (_e, input: BulkActionInput) => bulkAction(input))
+  ipcMain.handle(IpcChannels.mail.undoMoves, async (_e, moves: MovedMessage[]) => {
+    const result = await undoMoves(moves)
+    // Re-sync the origin folders so the restored messages reappear locally.
+    for (const folderId of result.folderIds) {
+      await runSyncFolder(folderId, emit).catch(() => undefined)
+    }
+    return { restored: result.restored, failed: result.failed }
+  })
   ipcMain.handle(IpcChannels.mail.emptyFolder, (_e, folderId: string) => emptyFolder(folderId))
   ipcMain.handle(IpcChannels.mail.markFolderRead, (_e, folderId: string) => markFolderRead(folderId))
   ipcMain.handle(IpcChannels.mail.deleteSpam, (_e, accountId: string) => deleteSpam(accountId))

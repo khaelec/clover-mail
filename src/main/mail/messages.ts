@@ -17,7 +17,7 @@ import { attachmentAbsolutePath, readAttachmentDataUrl, saveAttachment } from '.
 import { assessPhishing, classifySecurity, trustedSenders } from './security'
 import { inferSpecialUse } from './specialUse'
 import { toAttachmentSummary, toMessageSummary } from './mappers'
-import type { InlineImage, MessageDetail, MessagePhishing, MessageSecurity } from '@shared/mail'
+import type { InlineImage, MessageDetail, MessagePhishing, MessageSecurity, MovedMessage } from '@shared/mail'
 
 function parseAddresses(json: string | null): string[] {
   if (!json) return []
@@ -342,22 +342,43 @@ export async function setFlags(
   }
 }
 
-export async function moveMessage(messageId: string, targetFolderId: string): Promise<void> {
+export async function moveMessage(
+  messageId: string,
+  targetFolderId: string
+): Promise<MovedMessage | null> {
   const db = getDb()
   const target = db.select().from(folders).where(eq(folders.id, targetFolderId)).get()
-  if (!target) return
+  if (!target) return null
 
   const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
-  if (row && protocolFor(row.accountId) !== 'imap') {
+  if (!row) return null
+
+  if (protocolFor(row.accountId) !== 'imap') {
     db.update(messages).set({ folderId: targetFolderId }).where(eq(messages.id, messageId)).run()
-    return
+    return {
+      accountId: row.accountId,
+      fromFolderId: row.folderId,
+      toFolderId: targetFolderId,
+      uid: row.uid,
+      messageId: row.messageId
+    }
   }
 
-  await withMessageMailbox(messageId, async (client, uid) => {
-    await client.messageMove(String(uid), target.remotePath, { uid: true })
-  })
+  // UIDPLUS gives us the message's new UID in the destination, which is what undo
+  // needs — the old UID is meaningless once the message has moved.
+  const response = await withMessageMailbox(messageId, (client, uid) =>
+    client.messageMove(String(uid), target.remotePath, { uid: true })
+  )
+  const newUid = response && response.uidMap ? (response.uidMap.get(row.uid) ?? null) : null
   db.delete(messages).where(eq(messages.id, messageId)).run()
   removeFromIndex(messageId)
+  return {
+    accountId: row.accountId,
+    fromFolderId: row.folderId,
+    toFolderId: targetFolderId,
+    uid: newUid,
+    messageId: row.messageId
+  }
 }
 
 export async function deleteMessage(messageId: string): Promise<void> {

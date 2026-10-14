@@ -92,6 +92,7 @@ export interface MailApi {
   moveMessage: (messageId: string, targetFolderId: string) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
   bulkAction: (input: BulkActionInput) => Promise<BulkActionResult>
+  undoMoves: (moves: import('./mail').MovedMessage[]) => Promise<{ restored: number; failed: number }>
   emptyFolder: (folderId: string) => Promise<{ deleted: number }>
   markFolderRead: (folderId: string) => Promise<number>
   deleteSpam: (accountId: string) => Promise<{ deleted: number }>

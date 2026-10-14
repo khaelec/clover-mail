@@ -9,6 +9,7 @@ import { WallpaperView } from './components/WallpaperView'
 import { WallpaperLayer } from './components/WallpaperLayer'
 import { AppHost } from './components/AppHost'
 import { UpdateBanner } from './components/UpdateBanner'
+import { Toaster } from './components/Toaster'
 import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
 import { IconCalendar, IconGrid, IconSparkles, IconWallpaper } from './components/icons'
@@ -116,6 +117,7 @@ export function App(): ReactNode {
         </main>
       </div>
       <UpdateBanner />
+      <Toaster />
       <AppHost />
     </div>
   )

@@ -288,6 +288,21 @@ export interface BulkActionResult {
   moved: number
   updated: number
   failed: number
+  /** Enough to reverse each move: where it came from and its new identity. */
+  undo?: MovedMessage[]
+}
+
+/**
+ * A completed move, recorded so it can be undone. IMAP assigns a moved message a
+ * new UID, so undo works from the destination UID (from UIDPLUS), never the old
+ * one.
+ */
+export interface MovedMessage {
+  accountId: string
+  fromFolderId: string
+  toFolderId: string
+  uid: number | null
+  messageId: string | null
 }
 
 export interface ThreadSummary {

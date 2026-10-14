@@ -30,6 +30,7 @@ import {
 } from './icons'
 import { ListHeader, MessageRow, SyncButton, SyncStatus, ThreadRow, formatListDate } from './MailList'
 import { BenchProfiler } from '../bench'
+import { useToasts } from '../state/toasts'
 
 function folderIcon(folder: FolderSummary): ReactNode {
   if (folder.specialUse === 'trash') return <IconTrash className="h-4 w-4" />
@@ -1405,6 +1406,12 @@ export function MailView(): ReactNode {
                               ? menuLabelIds.filter((x) => x !== label.id)
                               : [...menuLabelIds, label.id]
                           )
+                          useToasts.getState().push({
+                            message: `${on ? 'Removed' : 'Added'} label “${label.name}”`,
+                            kind: 'info',
+                            actionLabel: 'Undo',
+                            onAction: () => void toggleLabel(mid, label.id, on)
+                          })
                         }}
                       >
                         <span className="flex flex-1 items-center gap-2">

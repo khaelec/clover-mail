@@ -5,7 +5,7 @@ import { moveMessage, setFlags } from './messages'
 import { withImap } from './connection'
 import { protocolFor } from './accounts'
 import { removeFromIndex } from './search'
-import type { BulkActionInput, BulkActionResult } from '@shared/mail'
+import type { BulkActionInput, BulkActionResult, MovedMessage } from '@shared/mail'
 
 function specialFolderId(accountId: string, use: string): string | undefined {
   return getDb()
@@ -17,6 +17,7 @@ function specialFolderId(accountId: string, use: string): string | undefined {
 
 export async function bulkAction(input: BulkActionInput): Promise<BulkActionResult> {
   const result: BulkActionResult = { moved: 0, updated: 0, failed: 0 }
+  const undo: MovedMessage[] = []
   const db = getDb()
 
   for (const id of input.messageIds) {
@@ -35,16 +36,22 @@ export async function bulkAction(input: BulkActionInput): Promise<BulkActionResu
           result.failed += 1
           continue
         }
-        await moveMessage(id, target)
-        result.moved += 1
+        const moved = await moveMessage(id, target)
+        if (moved) {
+          undo.push(moved)
+          result.moved += 1
+        } else result.failed += 1
       } else if (input.action === 'trash') {
         const target = specialFolderId(row.accountId, 'trash')
         if (!target) {
           result.failed += 1
           continue
         }
-        await moveMessage(id, target)
-        result.moved += 1
+        const moved = await moveMessage(id, target)
+        if (moved) {
+          undo.push(moved)
+          result.moved += 1
+        } else result.failed += 1
       } else if (input.action === 'markRead') {
         await setFlags(id, { seen: true })
         result.updated += 1
@@ -58,15 +65,85 @@ export async function bulkAction(input: BulkActionInput): Promise<BulkActionResu
         await setFlags(id, { important: false })
         result.updated += 1
       } else if (input.action === 'move' && input.targetFolderId) {
-        await moveMessage(id, input.targetFolderId)
-        result.moved += 1
+        const moved = await moveMessage(id, input.targetFolderId)
+        if (moved) {
+          undo.push(moved)
+          result.moved += 1
+        } else result.failed += 1
       }
     } catch {
       result.failed += 1
     }
   }
 
+  if (undo.length > 0) result.undo = undo
   return result
+}
+
+/**
+ * Reverse a set of moves (undo). Each message is moved from where it landed back
+ * to the folder it came from, located by its destination UID (or, if the server
+ * didn't report one, by its Message-ID header). Returns the origin folders that
+ * need re-syncing so the restored messages reappear locally.
+ */
+export async function undoMoves(
+  moves: MovedMessage[]
+): Promise<{ restored: number; failed: number; folderIds: string[] }> {
+  const db = getDb()
+  let restored = 0
+  let failed = 0
+  const folderIds = new Set<string>()
+
+  for (const move of moves) {
+    try {
+      const from = db.select().from(folders).where(eq(folders.id, move.fromFolderId)).get()
+      const to = db.select().from(folders).where(eq(folders.id, move.toFolderId)).get()
+      if (!from || !to) {
+        failed += 1
+        continue
+      }
+
+      if (protocolFor(move.accountId) !== 'imap') {
+        // Local move kept the row in place, so just point it back.
+        const row =
+          move.uid !== null
+            ? db
+                .select()
+                .from(messages)
+                .where(and(eq(messages.folderId, move.toFolderId), eq(messages.uid, move.uid)))
+                .get()
+            : null
+        if (row) {
+          db.update(messages).set({ folderId: move.fromFolderId }).where(eq(messages.id, row.id)).run()
+          restored += 1
+          folderIds.add(move.fromFolderId)
+        } else failed += 1
+        continue
+      }
+
+      await withImap(move.accountId, async (client) => {
+        await client.mailboxOpen(to.remotePath)
+        let uids: number[] = []
+        if (move.uid !== null) {
+          uids = [move.uid]
+        } else if (move.messageId) {
+          const found = await client.search(
+            { header: { 'message-id': move.messageId } },
+            { uid: true }
+          )
+          uids = Array.isArray(found) ? found : []
+        }
+        if (uids.length === 0) throw new Error('message not found in destination')
+        await client.messageMove(uids, from.remotePath, { uid: true })
+      })
+      restored += 1
+      folderIds.add(move.fromFolderId)
+    } catch {
+      failed += 1
+    }
+  }
+
+  return { restored, failed, folderIds: [...folderIds] }
 }
 
 /** Permanently delete every message in a folder (e.g. Empty Trash). */
