@@ -119,7 +119,11 @@ function MessageBody({
   function sizeFrame(): void {
     const frame = iframeRef.current
     const doc = frame?.contentDocument
-    if (frame && doc) frame.style.height = `${doc.documentElement.scrollHeight}px`
+    if (!frame || !doc) return
+    // Measuring while the frame has no width wraps everything into one column
+    // and yields a huge height — skip until it has been laid out.
+    if (frame.clientWidth === 0) return
+    frame.style.height = `${doc.documentElement.scrollHeight}px`
   }
 
   useEffect(() => {
@@ -309,12 +313,13 @@ export function Reader({
     return base.map((m) => (detail && m.id === detail.id ? detail : m))
   }, [conversation, detail])
 
-  // Scroll to the selected message so the reading pane matches the list row opened.
+  // Bring the selected message into view without aligning it to the very top
+  // (which left empty space below the last message).
   useEffect(() => {
     const container = scrollRef.current
     if (!container || !detail) return
     const el = container.querySelector(`[data-message-id="${detail.id}"]`)
-    if (el instanceof HTMLElement) el.scrollIntoView({ block: 'start' })
+    if (el instanceof HTMLElement) el.scrollIntoView({ block: 'nearest' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail?.id, messages.length])
 
@@ -528,7 +533,7 @@ export function Reader({
         </div>
       </header>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {messages.map((message) => (
           <div key={message.id} data-message-id={message.id} className="border-b border-line">
             {messages.length > 1 && (
