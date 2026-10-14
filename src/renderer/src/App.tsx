@@ -13,8 +13,10 @@ import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
 import { IconCalendar, IconGrid, IconSparkles, IconWallpaper } from './components/icons'
 import { useMail } from './state/mail'
+import { useApps } from './state/apps'
 import { useWallpaper } from './state/wallpaper'
 import { useUpdate } from './state/update'
+import { applyUnreadBadge } from './lib/badge'
 
 /**
  * Placeholder background layer. In Phase 3 this becomes the real live-wallpaper
@@ -50,12 +52,19 @@ function renderSection(section: SectionId): ReactNode {
 
 export function App(): ReactNode {
   const [section, setSection] = useState<SectionId>('mail')
+  const mailUnread = useMail((s) => s.unreadTotal)
+  const appUnread = useApps((s) => s.appUnreadTotal)
 
   useEffect(() => {
     void useMail.getState().init()
     void useWallpaper.getState().load()
     useUpdate.getState().init()
   }, [])
+
+  // Combined unread (mail + embedded apps) drives the tray tooltip and taskbar badge.
+  useEffect(() => {
+    applyUnreadBadge(mailUnread + appUnread)
+  }, [mailUnread, appUnread])
 
   useEffect(() => {
     const handler = (): void => setSection('copilot')

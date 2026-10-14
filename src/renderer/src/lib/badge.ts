@@ -21,3 +21,13 @@ export function badgeDataUrl(count: number): string {
   ctx.fillText(label, size / 2, size / 2 + 1)
   return canvas.toDataURL('image/png')
 }
+
+/** Push the combined unread count to the tray tooltip and the taskbar badge. */
+export function applyUnreadBadge(count: number): void {
+  const total = Math.max(0, count)
+  window.clover.setUnread(total)
+  window.clover.setTaskbarBadge(
+    total > 0 ? badgeDataUrl(total) : '',
+    total > 0 ? `${total} unread` : ''
+  )
+}

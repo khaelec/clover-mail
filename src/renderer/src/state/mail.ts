@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, OUTBOX_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
 import { SETTINGS_KEYS } from '@shared/theme'
-import { badgeDataUrl } from '../lib/badge'
+import { useNotifications } from './notifications'
 import type {
   AccountSummary,
   ApplyRulesResult,
@@ -38,6 +38,7 @@ interface MailState {
   error: string | null
   spamCount: number
   importantCount: number
+  unreadTotal: number
   outbox: OutboxItem[]
   loadOutbox: () => Promise<void>
   retryOutbox: (id: string) => Promise<void>
@@ -163,11 +164,7 @@ export const useMail = create<MailState>((set, get) => {
     ])
     set({ folders, spamCount, importantCount })
     const totalUnread = folders.reduce((sum, folder) => sum + folder.unreadCount, 0)
-    window.clover.setUnread(totalUnread)
-    window.clover.setTaskbarBadge(
-      totalUnread > 0 ? badgeDataUrl(totalUnread) : '',
-      totalUnread > 0 ? `${totalUnread} unread` : ''
-    )
+    set({ unreadTotal: totalUnread })
   }
 
   return {
@@ -187,6 +184,7 @@ export const useMail = create<MailState>((set, get) => {
     error: null,
     spamCount: 0,
     importantCount: 0,
+    unreadTotal: 0,
     outbox: [],
     rules: [],
     selectedIds: [],
@@ -213,6 +211,11 @@ export const useMail = create<MailState>((set, get) => {
           void reloadFolder()
         } else if (event.type === 'mail:new') {
           set({ status: 'New mail received' })
+          useNotifications.getState().add({
+            kind: 'mail',
+            title: event.title ? `New mail from ${event.title}` : 'New mail',
+            body: event.body ?? ''
+          })
           void reloadFolders()
           void reloadFolder()
           setTimeout(() => {

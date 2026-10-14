@@ -56,6 +56,16 @@ export function AppHost(): ReactNode {
         webview.style.visibility = 'hidden'
         container.appendChild(webview)
         nodes.set(app.id, webview)
+
+        // Many web apps (Messenger, WhatsApp) prefix the document title with an
+        // unread count, e.g. "(3) Messenger" — use it to drive the badge and the
+        // in-app notification list.
+        const webviewEl = webview as unknown as HTMLElement
+        webviewEl.addEventListener('page-title-updated', (event) => {
+          const title = String((event as { title?: string }).title ?? '')
+          const match = title.match(/^\((\d+)\)/)
+          useApps.getState().setAppUnread(app.id, app.name, match ? Number(match[1]) : 0)
+        })
       }
     }
 

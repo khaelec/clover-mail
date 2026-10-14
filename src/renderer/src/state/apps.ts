@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { CreateAppInput, CustomApp } from '@shared/apps'
+import { useNotifications } from './notifications'
 
 interface AppHostSlot {
   appId: string | null
@@ -12,11 +13,14 @@ interface AppsState {
   host: AppHostSlot | null
   loading: boolean
   creating: boolean
+  appUnread: Record<string, number>
+  appUnreadTotal: number
   load: () => Promise<void>
   add: (input: CreateAppInput) => Promise<CustomApp>
   remove: (id: string) => Promise<void>
   select: (id: string | null) => void
   setHost: (host: AppHostSlot | null) => void
+  setAppUnread: (id: string, name: string, count: number) => void
 }
 
 export const useApps = create<AppsState>((set, get) => ({
@@ -25,6 +29,8 @@ export const useApps = create<AppsState>((set, get) => ({
   host: null,
   loading: false,
   creating: false,
+  appUnread: {},
+  appUnreadTotal: 0,
 
   load: async () => {
     set({ loading: true })
@@ -53,8 +59,24 @@ export const useApps = create<AppsState>((set, get) => ({
     await window.clover.apps.remove(id)
     await get().load()
     if (get().activeAppId === id) set({ activeAppId: get().apps[0]?.id ?? null })
+    const appUnread = { ...get().appUnread }
+    delete appUnread[id]
+    set({ appUnread, appUnreadTotal: Object.values(appUnread).reduce((a, b) => a + b, 0) })
   },
 
   select: (id) => set({ activeAppId: id }),
-  setHost: (host) => set({ host })
+  setHost: (host) => set({ host }),
+
+  setAppUnread: (id, name, count) => {
+    const prev = get().appUnread[id] ?? 0
+    const next = { ...get().appUnread, [id]: count }
+    if (count > prev) {
+      useNotifications.getState().add({
+        kind: 'app',
+        title: `New message in ${name}`,
+        body: count > 1 ? `${count} unread` : ''
+      })
+    }
+    set({ appUnread: next, appUnreadTotal: Object.values(next).reduce((a, b) => a + b, 0) })
+  }
 }))
