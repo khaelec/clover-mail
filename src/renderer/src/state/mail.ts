@@ -143,7 +143,7 @@ export const useMail = create<MailState>((set, get) => {
           ? await window.clover.mail.listJunk(accountId)
           : await window.clover.mail.listImportant(accountId)
       set({ messages, threads: [], loadingMessages: false })
-    } else if (get().threaded) {
+    } else if (get().threaded && get().folders.find((f) => f.id === folderId)?.specialUse !== 'drafts') {
       const threads = await window.clover.mail.listThreads(folderId)
       set({ threads, messages: [], loadingMessages: false })
     } else {

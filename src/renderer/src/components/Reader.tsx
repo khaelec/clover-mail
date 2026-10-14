@@ -120,10 +120,29 @@ function MessageBody({
     const frame = iframeRef.current
     const doc = frame?.contentDocument
     if (!frame || !doc || !doc.body) return
+    attachLinkHandler(doc)
     // Use the body's content height — documentElement.scrollHeight is clamped to
     // the frame's current viewport, so it can never shrink below the default.
     const height = Math.max(doc.body.scrollHeight, doc.body.offsetHeight)
     if (height > 0) frame.style.height = `${height}px`
+  }
+
+  // The frame is same-origin, so the parent can intercept link clicks and hand
+  // them to the OS browser (the sandboxed frame can't open them itself).
+  function attachLinkHandler(doc: Document): void {
+    const flagged = doc as Document & { __cloverLinks?: boolean }
+    if (flagged.__cloverLinks) return
+    flagged.__cloverLinks = true
+    doc.addEventListener('click', (event) => {
+      const target = event.target as Element | null
+      const anchor = target?.closest?.('a') as HTMLAnchorElement | null
+      if (!anchor) return
+      const href = anchor.href
+      if (/^(https?:|mailto:)/i.test(href)) {
+        event.preventDefault()
+        window.open(href, '_blank')
+      }
+    })
   }
 
   // Re-measure when the frame's width changes (e.g. the pane is resized) so the

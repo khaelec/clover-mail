@@ -199,6 +199,9 @@ export function Compose({
             await window.clover.mail.deleteDraft(accountId, draftUidRef.current).catch(() => undefined)
             draftUidRef.current = null
           }
+          // Reflect the removed draft in the Drafts folder.
+          const draftsFolder = useMail.getState().folders.find((f) => f.specialUse === 'drafts')
+          if (draftsFolder) void window.clover.mail.syncFolder(draftsFolder.id).catch(() => undefined)
           onClose()
         } catch (err) {
           setError((err as Error).message)

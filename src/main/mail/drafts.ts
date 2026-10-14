@@ -1,7 +1,8 @@
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders } from '../db/schema'
 import { withImap } from './connection'
+import { inferSpecialUse } from './specialUse'
 import type { DraftData } from '@shared/mail'
 
 function buildRaw(draft: DraftData): string {
@@ -26,11 +27,11 @@ function buildRaw(draft: DraftData): string {
 }
 
 function draftsFolder(accountId: string): typeof folders.$inferSelect | undefined {
-  return getDb()
-    .select()
-    .from(folders)
-    .where(and(eq(folders.accountId, accountId), eq(folders.specialUse, 'drafts')))
-    .get()
+  const list = getDb().select().from(folders).where(eq(folders.accountId, accountId)).all()
+  return (
+    list.find((f) => f.specialUse === 'drafts') ??
+    list.find((f) => inferSpecialUse(f.remotePath, f.name) === 'drafts')
+  )
 }
 
 /** Append (or replace) the draft in the account's Drafts folder. Returns the new UID. */

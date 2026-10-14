@@ -506,7 +506,8 @@ export function MailView(): ReactNode {
   )
   const list = searchResults ?? messages
   const isSynthetic = activeFolderId === JUNK_FOLDER_ID || activeFolderId === IMPORTANT_FOLDER_ID || activeFolderId === OUTBOX_FOLDER_ID
-  const showingThreads = threaded && !isSynthetic && !searchResults
+  const isDrafts = folders.find((f) => f.id === activeFolderId)?.specialUse === 'drafts'
+  const showingThreads = threaded && !isSynthetic && !isDrafts && !searchResults
   const visibleList = unreadOnly ? list.filter((m) => !m.isRead) : list
   const visibleThreads = unreadOnly ? threads.filter((t) => t.unreadCount > 0) : threads
 

@@ -4,6 +4,7 @@ import { folders, messages } from '../db/schema'
 import { toMessageSummary } from './mappers'
 import { countSpam, listSpam } from './spam'
 import { listThreadFlags } from './threadSettings'
+import { inferSpecialUse } from './specialUse'
 import type { FolderSummary, MessageSummary, ThreadSummary } from '@shared/mail'
 
 /** Excludes messages snoozed into the future. */
@@ -44,10 +45,18 @@ export function listFolders(accountId: string): FolderSummary[] {
 
 /** Regular folder listing — spam is routed to the synthetic Junk folder instead. */
 export function listMessages(folderId: string, limit = 150, offset = 0): MessageSummary[] {
-  return getDb()
+  const db = getDb()
+  const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
+  const role =
+    folderRow?.specialUse ??
+    (folderRow ? inferSpecialUse(folderRow.remotePath, folderRow.name) : null)
+  const conditions = [eq(messages.folderId, folderId), ne(messages.isSpam, true), notSnoozed()]
+  // A Drafts folder should only ever list drafts.
+  if (role === 'drafts') conditions.push(eq(messages.isDraft, true))
+  return db
     .select()
     .from(messages)
-    .where(and(eq(messages.folderId, folderId), ne(messages.isSpam, true), notSnoozed()))
+    .where(and(...conditions))
     .orderBy(desc(messages.dateUtc), desc(messages.uid))
     .limit(limit)
     .offset(offset)
