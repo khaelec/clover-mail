@@ -131,6 +131,16 @@ function threadSignature(t: ThreadSummary): string {
 
 let readTimer: ReturnType<typeof setTimeout> | null = null
 
+// The last sync error we showed a toast for, so a folder that keeps failing
+// doesn't pop one every few minutes.
+let lastSyncError: string | null = null
+
+function reportSyncError(message: string | undefined): void {
+  if (!message || message === lastSyncError) return
+  lastSyncError = message
+  useToasts.getState().push({ message: `Sync error: ${message}`, kind: 'error' })
+}
+
 export const useMail = create<MailState>((set, get) => {
   // Reuse the previous object for any row whose signature is unchanged. Without
   // this, every reload creates new objects for all rows and React.memo can never
@@ -237,11 +247,10 @@ export const useMail = create<MailState>((set, get) => {
           })
         } else if (event.type === 'sync:error') {
           set({ status: `Sync error: ${event.error}` })
-          if (event.error) {
-            useToasts.getState().push({ message: `Sync error: ${event.error}`, kind: 'error' })
-          }
+          reportSyncError(event.error)
         } else if (event.type === 'sync:done') {
           set({ syncing: false, status: null })
+          lastSyncError = null
           void reloadFolders()
           void reloadFolder()
         } else if (event.type === 'mail:new') {
@@ -350,7 +359,7 @@ export const useMail = create<MailState>((set, get) => {
       } catch (error) {
         const message = (error as Error).message
         set({ syncing: false, error: message, status: null })
-        useToasts.getState().push({ message: `Sync failed: ${message}`, kind: 'error' })
+        reportSyncError(message)
         return
       }
       // Clear on completion too: this call may have joined a sync that already
@@ -471,7 +480,7 @@ export const useMail = create<MailState>((set, get) => {
       if (undo.length > 0) {
         const label = action === 'archive' ? 'Archived' : action === 'trash' ? 'Moved to Trash' : 'Moved'
         useToasts.getState().push({
-          message: `${label} ${undo.length} ${undo.length === 1 ? 'conversation' : 'conversations'}`,
+          message: `${label} ${undo.length} ${undo.length === 1 ? 'message' : 'messages'}`,
           kind: 'info',
           actionLabel: 'Undo',
           onAction: () => {

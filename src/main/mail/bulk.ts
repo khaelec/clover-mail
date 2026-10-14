@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { moveMessage, setFlags } from './messages'
@@ -121,21 +121,38 @@ export async function undoMoves(
         continue
       }
 
+      let movedUids: number[] = []
       await withImap(move.accountId, async (client) => {
         await client.mailboxOpen(to.remotePath)
-        let uids: number[] = []
         if (move.uid !== null) {
-          uids = [move.uid]
+          movedUids = [move.uid]
         } else if (move.messageId) {
           const found = await client.search(
             { header: { 'message-id': move.messageId } },
             { uid: true }
           )
-          uids = Array.isArray(found) ? found : []
+          const list = Array.isArray(found) ? found : []
+          // A copy may already exist in the destination; the one we just moved is
+          // always the newest, so only undo that one.
+          movedUids = list.length ? [Math.max(...list)] : []
         }
-        if (uids.length === 0) throw new Error('message not found in destination')
-        await client.messageMove(uids, from.remotePath, { uid: true })
+        if (movedUids.length === 0) throw new Error('message not found in destination')
+        await client.messageMove(movedUids, from.remotePath, { uid: true })
       })
+
+      // The move back leaves the local copy in the destination behind (sync only
+      // ever adds new UIDs, it never notices removed ones), so drop it or the
+      // message would appear in both folders forever.
+      const ghosts = db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(and(eq(messages.folderId, move.toFolderId), inArray(messages.uid, movedUids)))
+        .all()
+      for (const ghost of ghosts) {
+        db.delete(messages).where(eq(messages.id, ghost.id)).run()
+        removeFromIndex(ghost.id)
+      }
+
       restored += 1
       folderIds.add(move.fromFolderId)
     } catch {
