@@ -8,6 +8,8 @@ const api: CloverApi = {
   getFilePath: (file) =>
     webUtils.getPathForFile(file as Parameters<typeof webUtils.getPathForFile>[0]),
   setUnread: (count) => ipcRenderer.send(IpcChannels.appSetUnread, count),
+  setTaskbarBadge: (dataUrl, text) =>
+    ipcRenderer.send(IpcChannels.appSetTaskbarBadge, dataUrl, text),
   openLicenses: () => ipcRenderer.invoke(IpcChannels.appOpenLicenses),
   onNavigate: (cb) => {
     const listener = (_e: unknown, target: string): void => cb(target)

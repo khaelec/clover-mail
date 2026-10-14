@@ -10,6 +10,7 @@ export const IpcChannels = {
   windowIsMaximized: 'window:is-maximized',
   windowMaximizedChanged: 'window:maximized-changed',
   appSetUnread: 'app:set-unread',
+  appSetTaskbarBadge: 'app:set-taskbar-badge',
   appNavigate: 'app:navigate',
   appOpenLicenses: 'app:open-licenses',
   mail: {

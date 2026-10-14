@@ -228,6 +228,7 @@ export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
   setUnread: (count: number) => void
+  setTaskbarBadge: (dataUrl: string, text: string) => void
   onNavigate: (cb: (target: string) => void) => () => void
   openLicenses: () => Promise<{ opened: boolean; path: string }>
   apps: AppsApi

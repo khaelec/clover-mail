@@ -1,4 +1,4 @@
-import { app, ipcMain, shell, type BrowserWindow } from 'electron'
+import { app, ipcMain, nativeImage, shell, type BrowserWindow } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { IpcChannels } from '@shared/channels'
@@ -51,6 +51,22 @@ export function registerIpc(
   })
   ipcMain.on(IpcChannels.windowClose, () => getWindow()?.close())
   ipcMain.on(IpcChannels.appSetUnread, (_event, count: number) => setTrayUnread(count))
+  ipcMain.on(
+    IpcChannels.appSetTaskbarBadge,
+    (_event, dataUrl: string, text: string) => {
+      const win = getWindow()
+      if (!win) return
+      if (!dataUrl) {
+        win.setOverlayIcon(null, '')
+        return
+      }
+      try {
+        win.setOverlayIcon(nativeImage.createFromDataURL(dataUrl), text)
+      } catch {
+        // ignore an invalid badge image
+      }
+    }
+  )
 
   ipcMain.handle(IpcChannels.appOpenLicenses, async () => {
     const candidates = app.isPackaged
