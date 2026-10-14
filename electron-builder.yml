@@ -54,6 +54,7 @@ flatpak:
     - --socket=pulseaudio
     - --talk-name=org.freedesktop.Notifications
     - --talk-name=org.freedesktop.secrets
+    - --talk-name=org.freedesktop.portal.Desktop
     - --filesystem=xdg-download
 nsis:
   oneClick: false

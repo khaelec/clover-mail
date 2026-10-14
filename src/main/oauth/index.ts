@@ -24,10 +24,16 @@ const GOOGLE_SECRET = 'oauth.google.clientSecret'
 const MS_ID = 'oauth.microsoft.clientId'
 const MS_SECRET = 'oauth.microsoft.clientSecret'
 
+// Built-in Google desktop client so users don't have to configure one. Desktop
+// OAuth clients are not confidential (PKCE is used); a user-supplied client ID in
+// Settings → Accounts overrides this.
+const DEFAULT_GOOGLE_CLIENT_ID = '954994178292-3s0cecbkdbokrfp01qf4kjnn57r0qfuc.apps.googleusercontent.com'
+const DEFAULT_GOOGLE_CLIENT_SECRET = ''
+
 export function getGoogleConfig(): { clientId: string; clientSecret: string } {
   return {
-    clientId: getSetting<string>(GOOGLE_ID) ?? '',
-    clientSecret: getSecret(GOOGLE_SECRET) ?? ''
+    clientId: getSetting<string>(GOOGLE_ID) || DEFAULT_GOOGLE_CLIENT_ID,
+    clientSecret: getSecret(GOOGLE_SECRET) || DEFAULT_GOOGLE_CLIENT_SECRET
   }
 }
 export function setGoogleConfig(clientId: string, clientSecret?: string): void {
@@ -79,6 +85,7 @@ async function loopbackAuth(
 
   const codePromise = new Promise<{ code?: string; error?: string }>((resolve) => {
     server.on('request', (req, res) => {
+      console.log('[oauth] callback received:', req.url)
       const url = new URL(req.url ?? '', redirectUri)
       res.writeHead(200, { 'content-type': 'text/html' })
       res.end(
@@ -95,12 +102,15 @@ async function loopbackAuth(
   })
 
   const url = buildUrl(redirectUri)
+  console.log('[oauth] listening on', redirectUri, '— opening', url)
   // Sign in through the system browser: Google blocks OAuth inside embedded
   // browsers ("this browser or app may not be secure"), which breaks the flow.
   let win: BrowserWindow | null = null
   try {
     await shell.openExternal(url)
-  } catch {
+    console.log('[oauth] opened system browser')
+  } catch (error) {
+    console.log('[oauth] shell.openExternal failed, falling back to a window:', (error as Error).message)
     win = new BrowserWindow({ width: 520, height: 720, title, autoHideMenuBar: true })
     void win.loadURL(url)
   }
@@ -109,6 +119,7 @@ async function loopbackAuth(
     setTimeout(() => resolve({ error: 'Timed out waiting for sign-in. Please try again.' }), 5 * 60_000)
   )
   const result = await Promise.race([codePromise, timeout])
+  console.log('[oauth] result:', JSON.stringify(result))
   win?.close()
   server.close()
   return { ...result, redirectUri }
@@ -116,6 +127,7 @@ async function loopbackAuth(
 
 export async function startGoogleOAuth(): Promise<AccountSummary> {
   const cfg = getGoogleConfig()
+  console.log('[oauth] startGoogleOAuth clientId set:', Boolean(cfg.clientId), 'secret set:', Boolean(cfg.clientSecret))
   if (!cfg.clientId) throw new Error('Google OAuth client ID is not configured (Settings → Accounts).')
 
   const verifier = base64url(randomBytes(32))
