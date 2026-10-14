@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useFocusTrap } from '../lib/useFocusTrap'
 
 /** Small in-app prompt — Electron disables window.prompt, so we use this instead. */
 export function LinkDialog({
@@ -11,6 +12,8 @@ export function LinkDialog({
   onSubmit: (url: string) => void
 }): ReactNode {
   const [url, setUrl] = useState('')
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, onCancel, open)
 
   useEffect(() => {
     if (open) setUrl('')
@@ -20,6 +23,10 @@ export function LinkDialog({
 
   return (
     <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Insert link"
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
       onMouseDown={onCancel}
     >

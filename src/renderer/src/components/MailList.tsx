@@ -37,7 +37,10 @@ export const ListHeader = memo(function ListHeader({
   count: number
 }): ReactNode {
   return (
-    <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-line bg-surface/95 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted backdrop-blur">
+    <div
+      role="presentation"
+      className="sticky top-0 z-10 flex items-center gap-2 border-b border-line bg-surface/95 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted backdrop-blur"
+    >
       {label}
       <span className="rounded-full bg-canvas/70 px-1.5 text-[10px] font-normal text-muted ring-1 ring-line">
         {count}
@@ -69,6 +72,7 @@ export const ThreadRow = memo(function ThreadRow({
   const latest = t.messages[t.messages.length - 1]
   return (
     <div
+      role="presentation"
       className={
         'border-b border-line/70 ' +
         (t.isImportant ? 'border-l-2 border-l-accent' : 'border-l-2 border-l-transparent')
@@ -76,6 +80,8 @@ export const ThreadRow = memo(function ThreadRow({
       style={ROW_STYLE}
     >
       <div
+        role="option"
+        aria-selected={activeChildId !== null}
         onClick={() => latest && onSelect(latest.id)}
         onContextMenu={(e) => {
           e.preventDefault()
@@ -133,6 +139,8 @@ export const ThreadRow = memo(function ThreadRow({
           <button
             type="button"
             title={isExpanded ? 'Collapse conversation' : 'Expand conversation'}
+            aria-label={isExpanded ? 'Collapse conversation' : 'Expand conversation'}
+            aria-expanded={isExpanded}
             onClick={(e) => {
               e.stopPropagation()
               onToggleExpand(t.threadId)
@@ -149,6 +157,8 @@ export const ThreadRow = memo(function ThreadRow({
           {[...t.messages].reverse().map((m) => (
             <div
               key={m.id}
+              role="option"
+              aria-selected={m.id === activeChildId}
               onClick={() => onSelect(m.id)}
               onContextMenu={(e) => onMessageContextMenu(e, m)}
               className={
@@ -197,6 +207,8 @@ export const MessageRow = memo(function MessageRow({
   if (__CLOVER_BENCH__) benchBump('messageRow')
   return (
     <div
+      role="option"
+      aria-selected={isActive}
       onClick={() => onSelect(m.id)}
       onContextMenu={(e) => onContextMenu(e, m)}
       data-row-key={m.id}
@@ -211,6 +223,7 @@ export const MessageRow = memo(function MessageRow({
     >
       <input
         type="checkbox"
+        aria-label={`Select message from ${m.fromName || m.fromEmail || 'sender'}`}
         checked={isSelected}
         onClick={(e) => e.stopPropagation()}
         onChange={() => onToggleSelect(m.id)}
@@ -230,6 +243,8 @@ export const MessageRow = memo(function MessageRow({
             <button
               type="button"
               title="Mark important"
+              aria-label={m.isImportant ? 'Remove important' : 'Mark important'}
+              aria-pressed={m.isImportant}
               onClick={(e) => {
                 e.stopPropagation()
                 onToggleImportant(m)
@@ -243,6 +258,8 @@ export const MessageRow = memo(function MessageRow({
             <button
               type="button"
               title="Star"
+              aria-label={m.isFlagged ? 'Unstar' : 'Star'}
+              aria-pressed={m.isFlagged}
               onClick={(e) => {
                 e.stopPropagation()
                 onToggleFlag(m)
@@ -286,6 +303,7 @@ export const SyncButton = memo(function SyncButton({ onSync }: { onSync: () => v
     <button
       type="button"
       title="Sync now"
+      aria-label="Sync now"
       onClick={onSync}
       className="grid h-7 w-7 place-items-center rounded-md text-muted hover:text-accent"
     >

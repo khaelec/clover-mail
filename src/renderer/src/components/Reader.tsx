@@ -1,5 +1,6 @@
 import DOMPurify from 'dompurify'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useFocusTrap } from '../lib/useFocusTrap'
 import { SETTINGS_KEYS } from '@shared/theme'
 import { mediaUrl } from '@shared/wallpaper'
 import { useTheme } from '../theme/theme'
@@ -336,6 +337,9 @@ export function Reader({
     url?: string
     text?: string
   } | null>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
+  const closePreview = useCallback(() => setPreview(null), [])
+  useFocusTrap(previewRef, closePreview)
 
   async function previewAttachment(att: {
     id: string
@@ -531,6 +535,8 @@ export function Reader({
           <button
             type="button"
             title="Flag"
+            aria-label={detail.isFlagged ? 'Unflag' : 'Flag'}
+            aria-pressed={detail.isFlagged}
             onClick={() => void toggleFlag(detail)}
             className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted hover:text-amber-400"
           >
@@ -539,6 +545,8 @@ export function Reader({
           <button
             type="button"
             title="Mark important"
+            aria-label={detail.isImportant ? 'Remove important' : 'Mark important'}
+            aria-pressed={detail.isImportant}
             onClick={() => void toggleImportant(detail)}
             className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted hover:text-accent"
           >
@@ -547,6 +555,7 @@ export function Reader({
           <button
             type="button"
             title="Delete"
+            aria-label="Delete message"
             onClick={() => void remove(detail.id)}
             className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted hover:text-rose-500"
           >
@@ -556,6 +565,8 @@ export function Reader({
             <button
               type="button"
               title="AI actions"
+              aria-label="AI actions"
+              aria-expanded={aiOpen}
               onClick={() => setAiOpen((v) => !v)}
               className={
                 'grid h-8 w-8 place-items-center rounded-lg border border-line ' +
@@ -751,6 +762,7 @@ export function Reader({
                         <button
                           type="button"
                           title="Save as…"
+                          aria-label="Save attachment"
                           onClick={() => void window.clover.mail.downloadAttachment(att.id)}
                           className="grid h-7 w-7 place-items-center rounded-lg border border-line text-muted hover:text-accent"
                         >
@@ -949,7 +961,13 @@ export function Reader({
         </>
       )}
       {preview && (
-        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
+        <div
+          ref={previewRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Attachment preview: ${preview.name}`}
+          className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm"
+        >
           <div className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
             <header className="flex items-center gap-2 border-b border-line px-4 py-2.5">
               <span className="truncate text-[13px] font-medium text-ink">{preview.name}</span>

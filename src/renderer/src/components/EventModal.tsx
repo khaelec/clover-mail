@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useCalendar } from '../state/calendar'
+import { useFocusTrap } from '../lib/useFocusTrap'
 import type { Calendar, EventInput } from '@shared/calendar'
 import { IconClose, IconTrash } from './icons'
 
@@ -44,6 +45,8 @@ export function EventModal({
   const [start, setStart] = useState(toLocalInput(draft.startUtc))
   const [end, setEnd] = useState(toLocalInput(draft.endUtc))
   const [isAllDay, setIsAllDay] = useState(draft.isAllDay)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, onClose)
 
   async function save(): Promise<void> {
     const input: EventInput = {
@@ -69,7 +72,13 @@ export function EventModal({
     'w-full rounded-lg border border-line bg-canvas/60 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent'
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={draft.id ? 'Edit event' : 'New event'}
+      className="absolute inset-0 z-40 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
+    >
       <div className="animate-fade-in w-full max-w-md overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
         <header className="flex items-center justify-between border-b border-line px-5 py-3">
           <h2 className="text-[14px] font-semibold text-ink">{draft.id ? 'Edit event' : 'New event'}</h2>

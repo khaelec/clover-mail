@@ -802,6 +802,8 @@ export function MailView(): ReactNode {
             <button
               type="button"
               title={showHidden ? 'Hide hidden folders' : 'Show hidden folders'}
+              aria-label={showHidden ? 'Hide hidden folders' : 'Show hidden folders'}
+              aria-pressed={showHidden}
               onClick={() => setShowHidden(!showHidden)}
               className={showHidden ? 'text-accent' : 'text-muted hover:text-accent'}
             >
@@ -810,6 +812,7 @@ export function MailView(): ReactNode {
             <button
               type="button"
               title="New folder"
+              aria-label="New folder"
               onClick={() => setShowNewFolder((v) => !v)}
               className="text-muted hover:text-accent"
             >
@@ -976,6 +979,7 @@ export function MailView(): ReactNode {
             <button
               type="button"
               title="New label"
+              aria-label="New label"
               onClick={() => setShowNewLabel((v) => !v)}
               className="text-muted hover:text-accent"
             >
@@ -1102,6 +1106,7 @@ export function MailView(): ReactNode {
           <IconSearch className="h-4 w-4 text-muted" />
           <input
             ref={searchRef}
+            aria-label="Search mail"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search (try from:, is:unread, has:attachment)"
@@ -1110,6 +1115,8 @@ export function MailView(): ReactNode {
           <button
             type="button"
             title={threaded ? 'Group by conversation' : 'Show individual messages'}
+            aria-label={threaded ? 'Group by conversation' : 'Show individual messages'}
+            aria-pressed={threaded}
             onClick={() => void setThreaded(!threaded)}
             className={
               'grid h-7 w-7 place-items-center rounded-md ' +
@@ -1121,6 +1128,8 @@ export function MailView(): ReactNode {
           <button
             type="button"
             title="Unread only"
+            aria-label="Unread only"
+            aria-pressed={unreadOnly}
             onClick={() => setUnreadOnly(!unreadOnly)}
             className={
               'grid h-7 w-7 place-items-center rounded-md ' +
@@ -1132,6 +1141,8 @@ export function MailView(): ReactNode {
           <button
             type="button"
             title="Toggle folder pane"
+            aria-label="Toggle folder pane"
+            aria-pressed={layout.showFolders}
             onClick={() => {
               setLayout({ showFolders: !layout.showFolders })
               void saveLayout()
@@ -1146,6 +1157,8 @@ export function MailView(): ReactNode {
           <button
             type="button"
             title="Open app beside the reader"
+            aria-label="Open app beside the reader"
+            aria-pressed={layout.dockOpen}
             onClick={() => {
               setLayout({ dockOpen: !layout.dockOpen })
               void saveLayout()
@@ -1160,6 +1173,7 @@ export function MailView(): ReactNode {
           <button
             type="button"
             title="Rules & workflow"
+            aria-label="Rules and workflow"
             onClick={() => setShowRules(true)}
             className="grid h-7 w-7 place-items-center rounded-md text-muted hover:text-accent"
           >
@@ -1223,7 +1237,14 @@ export function MailView(): ReactNode {
           </div>
         ) : null}
 
-        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div
+          ref={listRef}
+          role="listbox"
+          aria-label="Messages"
+          aria-multiselectable
+          tabIndex={0}
+          className="min-h-0 flex-1 overflow-y-auto outline-none"
+        >
           <BenchProfiler>
           {showingThreads &&
             (visibleThreads.length === 0 ? (

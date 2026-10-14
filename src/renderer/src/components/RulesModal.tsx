@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useMail } from '../state/mail'
+import { useFocusTrap } from '../lib/useFocusTrap'
 import type { Rule, RuleActionInput, RuleActionType, RuleConditionInput, RuleField, RuleOp } from '@shared/mail'
 import { IconClose, IconPlus, IconRefresh, IconTrash } from './icons'
 
@@ -52,6 +53,8 @@ export function RulesModal({ onClose }: { onClose: () => void }): ReactNode {
   const [conditions, setConditions] = useState<RuleConditionInput[]>([{ field: 'from', op: 'contains', value: '' }])
   const [actions, setActions] = useState<RuleActionInput[]>([{ action: 'move', value: undefined }])
   const [message, setMessage] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, onClose)
 
   useEffect(() => {
     void loadRules()
@@ -83,7 +86,13 @@ export function RulesModal({ onClose }: { onClose: () => void }): ReactNode {
   }
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Rules and workflow"
+      className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
+    >
       <div className="animate-fade-in flex max-h-[84vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
         <header className="flex items-center justify-between border-b border-line px-5 py-3">
           <div>
