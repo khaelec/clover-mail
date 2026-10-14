@@ -1228,7 +1228,9 @@ export function MailView(): ReactNode {
             <IconRefresh className={syncing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
           </button>
         </div>
-        {status && <div className="border-b border-line px-3.5 py-1 text-[11px] text-muted">{status}</div>}
+        {status && /error/i.test(status) && (
+          <div className="border-b border-line px-3.5 py-1 text-[11px] text-rose-500">{status}</div>
+        )}
         {error && <div className="border-b border-line px-3.5 py-1 text-[11px] text-rose-500">{error}</div>}
 
         {selectedIds.length > 0 ? (
@@ -1594,6 +1596,32 @@ export function MailView(): ReactNode {
               }}
             >
               Mark thread read
+            </MenuItem>
+            <MenuDivider />
+            <MenuItem
+              onClick={() => {
+                void bulkIds(
+                  threadMenu.thread.messages.map((x) => x.id),
+                  'archive'
+                )
+                setThreadMenu(null)
+              }}
+            >
+              Archive thread
+            </MenuItem>
+            <MenuItem
+              danger
+              onClick={() => {
+                if (window.confirm('Move this whole conversation to Trash?')) {
+                  void bulkIds(
+                    threadMenu.thread.messages.map((x) => x.id),
+                    'trash'
+                  )
+                }
+                setThreadMenu(null)
+              }}
+            >
+              Delete thread
             </MenuItem>
           </div>
         </>
