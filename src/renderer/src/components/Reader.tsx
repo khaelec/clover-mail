@@ -389,6 +389,8 @@ export function Reader({
     const next = Array.from(new Set([...trusted, target]))
     setTrusted(next)
     await window.clover.settings.set(SETTINGS_KEYS.trustedSenders, next)
+    // Re-evaluate so the "Suspicious message" banner clears.
+    await useMail.getState().refreshDetail()
   }
 
   function askCopilot(prompt: string): void {

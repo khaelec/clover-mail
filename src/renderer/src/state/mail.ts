@@ -30,6 +30,7 @@ interface MailState {
   detail: MessageDetail | null
   conversation: MessageDetail[]
   loadMessageBody: (id: string) => Promise<void>
+  refreshDetail: () => Promise<void>
   loadingMessages: boolean
   syncing: boolean
   status: string | null
@@ -566,6 +567,16 @@ export const useMail = create<MailState>((set, get) => {
       const detail = await window.clover.mail.getMessage(id)
       if (!detail) return
       set({ conversation: get().conversation.map((m) => (m.id === id ? detail : m)) })
+    },
+
+    refreshDetail: async () => {
+      const id = get().selectedMessageId
+      if (!id) return
+      const [detail, conversation] = await Promise.all([
+        window.clover.mail.getMessage(id),
+        window.clover.mail.getConversation(id)
+      ])
+      set({ detail, conversation: conversation.length ? conversation : detail ? [detail] : [] })
     },
 
     retryOutbox: async (id) => {
