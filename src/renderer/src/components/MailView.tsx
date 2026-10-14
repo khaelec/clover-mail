@@ -31,6 +31,8 @@ import {
 import { ListHeader, MessageRow, SyncButton, SyncStatus, ThreadRow, formatListDate } from './MailList'
 import { BenchProfiler } from '../bench'
 import { useToasts } from '../state/toasts'
+import { resolveShortcut } from '../lib/shortcuts'
+import { ShortcutHelp } from './ShortcutHelp'
 
 function folderIcon(folder: FolderSummary): ReactNode {
   if (folder.specialUse === 'trash') return <IconTrash className="h-4 w-4" />
@@ -343,6 +345,7 @@ export function MailView(): ReactNode {
 
   const [showAdd, setShowAdd] = useState(false)
   const [showRules, setShowRules] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [folderName, setFolderName] = useState('')
   const bulkIds = useMail((s) => s.bulkIds)
@@ -467,59 +470,88 @@ export function MailView(): ReactNode {
     if (el instanceof HTMLElement) el.scrollIntoView({ block: 'nearest' })
   }
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      const target = e.target as HTMLElement | null
-      const typing =
-        !!target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
-        e.preventDefault()
-        searchRef.current?.focus()
-        searchRef.current?.select()
-        return
+  // Kept in a ref so the window listener is bound once but always sees the latest
+  // state and callbacks.
+  const shortcutRef = useRef<(e: KeyboardEvent) => void>(() => undefined)
+  shortcutRef.current = (e: KeyboardEvent): void => {
+    const target = e.target as HTMLElement | null
+    const typing =
+      !!target &&
+      (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+      e.preventDefault()
+      searchRef.current?.focus()
+      searchRef.current?.select()
+      return
+    }
+    if (typing) return
+    const id = resolveShortcut(e)
+    if (!id) return
+    const store = useMail.getState()
+
+    if (id === 'next' || id === 'prev') {
+      // Walk the same rows the list shows (threads or messages), so j/k works in
+      // both views and scrolls the newly selected row into sight.
+      const isSynthetic = [JUNK_FOLDER_ID, IMPORTANT_FOLDER_ID, OUTBOX_FOLDER_ID].includes(
+        store.activeFolderId ?? ''
+      )
+      const isDrafts = store.folders.find((f) => f.id === store.activeFolderId)?.specialUse === 'drafts'
+      const threadsView = store.threaded && !isSynthetic && !isDrafts && !store.searchResults
+      const ids = threadsView
+        ? store.threads
+            .filter((t) => !store.unreadOnly || t.unreadCount > 0)
+            .map((t) => t.messages[t.messages.length - 1]?.id)
+            .filter((x): x is string => !!x)
+        : (store.searchResults ?? store.messages)
+            .filter((m) => !store.unreadOnly || !m.isRead)
+            .map((m) => m.id)
+      if (ids.length === 0) return
+      const idx = ids.indexOf(store.selectedMessageId ?? '')
+      const next = id === 'next' ? Math.min(ids.length - 1, idx + 1) : Math.max(0, idx - 1)
+      const targetId = ids[next]
+      if (targetId) {
+        void store.selectMessage(targetId)
+        requestAnimationFrame(() => scrollRowIntoView(targetId))
       }
-      if (typing || e.ctrlKey || e.metaKey || e.altKey) return
-      const store = useMail.getState()
-      if (e.key === 'c') {
-        e.preventDefault()
-        setComposeState({ open: true })
-      } else if (e.key === '/') {
-        e.preventDefault()
-        searchRef.current?.focus()
-      } else if (e.key === 'j' || e.key === 'k') {
-        // Walk the same rows the list shows (threads or messages), so j/k works
-        // in both views and scrolls the newly selected row into sight.
-        const isSynthetic = [JUNK_FOLDER_ID, IMPORTANT_FOLDER_ID, OUTBOX_FOLDER_ID].includes(
-          store.activeFolderId ?? ''
-        )
-        const isDrafts = store.folders.find((f) => f.id === store.activeFolderId)?.specialUse === 'drafts'
-        const threadsView = store.threaded && !isSynthetic && !isDrafts && !store.searchResults
-        const ids = threadsView
-          ? store.threads
-              .filter((t) => !store.unreadOnly || t.unreadCount > 0)
-              .map((t) => t.messages[t.messages.length - 1]?.id)
-              .filter((id): id is string => !!id)
-          : (store.searchResults ?? store.messages)
-              .filter((m) => !store.unreadOnly || !m.isRead)
-              .map((m) => m.id)
-        if (ids.length === 0) return
-        const idx = ids.indexOf(store.selectedMessageId ?? '')
-        const next = e.key === 'j' ? Math.min(ids.length - 1, idx + 1) : Math.max(0, idx - 1)
-        const id = ids[next]
-        if (id) {
-          void store.selectMessage(id)
-          requestAnimationFrame(() => scrollRowIntoView(id))
-        }
-      } else if (e.key === 'r') {
-        if (store.detail) openReply()
-      } else if (e.key === 'a') {
-        if (store.detail) void store.bulkIds([store.detail.id], 'archive')
+    } else if (id === 'search') {
+      e.preventDefault()
+      searchRef.current?.focus()
+    } else if (id === 'compose') {
+      e.preventDefault()
+      setComposeState({ open: true })
+    } else if (id === 'help') {
+      e.preventDefault()
+      setShowHelp(true)
+    } else if (id === 'reply') {
+      if (store.detail) openReply()
+    } else if (id === 'replyAll') {
+      if (store.detail) openReplyAll()
+    } else if (id === 'forward') {
+      if (store.detail) void openForward()
+    } else if (id === 'archive') {
+      if (store.detail) void store.bulkIds([store.detail.id], 'archive')
+    } else if (id === 'delete') {
+      if (store.detail) void store.bulkIds([store.detail.id], 'trash')
+    } else if (id === 'star') {
+      if (store.detail) void store.toggleFlag(store.detail)
+    } else if (id === 'unread') {
+      if (store.detail && store.detail.isRead) void store.toggleRead(store.detail)
+    } else if (id === 'escape') {
+      if (showHelp) {
+        setShowHelp(false)
+      } else if (composeState.open) {
+        setComposeState({ open: false })
+      } else if (!menu && !folderMenu && !threadMenu && !confirm && !prompt && store.detail) {
+        // Menus/prompts close themselves on Escape; only clear the reader.
+        useMail.setState({ selectedMessageId: null, detail: null, conversation: [] })
       }
     }
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => shortcutRef.current(e)
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const activeAccount = useMemo(
@@ -1303,6 +1335,7 @@ export function MailView(): ReactNode {
       )}
       {showAdd && <AccountSetup onClose={() => setShowAdd(false)} />}
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+      {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
 
       {menu && (
         <>
