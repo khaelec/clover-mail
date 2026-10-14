@@ -278,7 +278,31 @@ async function syncOneMailbox(
   }
 }
 
+// Accounts currently syncing. Focus events, the interval timer and manual
+// triggers can all fire at once; without this guard each would open its own IMAP
+// connection (risking server connection limits and racing inserts) and POP3 would
+// download the same mail twice.
+const inFlight = new Set<string>()
+
+export function isAccountSyncing(accountId: string): boolean {
+  return inFlight.has(accountId)
+}
+
 export async function syncAccount(accountId: string, emit: Emit): Promise<SyncResult> {
+  if (inFlight.has(accountId)) {
+    // A sync for this account is already running — skip this trigger rather than
+    // run two at once.
+    return { folders: 0, fetched: 0 }
+  }
+  inFlight.add(accountId)
+  try {
+    return await runSyncAccount(accountId, emit)
+  } finally {
+    inFlight.delete(accountId)
+  }
+}
+
+async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult> {
   const protocol = protocolFor(accountId)
   if (protocol === 'local') {
     emit({ type: 'sync:done', accountId, fetched: 0 })

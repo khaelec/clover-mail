@@ -23,6 +23,7 @@ import { syncAllCaldav } from '@main/calendar/caldav'
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
 let syncAllAccounts = (): void => undefined
+let lastFocusSync = 0
 
 // Launching the app again (e.g. from the desktop icon) should focus the running
 // window instead of starting a second instance that fights over the database.
@@ -138,8 +139,15 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => mainWindow?.show())
-  // Refresh mail whenever the window is focused, so the view is current.
-  mainWindow.on('focus', () => syncAllAccounts())
+  // Refresh mail whenever the window is focused, so the view is current — but not
+  // more than once every 30s, so switching between windows doesn't stack full
+  // syncs on top of the 3-minute timer.
+  mainWindow.on('focus', () => {
+    const now = Date.now()
+    if (now - lastFocusSync < 30_000) return
+    lastFocusSync = now
+    syncAllAccounts()
+  })
   mainWindow.on('maximize', () =>
     mainWindow?.webContents.send(IpcChannels.windowMaximizedChanged, true)
   )
