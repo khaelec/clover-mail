@@ -28,6 +28,9 @@ linux:
   description: Clover Mail — a fast, good-looking email client with live wallpapers, custom apps, calendar/ICS, and an AI copilot.
   maintainer: CLOVERFIELD FARMS IT SERVICES <itservices@cloverfieldfarms.com>
   artifactName: CloverMail-${version}-${arch}.${ext}
+  # Match the .desktop filename + StartupWMClass to Electron's app_id (from
+  # desktopName) so desktop environments link the window to its icon.
+  syncDesktopName: true
   target:
     - target: AppImage
       arch:

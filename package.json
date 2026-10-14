@@ -5,6 +5,7 @@
   "author": "CLOVERFIELD FARMS IT SERVICES",
   "license": "MIT",
   "private": true,
+  "desktopName": "com.clovermail.app",
   "repository": {
     "type": "git",
     "url": "https://github.com/khaelec/clover-mail.git"
