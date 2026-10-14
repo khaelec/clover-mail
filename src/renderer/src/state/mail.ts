@@ -214,7 +214,10 @@ export const useMail = create<MailState>((set, get) => {
           useNotifications.getState().add({
             kind: 'mail',
             title: event.title ? `New mail from ${event.title}` : 'New mail',
-            body: event.body ?? ''
+            body: event.body ?? '',
+            accountId: event.accountId,
+            messageId: event.messageId,
+            threadId: event.threadId
           })
           void reloadFolders()
           void reloadFolder()
@@ -271,6 +274,13 @@ export const useMail = create<MailState>((set, get) => {
         window.clover.mail.getConversation(id)
       ])
       set({ detail, conversation: conversation.length ? conversation : detail ? [detail] : [] })
+
+      // Opening a conversation clears its bell notification(s) right away.
+      if (detail) {
+        const notifications = useNotifications.getState()
+        notifications.markMessageRead(detail.id)
+        if (detail.threadId) notifications.markThreadRead(detail.threadId)
+      }
 
       // Mark read shortly after opening (like most clients), if still viewing it.
       if (detail && !detail.isRead) {

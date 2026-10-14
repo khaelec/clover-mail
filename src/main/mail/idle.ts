@@ -104,6 +104,8 @@ async function onNewMail(handle: Handle, emit: Emit): Promise<void> {
   emit({
     type: 'mail:new',
     accountId: handle.accountId,
+    messageId: newest.id,
+    threadId: newest.threadId ?? undefined,
     title: newest.fromName || newest.fromEmail || 'New mail',
     body: newest.subject ?? ''
   })

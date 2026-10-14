@@ -225,6 +225,8 @@ export interface MailEvent {
   error?: string
   title?: string
   body?: string
+  messageId?: string
+  threadId?: string
 }
 
 export interface CreateFolderInput {

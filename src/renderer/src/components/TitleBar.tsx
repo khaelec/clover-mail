@@ -7,7 +7,7 @@ import {
   IconMinimize,
   IconRestore
 } from './icons'
-import { useNotifications } from '../state/notifications'
+import { useNotifications, type AppNotification } from '../state/notifications'
 
 function WindowButton({
   onClick,
@@ -50,7 +50,7 @@ export function TitleBar(): ReactNode {
   const [maximized, setMaximized] = useState(false)
   const [open, setOpen] = useState(false)
   const items = useNotifications((s) => s.items)
-  const markAllRead = useNotifications((s) => s.markAllRead)
+  const markRead = useNotifications((s) => s.markRead)
   const clear = useNotifications((s) => s.clear)
   const unread = items.filter((i) => !i.read).length
 
@@ -60,9 +60,21 @@ export function TitleBar(): ReactNode {
   }, [])
 
   function toggle(): void {
-    const next = !open
-    setOpen(next)
-    if (next) markAllRead()
+    setOpen((v) => !v)
+  }
+
+  // Clicking a mail notification opens that conversation and marks the item read
+  // (reading the message also clears it, via the mail store).
+  function openItem(n: AppNotification): void {
+    markRead(n.id)
+    setOpen(false)
+    if (n.messageId && n.accountId) {
+      window.dispatchEvent(
+        new CustomEvent('clover:open-message', {
+          detail: { accountId: n.accountId, messageId: n.messageId }
+        })
+      )
+    }
   }
 
   return (
@@ -110,31 +122,46 @@ export function TitleBar(): ReactNode {
                       No notifications yet.
                     </div>
                   ) : (
-                    items.map((n) => (
-                      <div key={n.id} className="border-b border-line/60 px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={
-                              'shrink-0 rounded px-1 text-[9px] font-semibold ' +
-                              (n.kind === 'mail'
-                                ? 'bg-accent/15 text-accent'
-                                : n.kind === 'update'
-                                  ? 'bg-amber-500/15 text-amber-600'
-                                  : 'bg-canvas/70 text-muted ring-1 ring-line')
-                            }
-                          >
-                            {n.kind === 'mail' ? 'MAIL' : n.kind === 'update' ? 'UPDATE' : 'APP'}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">
-                            {n.title}
-                          </span>
-                          <span className="shrink-0 text-[10px] text-muted">{timeAgo(n.at)}</span>
-                        </div>
-                        {n.body && (
-                          <div className="mt-0.5 line-clamp-2 text-[11.5px] text-muted">{n.body}</div>
-                        )}
-                      </div>
-                    ))
+                    items.map((n) => {
+                      const clickable = !!n.messageId
+                      return (
+                        <button
+                          key={n.id}
+                          type="button"
+                          onClick={() => openItem(n)}
+                          className={
+                            'block w-full border-b border-line/60 px-3 py-2 text-left transition-colors ' +
+                            (clickable ? 'hover:bg-black/5 dark:hover:bg-white/10' : 'cursor-default') +
+                            (!n.read ? ' bg-accent/[0.06]' : '')
+                          }
+                        >
+                          <div className="flex items-center gap-2">
+                            {!n.read && (
+                              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                            )}
+                            <span
+                              className={
+                                'shrink-0 rounded px-1 text-[9px] font-semibold ' +
+                                (n.kind === 'mail'
+                                  ? 'bg-accent/15 text-accent'
+                                  : n.kind === 'update'
+                                    ? 'bg-amber-500/15 text-amber-600'
+                                    : 'bg-canvas/70 text-muted ring-1 ring-line')
+                              }
+                            >
+                              {n.kind === 'mail' ? 'MAIL' : n.kind === 'update' ? 'UPDATE' : 'APP'}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">
+                              {n.title}
+                            </span>
+                            <span className="shrink-0 text-[10px] text-muted">{timeAgo(n.at)}</span>
+                          </div>
+                          {n.body && (
+                            <div className="mt-0.5 line-clamp-2 text-[11.5px] text-muted">{n.body}</div>
+                          )}
+                        </button>
+                      )
+                    })
                   )}
                 </div>
               </div>

@@ -78,6 +78,24 @@ export function App(): ReactNode {
     return () => window.removeEventListener('clover:open-calendar', handler)
   }, [])
 
+  // Opening a notification jumps to Mail and focuses the message it refers to.
+  useEffect(() => {
+    const handler = (event: Event): void => {
+      const detail = (event as CustomEvent<{ accountId?: string; messageId?: string }>).detail
+      if (!detail?.messageId) return
+      setSection('mail')
+      void (async () => {
+        const mail = useMail.getState()
+        if (detail.accountId && mail.activeAccountId !== detail.accountId) {
+          await mail.selectAccount(detail.accountId)
+        }
+        await mail.selectMessage(detail.messageId as string)
+      })()
+    }
+    window.addEventListener('clover:open-message', handler)
+    return () => window.removeEventListener('clover:open-message', handler)
+  }, [])
+
   useEffect(() => {
     return window.clover.onNavigate((target) => {
       if (target === 'calendar' || target === 'mail' || target === 'copilot' || target === 'apps') {
