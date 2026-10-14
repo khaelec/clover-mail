@@ -224,7 +224,7 @@ function AppDock(): ReactNode {
           >
             <option value="__copilot__">Copilot</option>
             {apps.length === 0 && !isCopilot && (
-              <option value="">No apps â€” add one in the Apps tab</option>
+              <option value="">No apps — add one in the Apps tab</option>
             )}
             {apps.map((a) => (
               <option key={a.id} value={a.id}>
@@ -590,7 +590,7 @@ export function MailView(): ReactNode {
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
 
   // Stable callbacks so memoized rows skip re-rendering when unrelated state
-  // (selection, sync status, â€¦) changes.
+  // (selection, sync status, …) changes.
   const handleSelectMessage = useCallback((messageId: string): void => {
     void useMail.getState().selectMessage(messageId)
   }, [])
@@ -1221,7 +1221,7 @@ export function MailView(): ReactNode {
               defaultValue=""
               className="rounded-md border border-line bg-canvas/60 px-2 py-1 text-[12px] text-ink outline-none"
             >
-              <option value="">Move toâ€¦</option>
+              <option value="">Move to…</option>
               {folders.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.name}
@@ -1265,7 +1265,7 @@ export function MailView(): ReactNode {
           {searchQuery && selectedIds.length === 0 ? (
           <div className="flex items-center gap-2 border-b border-line bg-accent/8 px-3 py-1.5 text-[12px] text-accent">
             <span>
-              {searchResults ? searchResults.length : 0} result{(searchResults?.length ?? 0) === 1 ? '' : 's'} for â€œ{searchQuery}â€
+              {searchResults ? searchResults.length : 0} result{(searchResults?.length ?? 0) === 1 ? '' : 's'} for “{searchQuery}”
             </span>
             <button type="button" onClick={clearSearch} className="ml-auto text-muted hover:text-ink">
               Clear
@@ -1316,7 +1316,7 @@ export function MailView(): ReactNode {
                       {item.sendAt > Date.now()
                         ? `Scheduled for ${formatListDate(item.sendAt)}`
                         : `Queued ${formatListDate(item.createdAt)}`}
-                      {item.attempts > 0 ? ` Â· ${item.attempts} attempt${item.attempts > 1 ? 's' : ''}` : ''}
+                      {item.attempts > 0 ? ` · ${item.attempts} attempt${item.attempts > 1 ? 's' : ''}` : ''}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
@@ -1450,14 +1450,14 @@ export function MailView(): ReactNode {
                 >
                   Forward
                 </MenuItem>
-                <MenuItem onClick={() => setMenu({ ...menu, mode: 'move' })}>Move to folder â€º</MenuItem>
+                <MenuItem onClick={() => setMenu({ ...menu, mode: 'move' })}>Move to folder ›</MenuItem>
                 <MenuItem
                   onClick={() => {
                     void window.clover.mail.labelsForMessage(menu.message.id).then(setMenuLabelIds)
                     setMenu({ ...menu, mode: 'label' })
                   }}
                 >
-                  Labels â€º
+                  Labels ›
                 </MenuItem>
                 <MenuItem danger onClick={menuDelete}>
                   Delete
@@ -1465,7 +1465,7 @@ export function MailView(): ReactNode {
               </>
             ) : menu.mode === 'move' ? (
               <>
-                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>â€¹ Back</MenuItem>
+                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>‹ Back</MenuItem>
                 <MenuDivider />
                 <div className="max-h-64 overflow-y-auto">
                   {folders.map((folder) => (
@@ -1477,7 +1477,7 @@ export function MailView(): ReactNode {
               </>
             ) : (
               <>
-                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>â€¹ Back</MenuItem>
+                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>‹ Back</MenuItem>
                 <MenuDivider />
                 <div className="max-h-64 overflow-y-auto">
                   {labels.length === 0 && (
@@ -1510,7 +1510,7 @@ export function MailView(): ReactNode {
                             style={{ background: label.color }}
                           />
                           <span className="flex-1">{label.name}</span>
-                          {on && <span className="text-accent">âœ“</span>}
+                          {on && <span className="text-accent">✓</span>}
                         </span>
                       </MenuItem>
                     )
@@ -1643,7 +1643,7 @@ export function MailView(): ReactNode {
                     if (folder) void exportMbox(folder.id)
                   }}
                 >
-                  Export to mboxâ€¦
+                  Export to mbox…
                 </MenuItem>
                 <MenuItem
                   onClick={() => {
@@ -1666,7 +1666,7 @@ export function MailView(): ReactNode {
                     })
                   }}
                 >
-                  New folderâ€¦
+                  New folder…
                 </MenuItem>
                 <MenuItem
                   onClick={() => {
@@ -1683,7 +1683,7 @@ export function MailView(): ReactNode {
                     }
                   }}
                 >
-                  Renameâ€¦
+                  Rename…
                 </MenuItem>
                 {folderMenu.folder?.specialUse !== 'trash' && folderMenu.folder?.specialUse !== 'inbox' && (
                   <MenuItem
@@ -1692,7 +1692,7 @@ export function MailView(): ReactNode {
                       const folder = folderMenu.folder
                       setFolderMenu(null)
                       if (folder) {
-                        ask('Delete folder', `Delete the folder â€œ${folder.name}â€?`, () =>
+                        ask('Delete folder', `Delete the folder “${folder.name}”?`, () =>
                           void deleteFolder(folder.id)
                         )
                       }
