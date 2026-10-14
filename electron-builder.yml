@@ -21,6 +21,20 @@ win:
     - target: nsis
       arch:
         - x64
+linux:
+  icon: build/icon.png
+  category: Network
+  synopsis: Fast, good-looking email client
+  description: Clover Mail — a fast, good-looking email client with live wallpapers, custom apps, calendar/ICS, and an AI copilot.
+  maintainer: CLOVERFIELD FARMS IT SERVICES <itservices@cloverfieldfarms.com>
+  artifactName: CloverMail-${version}-${arch}.${ext}
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
 nsis:
   oneClick: false
   perMachine: false

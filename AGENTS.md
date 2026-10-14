@@ -29,3 +29,15 @@
 
 The in-app updater reads GitHub Releases (via `latest.yml`), not commits — a
 version is not "released" until the release and its assets exist on GitHub.
+
+## Platforms
+
+- **Windows** is built and released manually (steps above).
+- **Linux** is built by CI: `.github/workflows/release-linux.yml` runs on
+  `release: published`, builds the AppImage + deb on a Linux runner (native
+  modules must be built on the target OS), and attaches
+  `CloverMail-X.Y.Z-x64.AppImage`, `CloverMail-X.Y.Z-x64.deb` and
+  `latest-linux.yml` to the same release. Do not build Linux artifacts on
+  Windows.
+- **Android** is a separate client (Electron has no Android target); see
+  `PLAN-mobile.md`.

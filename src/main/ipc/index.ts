@@ -50,23 +50,25 @@ export function registerIpc(
     else win.maximize()
   })
   ipcMain.on(IpcChannels.windowClose, () => getWindow()?.close())
-  ipcMain.on(IpcChannels.appSetUnread, (_event, count: number) => setTrayUnread(count))
-  ipcMain.on(
-    IpcChannels.appSetTaskbarBadge,
-    (_event, dataUrl: string, text: string) => {
-      const win = getWindow()
-      if (!win) return
-      if (!dataUrl) {
-        win.setOverlayIcon(null, '')
-        return
-      }
-      try {
-        win.setOverlayIcon(nativeImage.createFromDataURL(dataUrl), text)
-      } catch {
-        // ignore an invalid badge image
-      }
+  ipcMain.on(IpcChannels.appSetUnread, (_event, count: number) => {
+    setTrayUnread(count)
+    // Windows uses the overlay icon; macOS/Linux use the native badge count.
+    if (process.platform !== 'win32') app.setBadgeCount(Math.max(0, count))
+  })
+  ipcMain.on(IpcChannels.appSetTaskbarBadge, (_event, dataUrl: string, text: string) => {
+    if (process.platform !== 'win32') return
+    const win = getWindow()
+    if (!win) return
+    if (!dataUrl) {
+      win.setOverlayIcon(null, '')
+      return
     }
-  )
+    try {
+      win.setOverlayIcon(nativeImage.createFromDataURL(dataUrl), text)
+    } catch {
+      // ignore an invalid badge image
+    }
+  })
 
   ipcMain.handle(IpcChannels.appOpenLicenses, async () => {
     const candidates = app.isPackaged

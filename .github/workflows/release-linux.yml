@@ -1,0 +1,45 @@
+name: Release Linux
+
+# Builds the Linux AppImage/deb on a Linux runner (native modules like
+# better-sqlite3 must be built on the target OS) and attaches them to the
+# GitHub release that was just published.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer + main
+        run: npm run build
+
+      - name: Package Linux
+        run: npx electron-builder --linux --publish never
+
+      - name: Attach Linux assets to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            release/CloverMail-*-x64.AppImage \
+            release/CloverMail-*-x64.deb \
+            release/latest-linux.yml \
+            --clobber
