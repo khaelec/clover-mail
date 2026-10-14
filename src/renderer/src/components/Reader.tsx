@@ -77,18 +77,66 @@ function securityLabel(kind: string): string {
   }
 }
 
+// Content-Security-Policy injected into the message iframe. Tracking pixels are
+// not always <img src>: senders also use srcset, <picture>/<source>, <video
+// poster>, CSS background-image, the background= attribute and @font-face. A CSP
+// blocks every remote subresource however the email asks for it, so this (not
+// attribute stripping) is what actually protects the reader's IP.
+const CSP_BLOCKED =
+  "default-src 'none'; img-src data:; media-src data:; font-src data:; style-src 'unsafe-inline'"
+const CSP_ALLOWED =
+  "default-src 'none'; img-src data: http: https:; media-src data: http: https:; font-src data: http: https:; style-src 'unsafe-inline'"
+
+function hasRemoteUrl(value: string | null): boolean {
+  return !!value && /https?:\/\//i.test(value)
+}
+
 function blockRemoteImages(html: string): { html: string; blocked: number } {
   const doc = new DOMParser().parseFromString(html, 'text/html')
   let blocked = 0
+
+  // <img> is stripped outright so the reader sees alt text instead of a broken
+  // icon; the CSP covers everything below.
   doc.querySelectorAll('img').forEach((el) => {
-    const src = el.getAttribute('src') ?? ''
-    if (/^https?:\/\//i.test(src)) {
-      el.setAttribute('data-clover-remote', src)
+    const src = el.getAttribute('src')
+    const srcset = el.getAttribute('srcset')
+    let hit = false
+    if (hasRemoteUrl(src)) {
+      el.setAttribute('data-clover-remote', src as string)
       el.removeAttribute('src')
+      hit = true
+    }
+    if (hasRemoteUrl(srcset)) {
+      el.setAttribute('data-clover-remote-srcset', srcset as string)
+      el.removeAttribute('srcset')
+      hit = true
+    }
+    if (hit) {
       if (!el.getAttribute('alt')) el.setAttribute('alt', '[image blocked]')
       blocked += 1
     }
   })
+
+  // Count the other remote references so the "load images" affordance appears.
+  // The CSP is what actually stops them loading.
+  const counted = new Set<Element>()
+  doc
+    .querySelectorAll('source, video, audio, iframe, table, td, th, body, [background], [style]')
+    .forEach((el) => {
+      if (counted.has(el)) return
+      const style = el.getAttribute('style') ?? ''
+      if (
+        hasRemoteUrl(el.getAttribute('srcset')) ||
+        hasRemoteUrl(el.getAttribute('poster')) ||
+        hasRemoteUrl(el.getAttribute('background')) ||
+        hasRemoteUrl(el.getAttribute('src')) ||
+        /url\(\s*['"]?https?:\/\//i.test(style)
+      ) {
+        counted.add(el)
+        blocked += 1
+      }
+    })
+
   return { html: doc.body.innerHTML, blocked }
 }
 
@@ -178,8 +226,9 @@ function MessageBody({
         ? 'body{filter:invert(1) hue-rotate(180deg)} img,video,svg,canvas,[style*="background-image"]{filter:invert(1) hue-rotate(180deg)}'
         : ''
     ].join('')
-    frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>${css}</style></head><body>${rendered.html ?? ''}</body></html>`
-  }, [rendered.html, effective])
+    const csp = shouldBlock ? CSP_BLOCKED : CSP_ALLOWED
+    frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><base target="_blank"><style>${css}</style></head><body>${rendered.html ?? ''}</body></html>`
+  }, [rendered.html, effective, shouldBlock])
 
   return (
     <>
