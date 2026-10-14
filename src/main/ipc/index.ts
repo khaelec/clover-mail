@@ -1,5 +1,5 @@
 import { app, ipcMain, nativeImage, shell, type BrowserWindow } from 'electron'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { IpcChannels } from '@shared/channels'
 import { AppInfoSchema, type AppInfo } from '@shared/ipc'
@@ -81,6 +81,24 @@ export function registerIpc(
     if (!file) return { opened: false, path: '' }
     const error = await shell.openPath(file)
     return { opened: !error, path: file }
+  })
+
+  // Read the notices in-process so the viewer works even when the OS can't open
+  // the file (e.g. inside a Flatpak sandbox with no text editor).
+  ipcMain.handle(IpcChannels.appReadLicenses, () => {
+    const candidates = app.isPackaged
+      ? [join(process.resourcesPath, 'THIRD-PARTY-NOTICES.txt')]
+      : [
+          join(app.getAppPath(), 'THIRD-PARTY-NOTICES.txt'),
+          join(process.cwd(), 'THIRD-PARTY-NOTICES.txt')
+        ]
+    const file = candidates.find((candidate) => existsSync(candidate))
+    if (!file) return null
+    try {
+      return readFileSync(file, 'utf8')
+    } catch {
+      return null
+    }
   })
 
   registerMailIpc(getWindow)

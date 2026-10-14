@@ -13,6 +13,7 @@ export const IpcChannels = {
   appSetTaskbarBadge: 'app:set-taskbar-badge',
   appNavigate: 'app:navigate',
   appOpenLicenses: 'app:open-licenses',
+  appReadLicenses: 'app:read-licenses',
   mail: {
     listAccounts: 'mail:list-accounts',
     createAccount: 'mail:create-account',

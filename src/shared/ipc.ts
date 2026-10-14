@@ -232,6 +232,7 @@ export interface CloverApi {
   setTaskbarBadge: (dataUrl: string, text: string) => void
   onNavigate: (cb: (target: string) => void) => () => void
   openLicenses: () => Promise<{ opened: boolean; path: string }>
+  readLicenses: () => Promise<string | null>
   apps: AppsApi
   calendar: CalendarApi
   ai: AiApi

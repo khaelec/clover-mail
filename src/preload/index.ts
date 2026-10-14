@@ -11,6 +11,7 @@ const api: CloverApi = {
   setTaskbarBadge: (dataUrl, text) =>
     ipcRenderer.send(IpcChannels.appSetTaskbarBadge, dataUrl, text),
   openLicenses: () => ipcRenderer.invoke(IpcChannels.appOpenLicenses),
+  readLicenses: () => ipcRenderer.invoke(IpcChannels.appReadLicenses),
   onNavigate: (cb) => {
     const listener = (_e: unknown, target: string): void => cb(target)
     ipcRenderer.on(IpcChannels.appNavigate, listener)

@@ -226,6 +226,8 @@ export function SettingsView(): ReactNode {
   const [msSecret, setMsSecret] = useState('')
   const [msMsg, setMsMsg] = useState<string | null>(null)
   const [tab, setTab] = useState<TabId>('appearance')
+  const [licensesOpen, setLicensesOpen] = useState(false)
+  const [licensesText, setLicensesText] = useState<string | null>(null)
   const updateStatus = useUpdate((s) => s.status)
   const updateVersion = useUpdate((s) => s.version)
   const updatePercent = useUpdate((s) => s.percent)
@@ -1301,13 +1303,12 @@ export function SettingsView(): ReactNode {
               {updateText && <span className="text-[12px] text-muted">{updateText}</span>}
               <button
                 type="button"
-                onClick={() =>
-                  void window.clover.openLicenses().then((result) => {
-                    if (!result.opened && result.path) {
-                      void window.navigator.clipboard.writeText(result.path)
-                    }
+                onClick={() => {
+                  void window.clover.readLicenses().then((text) => {
+                    setLicensesText(text)
+                    setLicensesOpen(true)
                   })
-                }
+                }}
                 className="text-[12px] text-muted underline hover:text-ink"
               >
                 Open source licenses
@@ -1333,6 +1334,45 @@ export function SettingsView(): ReactNode {
         </div>
       </div>
       <LinkDialog open={sigLinkOpen} onCancel={() => setSigLinkOpen(false)} onSubmit={applySigLink} />
+      {licensesOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm" onClick={() => setLicensesOpen(false)}>
+          <div
+            className="flex h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="flex items-center gap-2 border-b border-line px-4 py-2.5">
+              <span className="text-[13px] font-semibold text-ink">Third-party licenses</span>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void window.navigator.clipboard.writeText(licensesText ?? '')}
+                  className="rounded-lg border border-line px-2.5 py-1 text-[12px] text-muted hover:text-ink"
+                >
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLicensesOpen(false)}
+                  className="rounded-lg border border-line px-2.5 py-1 text-[12px] text-muted hover:text-ink"
+                >
+                  Close
+                </button>
+              </div>
+            </header>
+            <div className="min-h-0 flex-1 overflow-auto bg-canvas/40 p-4">
+              {licensesText ? (
+                <pre className="whitespace-pre-wrap break-words font-mono text-[11.5px] leading-relaxed text-ink/90">
+                  {licensesText}
+                </pre>
+              ) : (
+                <p className="text-[12px] text-muted">
+                  Notices file not found. Run <code>npm run licenses</code> to generate it.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
