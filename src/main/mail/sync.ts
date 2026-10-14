@@ -278,28 +278,27 @@ async function syncOneMailbox(
   }
 }
 
-// Accounts currently syncing. Focus events, the interval timer and manual
-// triggers can all fire at once; without this guard each would open its own IMAP
-// connection (risking server connection limits and racing inserts) and POP3 would
-// download the same mail twice.
-const inFlight = new Set<string>()
+// Syncs currently running, keyed by account. Focus events, the interval timer and
+// manual triggers can all fire at once; without this guard each would open its own
+// IMAP connection (risking server connection limits and racing inserts) and POP3
+// would download the same mail twice.
+//
+// A second trigger *joins* the running promise rather than getting a fake empty
+// result: that way a manual refresh still resolves (or rejects) with the real
+// outcome, so a failed connect surfaces its error instead of leaving the UI stuck
+// on "Connecting…".
+const inFlight = new Map<string, Promise<SyncResult>>()
 
 export function isAccountSyncing(accountId: string): boolean {
   return inFlight.has(accountId)
 }
 
-export async function syncAccount(accountId: string, emit: Emit): Promise<SyncResult> {
-  if (inFlight.has(accountId)) {
-    // A sync for this account is already running — skip this trigger rather than
-    // run two at once.
-    return { folders: 0, fetched: 0 }
-  }
-  inFlight.add(accountId)
-  try {
-    return await runSyncAccount(accountId, emit)
-  } finally {
-    inFlight.delete(accountId)
-  }
+export function syncAccount(accountId: string, emit: Emit): Promise<SyncResult> {
+  const running = inFlight.get(accountId)
+  if (running) return running
+  const promise = runSyncAccount(accountId, emit).finally(() => inFlight.delete(accountId))
+  inFlight.set(accountId, promise)
+  return promise
 }
 
 async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult> {
@@ -397,6 +396,11 @@ export async function syncFolder(folderId: string, emit: Emit): Promise<SyncResu
     emit({ type: 'sync:done', accountId: folderRow.accountId, fetched: 0 })
     return { folders: 1, fetched: 0 }
   }
+
+  // Don't open a second connection to a folder while a full sync of this account
+  // is already walking it — wait for that to finish first.
+  const running = inFlight.get(folderRow.accountId)
+  if (running) await running.catch(() => undefined)
 
   const client = await buildAccountClient(folderRow.accountId)
   await client.connect()

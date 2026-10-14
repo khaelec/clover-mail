@@ -314,7 +314,12 @@ export const useMail = create<MailState>((set, get) => {
         await window.clover.mail.syncAccount(accountId)
       } catch (error) {
         set({ syncing: false, error: (error as Error).message, status: null })
+        return
       }
+      // Clear on completion too: this call may have joined a sync that already
+      // emitted its sync:done, which would otherwise leave the status stuck on
+      // "Connecting…".
+      set({ syncing: false, status: null })
     },
 
     search: async (query) => {

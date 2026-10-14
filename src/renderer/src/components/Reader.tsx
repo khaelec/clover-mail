@@ -137,6 +137,13 @@ function blockRemoteImages(html: string): { html: string; blocked: number } {
       }
     })
 
+  // DOMPurify keeps <style> blocks, so remote images that only appear there
+  // (background: url(https://…) / @font-face) must be counted too, otherwise the
+  // CSP blocks them silently with no "load images" banner to offer.
+  doc.querySelectorAll('style').forEach((el) => {
+    if (/url\(\s*['"]?https?:\/\//i.test(el.textContent ?? '')) blocked += 1
+  })
+
   return { html: doc.body.innerHTML, blocked }
 }
 
