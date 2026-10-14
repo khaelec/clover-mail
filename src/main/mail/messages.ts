@@ -134,12 +134,21 @@ async function fetchAndStoreBody(messageId: string): Promise<void> {
 }
 
 export async function getMessageDetail(messageId: string): Promise<MessageDetail | null> {
+  return loadDetail(messageId, true)
+}
+
+/**
+ * Build a message detail. `fetchBody` is false for background conversation
+ * rendering so opening a thread never blocks on fetching every body over IMAP —
+ * uncached bodies are loaded on demand instead.
+ */
+async function loadDetail(messageId: string, fetchBody: boolean): Promise<MessageDetail | null> {
   const db = getDb()
   let row = db.select().from(messages).where(eq(messages.id, messageId)).get()
   if (!row) return null
 
   let body = db.select().from(messageBodies).where(eq(messageBodies.messageId, messageId)).get()
-  if (!body) {
+  if (!body && fetchBody) {
     await fetchAndStoreBody(messageId)
     row = db.select().from(messages).where(eq(messages.id, messageId)).get()
     if (!row) return null
@@ -156,6 +165,7 @@ export async function getMessageDetail(messageId: string): Promise<MessageDetail
   // `folderId:uid` message id, which Windows rejected (illegal ':'). Re-fetch
   // the source once so those attachment bytes are written to a valid path.
   if (
+    fetchBody &&
     protocolFor(row.accountId) === 'imap' &&
     attachmentRows.length > 0 &&
     attachmentRows.every((att) => att.contentPath === null)
@@ -218,7 +228,7 @@ export async function getConversation(messageId: string): Promise<MessageDetail[
   const ids = threadMessageIds(messageId).slice(-30)
   const details: MessageDetail[] = []
   for (const id of ids) {
-    const detail = await getMessageDetail(id)
+    const detail = await loadDetail(id, false)
     if (detail) details.push(detail)
   }
   return details

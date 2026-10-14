@@ -97,12 +97,14 @@ function MessageBody({
   detail,
   shouldBlock,
   onLoadImages,
-  onAlwaysAllow
+  onAlwaysAllow,
+  onLoad
 }: {
   detail: MessageDetail
   shouldBlock: boolean
   onLoadImages: () => void
   onAlwaysAllow: () => void
+  onLoad: () => void
 }): ReactNode {
   const effective = useTheme((s) => s.effective)
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -168,8 +170,14 @@ function MessageBody({
           {detail.textPlain}
         </pre>
       ) : (
-        <div className="flex items-center gap-2 px-6 py-5 text-[13px] text-muted">
-          <IconRefresh className="h-4 w-4 animate-spin" /> Loading message…
+        <div className="flex items-center gap-2 px-6 py-4 text-[13px] text-muted">
+          <button
+            type="button"
+            onClick={onLoad}
+            className="rounded-md border border-line px-2.5 py-1 text-muted hover:border-accent hover:text-accent"
+          >
+            Load message
+          </button>
         </div>
       )}
     </>
@@ -188,6 +196,7 @@ export function Reader({
   const {
     detail,
     conversation,
+    loadMessageBody,
     toggleFlag,
     toggleImportant,
     toggleRead,
@@ -308,6 +317,28 @@ export function Reader({
     if (el instanceof HTMLElement) el.scrollIntoView({ block: 'start' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail?.id, messages.length])
+
+  // After the thread renders instantly (cached bodies only), fetch the rest of
+  // the bodies one at a time in the background so the conversation fills in
+  // without ever blocking the open.
+  const loadingBodiesRef = useRef<Set<string>>(new Set())
+  const autoLoadedRef = useRef(0)
+  useEffect(() => {
+    autoLoadedRef.current = 0
+    loadingBodiesRef.current.clear()
+  }, [detail?.id])
+  useEffect(() => {
+    if (autoLoadedRef.current >= 15) return
+    const pending = messages.filter(
+      (m) => !m.htmlRaw && !m.textPlain && !loadingBodiesRef.current.has(m.id)
+    )
+    const next = pending[pending.length - 1]
+    if (!next) return
+    loadingBodiesRef.current.add(next.id)
+    autoLoadedRef.current += 1
+    void loadMessageBody(next.id).finally(() => loadingBodiesRef.current.delete(next.id))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages])
 
   async function alwaysAllowSender(email?: string | null): Promise<void> {
     const target = (email ?? sender).toLowerCase()
@@ -651,6 +682,7 @@ export function Reader({
               }
               onLoadImages={() => setAllowRemote(true)}
               onAlwaysAllow={() => void alwaysAllowSender(message.fromEmail)}
+              onLoad={() => void loadMessageBody(message.id)}
             />
           </div>
         ))}

@@ -29,6 +29,7 @@ interface MailState {
   selectedMessageId: string | null
   detail: MessageDetail | null
   conversation: MessageDetail[]
+  loadMessageBody: (id: string) => Promise<void>
   loadingMessages: boolean
   syncing: boolean
   status: string | null
@@ -559,6 +560,12 @@ export const useMail = create<MailState>((set, get) => {
     loadOutbox: async () => {
       const outbox = await window.clover.mail.listOutbox()
       set({ outbox })
+    },
+
+    loadMessageBody: async (id) => {
+      const detail = await window.clover.mail.getMessage(id)
+      if (!detail) return
+      set({ conversation: get().conversation.map((m) => (m.id === id ? detail : m)) })
     },
 
     retryOutbox: async (id) => {
