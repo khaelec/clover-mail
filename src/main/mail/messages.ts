@@ -5,12 +5,13 @@ import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { ImapFlow } from 'imapflow'
 import { dialog, shell } from 'electron'
-import { and, asc, eq, or } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { attachments, folders, messageBodies, messages } from '../db/schema'
 import { protocolFor } from './accounts'
 import { withImap } from './connection'
 import { indexMessage, removeFromIndex } from './search'
+import { threadMessageIds } from './queries'
 import { applyAssessment } from './spam'
 import { attachmentAbsolutePath, readAttachmentDataUrl, saveAttachment } from './storage'
 import { assessPhishing, classifySecurity, trustedSenders } from './security'
@@ -214,26 +215,10 @@ export async function getMessageDetail(messageId: string): Promise<MessageDetail
 
 /** All cached messages in the conversation that contains `messageId`, oldest first. */
 export async function getConversation(messageId: string): Promise<MessageDetail[]> {
-  const db = getDb()
-  const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
-  if (!row) return []
-  const threadId = row.threadId ?? row.id
-  const siblings = db
-    .select()
-    .from(messages)
-    .where(
-      and(
-        eq(messages.accountId, row.accountId),
-        or(eq(messages.threadId, threadId), eq(messages.id, threadId))
-      )
-    )
-    .orderBy(asc(messages.dateUtc), asc(messages.uid))
-    .all()
-
-  const ordered = (siblings.length > 0 ? siblings : [row]).slice(-30)
+  const ids = threadMessageIds(messageId).slice(-30)
   const details: MessageDetail[] = []
-  for (const sibling of ordered) {
-    const detail = await getMessageDetail(sibling.id)
+  for (const id of ids) {
+    const detail = await getMessageDetail(id)
     if (detail) details.push(detail)
   }
   return details

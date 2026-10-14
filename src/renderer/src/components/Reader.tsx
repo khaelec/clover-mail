@@ -204,6 +204,7 @@ export function Reader({
   const [trusted, setTrusted] = useState<string[]>([])
   const [blockEnabled, setBlockEnabled] = useState(true)
   const [calendarNotice, setCalendarNotice] = useState<string | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const effective = useTheme((s) => s.effective)
   const [menu, setMenu] = useState<{ x: number; y: number; mode: 'main' | 'move' | 'snooze' } | null>(
     null
@@ -298,6 +299,15 @@ export function Reader({
     const base = conversation.length ? conversation : detail ? [detail] : []
     return base.map((m) => (detail && m.id === detail.id ? detail : m))
   }, [conversation, detail])
+
+  // Scroll to the selected message so the reading pane matches the list row opened.
+  useEffect(() => {
+    const container = scrollRef.current
+    if (!container || !detail) return
+    const el = container.querySelector(`[data-message-id="${detail.id}"]`)
+    if (el instanceof HTMLElement) el.scrollIntoView({ block: 'start' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail?.id, messages.length])
 
   async function alwaysAllowSender(email?: string | null): Promise<void> {
     const target = (email ?? sender).toLowerCase()
@@ -487,9 +497,9 @@ export function Reader({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         {messages.map((message) => (
-          <div key={message.id} className="border-b border-line">
+          <div key={message.id} data-message-id={message.id} className="border-b border-line">
             {messages.length > 1 && (
               <div className="flex items-center gap-3 bg-canvas/20 px-6 py-3">
                 <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent to-accent/60 text-[12px] font-semibold text-accent-ink">

@@ -168,6 +168,27 @@ export function listThreads(folderId: string, limit = 1500): ThreadSummary[] {
   return buildThreads(rows).filter((t) => t.messages.some((m) => m.folderId === folderId))
 }
 
+/**
+ * Message ids of the conversation that contains `messageId`, oldest first,
+ * using the exact same grouping as the message list so the reader always shows
+ * the same thread the list row represents.
+ */
+export function threadMessageIds(messageId: string, limit = 1500): string[] {
+  const db = getDb()
+  const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
+  if (!row) return []
+  const rows = db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.accountId, row.accountId), ne(messages.isSpam, true), notSnoozed()))
+    .orderBy(desc(messages.dateUtc))
+    .limit(limit)
+    .all()
+  const thread = buildThreads(rows).find((t) => t.messages.some((m) => m.id === messageId))
+  if (!thread) return [messageId]
+  return thread.messages.map((m) => m.id)
+}
+
 /** Threads across every account (Unified Inbox). */
 export function listUnifiedThreads(limit = 300): ThreadSummary[] {
   const rows = getDb()
