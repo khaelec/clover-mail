@@ -13,11 +13,15 @@ import { initUpdater } from '@main/updater'
 import { createTray } from '@main/tray'
 import { clearDueSnoozes } from '@main/mail/snooze'
 import { processOutbox } from '@main/mail/outbox'
+import { syncAccount } from '@main/mail/sync'
+import { listAccounts } from '@main/mail/accounts'
+import { createMailEmit } from '@main/mail/events'
 import { dueReminders, markReminded } from '@main/calendar/reminders'
 import { syncAllCaldav } from '@main/calendar/caldav'
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
+let syncAllAccounts = (): void => undefined
 
 // Launching the app again (e.g. from the desktop icon) should focus the running
 // window instead of starting a second instance that fights over the database.
@@ -133,6 +137,8 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => mainWindow?.show())
+  // Refresh mail whenever the window is focused, so the view is current.
+  mainWindow.on('focus', () => syncAllAccounts())
   mainWindow.on('maximize', () =>
     mainWindow?.webContents.send(IpcChannels.windowMaximizedChanged, true)
   )
@@ -269,6 +275,18 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+
+  // Full sync of every account on startup and periodically. IMAP IDLE only
+  // watches the inbox, so this is what keeps Sent/Drafts/other folders current
+  // and picks up mail that arrived while the app was closed.
+  const mailEmit = createMailEmit(() => mainWindow)
+  syncAllAccounts = (): void => {
+    for (const account of listAccounts()) {
+      void syncAccount(account.id, mailEmit).catch(() => undefined)
+    }
+  }
+  setTimeout(syncAllAccounts, 4_000)
+  setInterval(syncAllAccounts, 3 * 60_000)
 
   // Wake snoozed messages when their time arrives.
   setInterval(() => {
