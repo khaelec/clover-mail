@@ -119,12 +119,28 @@ function MessageBody({
   function sizeFrame(): void {
     const frame = iframeRef.current
     const doc = frame?.contentDocument
-    if (!frame || !doc) return
-    // Measuring while the frame has no width wraps everything into one column
-    // and yields a huge height — skip until it has been laid out.
-    if (frame.clientWidth === 0) return
-    frame.style.height = `${doc.documentElement.scrollHeight}px`
+    if (!frame || !doc || !doc.body) return
+    // Use the body's content height — documentElement.scrollHeight is clamped to
+    // the frame's current viewport, so it can never shrink below the default.
+    const height = Math.max(doc.body.scrollHeight, doc.body.offsetHeight)
+    if (height > 0) frame.style.height = `${height}px`
   }
+
+  // Re-measure when the frame's width changes (e.g. the pane is resized) so the
+  // height always matches the content and no dark gap is left behind.
+  useEffect(() => {
+    const frame = iframeRef.current
+    if (!frame) return
+    let lastWidth = -1
+    const observer = new ResizeObserver(() => {
+      const width = frame.clientWidth
+      if (width === 0 || width === lastWidth) return
+      lastWidth = width
+      sizeFrame()
+    })
+    observer.observe(frame)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const frame = iframeRef.current
@@ -307,10 +323,12 @@ export function Reader({
   const sender = detail?.fromEmail?.toLowerCase() ?? ''
   const shouldBlock = blockEnabled && !allowRemote && !trusted.includes(sender)
 
-  // The whole conversation, with the focused message kept fresh from `detail`.
+  // The whole conversation, newest first (so the latest message is at the top and
+  // you scroll down through history), with the focused message kept fresh.
   const messages = useMemo(() => {
     const base = conversation.length ? conversation : detail ? [detail] : []
-    return base.map((m) => (detail && m.id === detail.id ? detail : m))
+    const withFocus = base.map((m) => (detail && m.id === detail.id ? detail : m))
+    return [...withFocus].reverse()
   }, [conversation, detail])
 
   // Bring the selected message into view without aligning it to the very top
@@ -337,7 +355,8 @@ export function Reader({
     const pending = messages.filter(
       (m) => !m.htmlRaw && !m.textPlain && !loadingBodiesRef.current.has(m.id)
     )
-    const next = pending[pending.length - 1]
+    // `messages` is newest-first, so load the most recent uncached body first.
+    const next = pending[0]
     if (!next) return
     loadingBodiesRef.current.add(next.id)
     autoLoadedRef.current += 1
