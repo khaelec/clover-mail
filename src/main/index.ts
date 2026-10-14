@@ -7,6 +7,7 @@ import { IpcChannels } from '@shared/channels'
 import { initDatabase, closeDatabase } from '@main/db'
 import { registerIpc } from '@main/ipc'
 import { setStorageRoot } from '@main/mail/storage'
+import { initMediaAllow, isMediaPathAllowed } from '@main/mediaAllow'
 import { setAppsRoot } from '@main/apps'
 import { stopAllIdle } from '@main/mail/idle'
 import { initUpdater } from '@main/updater'
@@ -111,6 +112,11 @@ function registerMediaProtocol(): void {
     if (!raw) return new Response('Bad request', { status: 400 })
     const filePath = decodeURIComponent(raw)
     if (!MEDIA_EXTENSIONS.has(extname(filePath).slice(1).toLowerCase())) {
+      return new Response('Forbidden', { status: 403 })
+    }
+    // Only serve files inside the user data folder, a folder the user picked, or
+    // a discovered Wallpaper Engine asset — never an arbitrary local path.
+    if (!isMediaPathAllowed(filePath)) {
       return new Response('Forbidden', { status: 403 })
     }
     return net.fetch(pathToFileURL(filePath).toString())
@@ -266,6 +272,7 @@ app.whenReady().then(async () => {
   seedDatabaseIfFirstRun(app.getPath('userData'))
   initDatabase(app.getPath('userData'))
   setStorageRoot(app.getPath('userData'))
+  initMediaAllow(app.getPath('userData'))
   setAppsRoot(app.getPath('userData'))
   registerIpc(
     () => mainWindow,
