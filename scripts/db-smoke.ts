@@ -1,7 +1,7 @@
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { initDatabase, closeDatabase } from '../src/main/db'
+import { initDatabase, closeDatabase } from '../src/core/db'
 import { getAllSettings, getSetting, setSetting, deleteSetting } from '../src/main/settings'
 
 const dir = mkdtempSync(join(tmpdir(), 'clover-db-'))

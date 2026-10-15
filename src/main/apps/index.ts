@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { extname, join } from 'node:path'
 import { asc, eq } from 'drizzle-orm'
 import { session } from 'electron'
-import { getDb } from '../db'
-import { customWebApps } from '../db/schema'
+import { getDb } from '@core/db'
+import { customWebApps } from '@core/db/schema'
 import type { CreateAppInput, CustomApp } from '@shared/apps'
 
 let iconsDir = ''

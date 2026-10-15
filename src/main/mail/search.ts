@@ -1,6 +1,6 @@
 import { and, eq, gt, inArray, like, lt, or, type SQL } from 'drizzle-orm'
-import { getDb, getRawDb } from '../db'
-import { folders, labels, messageBodies, messageLabels, messages } from '../db/schema'
+import { getDb, getRawDb } from '@core/db'
+import { folders, labels, messageBodies, messageLabels, messages } from '@core/db/schema'
 import { protocolFor } from './accounts'
 import { withImap } from './connection'
 import { upsertMessage } from './sync'

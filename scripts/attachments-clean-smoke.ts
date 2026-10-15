@@ -7,8 +7,8 @@
 import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { closeDatabase, getDb, initDatabase } from '../src/main/db'
-import { accounts, attachments, folders, messages } from '../src/main/db/schema'
+import { closeDatabase, getDb, initDatabase } from '../src/core/db'
+import { accounts, attachments, folders, messages } from '../src/core/db/schema'
 import { cleanOrphanAttachments } from '../src/main/mail/attachmentsCleanup'
 
 const out: Record<string, boolean> = {}

@@ -1,6 +1,6 @@
 import { and, eq, lt } from 'drizzle-orm'
-import { getDb } from '../db'
-import { reminderLog } from '../db/schema'
+import { getDb } from '@core/db'
+import { reminderLog } from '@core/db/schema'
 import { listOccurrences } from './index'
 import { getSetting } from '../settings'
 

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { asc, eq } from 'drizzle-orm'
-import { getDb } from '../db'
+import { getDb } from '@core/db'
 import {
   folders,
   messageBodies,
@@ -8,7 +8,7 @@ import {
   ruleActions,
   ruleConditions,
   rules
-} from '../db/schema'
+} from '@core/db/schema'
 import { getAccountById } from './accounts'
 import { buildAccountClient } from './auth'
 import { removeFromIndex } from './search'

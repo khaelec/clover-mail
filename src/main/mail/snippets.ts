@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { asc, eq } from 'drizzle-orm'
-import { getDb } from '../db'
-import { snippets } from '../db/schema'
+import { getDb } from '@core/db'
+import { snippets } from '@core/db/schema'
 import type { Snippet } from '@shared/mail'
 
 export function listSnippets(): Snippet[] {

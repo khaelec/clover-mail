@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { getDb } from '../db'
-import { folders } from '../db/schema'
+import { getDb } from '@core/db'
+import { folders } from '@core/db/schema'
 import { withImap } from './connection'
 import { inferSpecialUse } from './specialUse'
 import type { DraftData } from '@shared/mail'

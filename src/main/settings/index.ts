@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { getDb } from '../db'
-import { appSettings } from '../db/schema'
+import { getDb } from '@core/db'
+import { appSettings } from '@core/db/schema'
 import type { SettingsRecord } from '@shared/ipc'
 
 function parse(value: string): unknown {

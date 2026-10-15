@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, lt } from 'drizzle-orm'
-import { getDb } from '../db'
-import { messages } from '../db/schema'
+import { getDb } from '@core/db'
+import { messages } from '@core/db/schema'
 
 export function snooze(messageId: string, untilMs: number): void {
   getDb().update(messages).set({ snoozedUntil: untilMs }).where(eq(messages.id, messageId)).run()

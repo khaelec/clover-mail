@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm'
-import { getDb } from '../db'
-import { messages } from '../db/schema'
+import { getDb } from '@core/db'
+import { messages } from '@core/db/schema'
 import { isThreadMuted } from './threadSettings'
 import { isRecentlyRestored } from '@core/mail/recentUids'
 import type { MailEvent } from '@shared/mail'

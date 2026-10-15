@@ -1,7 +1,7 @@
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { closeDatabase, initDatabase } from '../src/main/db'
+import { closeDatabase, initDatabase } from '../src/core/db'
 import { buildIcs, importIcsText, listCalendars, listOccurrences } from '../src/main/calendar'
 
 const dir = mkdtempSync(join(tmpdir(), 'clover-cal-'))

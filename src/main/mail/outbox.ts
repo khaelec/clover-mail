@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { asc, eq } from 'drizzle-orm'
-import { getDb } from '../db'
-import { outbox } from '../db/schema'
+import { getDb } from '@core/db'
+import { outbox } from '@core/db/schema'
 import { deliverMessage } from './send'
 import type { ComposeInput, OutboxItem } from '@shared/mail'
 

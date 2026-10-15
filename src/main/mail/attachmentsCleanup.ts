@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { getDb } from '../db'
-import { attachments } from '../db/schema'
+import { getDb } from '@core/db'
+import { attachments } from '@core/db/schema'
 import { logLine } from '../log'
 
 // How long orphaned files stay recoverable in the quarantine folder.

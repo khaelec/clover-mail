@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm'
-import { getDb } from '../db'
-import { folders, messages } from '../db/schema'
+import { getDb } from '@core/db'
+import { folders, messages } from '@core/db/schema'
 import { setFlags } from './messages'
 import { withImap } from './connection'
 import { protocolFor } from './accounts'
