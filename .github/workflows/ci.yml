@@ -31,3 +31,16 @@ jobs:
 
       - name: IPC contract check
         run: npm run test:ipc
+
+      # The Android build runs the engine on node-sqlite3-wasm. Run the DB-backed
+      # smoke tests against that driver here, where it's cheap to catch.
+      - name: Core smoke tests on the WASM driver (Android)
+        shell: bash
+        env:
+          CLOVER_DB_DRIVER: wasm
+        run: |
+          npm run test:reconcile
+          npm run test:threads
+          npm run test:notifications
+          npm run test:announce
+          npm run test:attach

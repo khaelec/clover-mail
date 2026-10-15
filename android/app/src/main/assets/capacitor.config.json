@@ -1,0 +1,11 @@
+{
+	"appId": "com.clovermail.spike",
+	"appName": "Clover Spike",
+	"webDir": "spike/dist",
+	"plugins": {
+		"Nodejs": {
+			"nodeDir": "nodejs",
+			"startMode": "auto"
+		}
+	}
+}

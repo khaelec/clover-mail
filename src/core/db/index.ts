@@ -1,9 +1,10 @@
-import Database from 'better-sqlite3'
+import type Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 import { migrations } from './migrations'
 import * as schema from './schema'
+import { openDriver } from './driver'
 
 type CloverDatabase = BetterSQLite3Database<typeof schema>
 
@@ -48,7 +49,7 @@ export function initDatabase(dataDir: string): CloverDatabase {
 
   mkdirSync(dataDir, { recursive: true })
 
-  sqlite = new Database(databasePath(dataDir))
+  sqlite = openDriver(databasePath(dataDir))
   sqlite.pragma('journal_mode = WAL')
   sqlite.pragma('foreign_keys = ON')
   sqlite.pragma('synchronous = NORMAL')
@@ -64,7 +65,11 @@ export function getDb(): CloverDatabase {
   return db
 }
 
-/** Raw better-sqlite3 handle, for FTS5 and other statements Drizzle does not model. */
+/**
+ * The active SQLite driver handle (better-sqlite3 on desktop, node-sqlite3-wasm
+ * on Android), for FTS5 and other statements Drizzle does not model. Both
+ * expose the same better-sqlite3-compatible surface.
+ */
 export function getRawDb(): Database.Database {
   if (!sqlite) throw new Error('Database not initialized. Call initDatabase(dataDir) first.')
   return sqlite

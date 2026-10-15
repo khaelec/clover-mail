@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Clover Phase 0</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Clover Mail — Phase 0 spike</h1>
+      <p id="status">Starting…</p>
+    </header>
+
+    <section>
+      <label>IMAP host <input id="host" placeholder="imap.gmail.com" autocapitalize="none" autocorrect="off" spellcheck="false" /></label>
+      <label>IMAP port <input id="port" type="number" value="993" /></label>
+      <label>SMTP host <input id="smtpHost" placeholder="smtp.gmail.com" autocapitalize="none" autocorrect="off" spellcheck="false" /></label>
+      <label>SMTP port <input id="smtpPort" type="number" value="465" /></label>
+      <label>Address <input id="user" placeholder="you@gmail.com" autocapitalize="none" autocorrect="off" spellcheck="false" /></label>
+      <label>App password <input id="pass" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" /></label>
+      <label class="row"><input id="send" type="checkbox" /> Send one test email to myself</label>
+      <button id="run" disabled>Run diagnostics</button>
+      <p class="hint">
+        Credentials are typed here at runtime and are never saved, sent anywhere
+        else, or included in the report. Use a throwaway account.
+      </p>
+    </section>
+
+    <section>
+      <div class="row between">
+        <h2>Report</h2>
+        <button id="copy" class="secondary">Copy</button>
+      </div>
+      <textarea id="report" readonly rows="22" placeholder="Results appear here."></textarea>
+      <pre id="log"></pre>
+    </section>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
