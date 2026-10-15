@@ -16,7 +16,7 @@ import * as accountService from '@core/mail/accounts'
 import { testImap } from '@core/mail/imap'
 import { testSmtp } from '@core/mail/smtp'
 import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@core/mail/sync'
-import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount, hasOlderMessages, messageStatuses } from '@core/mail/queries'
+import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount, hasOlderMessages, messageStatuses, threadParticipants } from '@core/mail/queries'
 import { deleteMessage, downloadAttachment, getAttachmentPath, getConversation, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@core/mail/messages'
 import { listOutbox, retryOutbox, cancelOutbox, sendNow } from '@core/mail/outbox'
 import { searchMessages, searchServer } from '@core/mail/search'
@@ -280,6 +280,9 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   )
   ipcMain.handle(IpcChannels.mail.setThreadPinned, (_e, threadId: string, pinned: boolean) =>
     setThreadPinned(threadId, pinned)
+  )
+  ipcMain.handle(IpcChannels.mail.threadParticipants, (_e, messageId: string) =>
+    threadParticipants(messageId)
   )
   ipcMain.handle(IpcChannels.mail.listLabels, () => listLabels())
   ipcMain.handle(IpcChannels.mail.createLabel, (_e, name: string, color?: string) =>

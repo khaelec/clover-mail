@@ -194,6 +194,8 @@ export function buildCloverApi(host: CloverHost): CloverApi {
       setThreadMuted: (threadId, muted) => invoke(IpcChannels.mail.setThreadMuted, threadId, muted),
       setThreadPinned: (threadId, pinned) =>
         invoke(IpcChannels.mail.setThreadPinned, threadId, pinned),
+      threadParticipants: (messageId) =>
+        invoke(IpcChannels.mail.threadParticipants, messageId),
       listLabels: () => invoke(IpcChannels.mail.listLabels),
       createLabel: (name, color) => invoke(IpcChannels.mail.createLabel, name, color),
       deleteLabel: (id) => invoke(IpcChannels.mail.deleteLabel, id),

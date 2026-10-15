@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeDatabase, getDb, initDatabase } from '../src/core/db'
 import { accounts, folders, messages } from '../src/core/db/schema'
-import { listThreads, threadMessageIds } from '../src/core/mail/queries'
+import { listThreads, threadMessageIds, threadParticipants } from '../src/core/mail/queries'
 
 const dir = mkdtempSync(join(tmpdir(), 'clover-threads-'))
 initDatabase(dir)
@@ -24,6 +24,7 @@ folder('inbox', 'Inbox', 'INBOX', 'inbox')
 folder('all', 'All Mail', '[Gmail]/All Mail', 'archive')
 folder('imp', 'Important', '[Gmail]/Important', null)
 folder('trash', 'Trash', '[Gmail]/Trash', 'trash')
+folder('sent', 'Sent', 'Sent', 'sent')
 
 const msg = (
   id: string,
@@ -49,6 +50,30 @@ msg('m5', 'trash', 1, 'MID-2', 'Hello', 200, false)
 // A message with no Message-ID must stay on its own.
 msg('m6', 'inbox', 3, null, 'NoId', 50)
 
+// A three-person conversation (Alice, Bob, me) for Reply-all participants.
+const addr = (list: { name: string | null; address: string }[]): string => JSON.stringify(list)
+db.insert(messages)
+  .values({
+    id: 'p1', accountId: 'a1', folderId: 'inbox', uid: 10, messageId: 'MID-3', threadId: 'T3',
+    subject: 'Project', dateUtc: 10, fromName: 'Alice', fromEmail: 'alice@x',
+    toJson: addr([{ name: null, address: 'me@t' }]), ccJson: addr([{ name: 'Bob', address: 'bob@x' }])
+  })
+  .run()
+db.insert(messages)
+  .values({
+    id: 'p2', accountId: 'a1', folderId: 'inbox', uid: 11, messageId: 'MID-3', threadId: 'T3',
+    subject: 'Project', dateUtc: 20, fromName: 'Bob', fromEmail: 'bob@x',
+    toJson: addr([{ name: null, address: 'me@t' }])
+  })
+  .run()
+db.insert(messages)
+  .values({
+    id: 'p3', accountId: 'a1', folderId: 'sent', uid: 1, messageId: 'MID-3', threadId: 'T3',
+    subject: 'Project', dateUtc: 30, fromEmail: 'me@t',
+    toJson: addr([{ name: 'Alice', address: 'alice@x' }])
+  })
+  .run()
+
 const out: Record<string, boolean> = {}
 
 const inbox = listThreads('inbox')
@@ -71,6 +96,11 @@ out.trashShowsTrashCopy = helloTrash?.messageCount === 1 && helloTrash.messages[
 out.trashOnly = trash.length === 1
 
 out.readerMatchesList = JSON.stringify(threadMessageIds('m1')) === JSON.stringify(['m1'])
+
+const parts = threadParticipants('p1')
+out.participantsAll = JSON.stringify(parts) === JSON.stringify(['Alice <alice@x>', 'Bob <bob@x>'])
+out.participantsExcludeSelf = !parts.some((p) => p.toLowerCase().includes('me@t'))
+out.replyAllFromOwnMessage = threadParticipants('p3')[0] === 'Alice <alice@x>'
 
 closeDatabase()
 console.log(JSON.stringify(out, null, 2))

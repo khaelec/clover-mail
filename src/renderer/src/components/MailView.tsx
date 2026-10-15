@@ -491,9 +491,9 @@ export function MailView(): ReactNode {
       e.preventDefault()
       setShowHelp(true)
     } else if (id === 'reply') {
-      if (store.detail) openReply()
+      if (store.detail) void openReply()
     } else if (id === 'replyAll') {
-      if (store.detail) openReplyAll()
+      if (store.detail) void openReplyAll()
     } else if (id === 'forward') {
       if (store.detail) void openForward()
     } else if (id === 'archive') {
@@ -524,7 +524,7 @@ export function MailView(): ReactNode {
 
   // The bell's Reply action selects a message and then fires this.
   useEffect(() => {
-    const handler = (): void => openReply()
+    const handler = (): void => void openReply()
     window.addEventListener('clover:reply-now', handler)
     return () => window.removeEventListener('clover:reply-now', handler)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -598,44 +598,52 @@ export function MailView(): ReactNode {
     )
   }
 
-  function openReply(): void {
-    const detail = useMail.getState().detail
-    if (!detail) return
-    const to = detail.fromEmail ? `${detail.fromName ? `${detail.fromName} <${detail.fromEmail}>` : detail.fromEmail}` : ''
-    setComposeState({
-      open: true,
-      to,
-      subject: detail.subject?.startsWith('Re:') ? detail.subject : `Re: ${detail.subject ?? ''}`,
-      quote: buildQuote(detail),
-      inReplyTo: detail.messageId ?? undefined,
-      references: [detail.refs, detail.messageId].filter(Boolean).join(' ') || undefined
-    })
+  // Reply targets the sender of the open message; Reply all covers everyone in
+  // the conversation. Both fall back to the thread's other participants when the
+  // open message was sent by you (so you never reply to yourself).
+  function replySubject(subject: string | null | undefined): string {
+    return subject?.startsWith('Re:') ? subject : `Re: ${subject ?? ''}`
   }
 
-  function openReplyAll(): void {
+  function senderAddress(detail: { fromName: string | null; fromEmail: string | null }): string {
+    if (!detail.fromEmail) return ''
+    return detail.fromName ? `${detail.fromName} <${detail.fromEmail}>` : detail.fromEmail
+  }
+
+  function emailOf(addr: string): string {
+    return (addr.match(/<([^>]+)>/)?.[1] ?? addr).trim().toLowerCase()
+  }
+
+  function replyFields(detail: MessageDetail): { subject: string; inReplyTo?: string; references?: string } {
+    return {
+      subject: replySubject(detail.subject),
+      inReplyTo: detail.messageId ?? undefined,
+      references: [detail.refs, detail.messageId].filter(Boolean).join(' ') || undefined
+    }
+  }
+
+  async function openReply(): Promise<void> {
     const detail = useMail.getState().detail
     if (!detail) return
     const self = activeAccount?.email?.toLowerCase()
-    const parseEmail = (addr: string): string => (addr.match(/<([^>]+)>/)?.[1] ?? addr).toLowerCase()
-    const sender = detail.fromEmail
-      ? detail.fromName
-        ? `${detail.fromName} <${detail.fromEmail}>`
-        : detail.fromEmail
-      : ''
-    const ccList = [...detail.to, ...detail.cc].filter((addr) => {
-      const email = parseEmail(addr)
-      return email && email !== self && email !== detail.fromEmail?.toLowerCase()
-    })
-    const cc = Array.from(new Set(ccList.map((a) => a.trim()))).join(', ')
-    setComposeState({
-      open: true,
-      to: sender,
-      cc,
-      subject: detail.subject?.startsWith('Re:') ? detail.subject : `Re: ${detail.subject ?? ''}`,
-      quote: buildQuote(detail),
-      inReplyTo: detail.messageId ?? undefined,
-      references: [detail.refs, detail.messageId].filter(Boolean).join(' ') || undefined
-    })
+    let to = senderAddress(detail)
+    if (!to || (self && emailOf(to) === self)) {
+      const participants = await window.clover.mail.threadParticipants(detail.id).catch(() => [])
+      to = participants[0] ?? to
+    }
+    setComposeState({ open: true, to, quote: buildQuote(detail), ...replyFields(detail) })
+  }
+
+  async function openReplyAll(): Promise<void> {
+    const detail = useMail.getState().detail
+    if (!detail) return
+    const self = activeAccount?.email?.toLowerCase()
+    // Everyone in the conversation (From/To/Cc), oldest first, minus you.
+    const participants = await window.clover.mail.threadParticipants(detail.id).catch(() => [])
+    let to = senderAddress(detail)
+    const rest = participants.filter((p) => emailOf(p) !== (to ? emailOf(to) : ''))
+    if (!to || (self && emailOf(to) === self)) to = rest.shift() ?? ''
+    setComposeState({ open: true, to, cc: rest.join(', '), quote: buildQuote(detail), ...replyFields(detail) })
   }
 
   async function openForward(): Promise<void> {

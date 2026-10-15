@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { getDb } from '@core/db'
-import { folders, messages } from '@core/db/schema'
+import { accounts, folders, messages } from '@core/db/schema'
 import { toMessageSummary } from './mappers'
 import { countSpam, listSpam } from './spam'
 import { listThreadFlags } from './threadSettings'
@@ -288,7 +288,7 @@ export function hasOlderMessages(folderId: string, limit: number): boolean {
  * using the exact same grouping as the message list so the reader always shows
  * the same thread the list row represents.
  */
-export function threadMessageIds(messageId: string, limit = 1500): string[] {
+function findThreadRows(messageId: string, limit: number): MessageRow[] {
   const db = getDb()
   const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
   if (!row) return []
@@ -302,8 +302,60 @@ export function threadMessageIds(messageId: string, limit = 1500): string[] {
   const thread = buildThreads(rows, foldersById(row.accountId), row.folderId).find((t) =>
     t.messages.some((m) => m.id === messageId)
   )
-  if (!thread) return [messageId]
-  return thread.messages.map((m) => m.id)
+  if (!thread) return [row]
+  // buildThreads already ordered the thread oldest-first; recover full rows.
+  const byId = new Map(rows.map((r) => [r.id, r]))
+  return thread.messages
+    .map((m) => byId.get(m.id))
+    .filter((r): r is MessageRow => Boolean(r))
+}
+
+export function threadMessageIds(messageId: string, limit = 1500): string[] {
+  return findThreadRows(messageId, limit).map((r) => r.id)
+}
+
+function parseAddressList(json: string | null): { name: string | null; address: string | null }[] {
+  if (!json) return []
+  try {
+    const parsed = JSON.parse(json)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Everyone who took part in the conversation containing `messageId` — From/To/Cc
+ * across every message, de-duplicated, oldest first, excluding the account's own
+ * address. Reply-all uses this so a thread with several people is fully covered
+ * even when the open message only lists one of them.
+ */
+export function threadParticipants(messageId: string, limit = 1500): string[] {
+  const rows = findThreadRows(messageId, limit)
+  if (rows.length === 0) return []
+  const account = getDb()
+    .select({ email: accounts.email })
+    .from(accounts)
+    .where(eq(accounts.id, rows[0].accountId))
+    .get()
+  const self = (account?.email ?? '').trim().toLowerCase()
+
+  const seen = new Set<string>()
+  const out: string[] = []
+  const add = (name: string | null, address: string | null): void => {
+    const addr = (address ?? '').trim()
+    if (!addr) return
+    const key = addr.toLowerCase()
+    if (key === self || seen.has(key)) return
+    seen.add(key)
+    out.push(name ? `${name} <${addr}>` : addr)
+  }
+  for (const row of rows) {
+    add(row.fromName, row.fromEmail)
+    for (const a of parseAddressList(row.toJson)) add(a.name, a.address)
+    for (const a of parseAddressList(row.ccJson)) add(a.name, a.address)
+  }
+  return out
 }
 
 /** Threads across every account (Unified Inbox). */

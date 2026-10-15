@@ -122,6 +122,8 @@ export interface MailApi {
   cancelScheduled: (id: string) => Promise<void>
   setThreadMuted: (threadId: string, muted: boolean) => Promise<void>
   setThreadPinned: (threadId: string, pinned: boolean) => Promise<void>
+  /** Everyone in the conversation (From/To/Cc), de-duplicated, excluding you. */
+  threadParticipants: (messageId: string) => Promise<string[]>
   listLabels: () => Promise<import('./mail').Label[]>
   createLabel: (name: string, color?: string) => Promise<import('./mail').Label>
   deleteLabel: (id: string) => Promise<void>
