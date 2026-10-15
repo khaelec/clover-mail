@@ -622,14 +622,35 @@ export function MailView(): ReactNode {
     }
   }
 
+  // Everyone in the conversation, minus me: the thread's participants (across
+  // From/To/Cc of every message) plus the open message's own To/Cc as a floor,
+  // de-duplicated. Falls back gracefully when a thread isn't grouped.
+  async function replyRecipients(detail: MessageDetail): Promise<string[]> {
+    const self = activeAccount?.email?.toLowerCase()
+    const seen = new Set<string>()
+    const out: string[] = []
+    const push = (addr: string): void => {
+      const key = emailOf(addr)
+      if (!key || (self && key === self) || seen.has(key)) return
+      seen.add(key)
+      out.push(addr.trim())
+    }
+    const participants = await window.clover.mail
+      .threadParticipants(detail.id)
+      .catch(() => [] as string[])
+    for (const p of participants) push(p)
+    for (const a of [...detail.to, ...detail.cc]) push(a)
+    return out
+  }
+
   async function openReply(): Promise<void> {
     const detail = useMail.getState().detail
     if (!detail) return
     const self = activeAccount?.email?.toLowerCase()
     let to = senderAddress(detail)
     if (!to || (self && emailOf(to) === self)) {
-      const participants = await window.clover.mail.threadParticipants(detail.id).catch(() => [])
-      to = participants[0] ?? to
+      const recipients = await replyRecipients(detail)
+      to = recipients[0] ?? to
     }
     setComposeState({ open: true, to, quote: buildQuote(detail), ...replyFields(detail) })
   }
@@ -638,10 +659,9 @@ export function MailView(): ReactNode {
     const detail = useMail.getState().detail
     if (!detail) return
     const self = activeAccount?.email?.toLowerCase()
-    // Everyone in the conversation (From/To/Cc), oldest first, minus you.
-    const participants = await window.clover.mail.threadParticipants(detail.id).catch(() => [])
+    const recipients = await replyRecipients(detail)
     let to = senderAddress(detail)
-    const rest = participants.filter((p) => emailOf(p) !== (to ? emailOf(to) : ''))
+    const rest = recipients.filter((p) => emailOf(p) !== (to ? emailOf(to) : ''))
     if (!to || (self && emailOf(to) === self)) to = rest.shift() ?? ''
     setComposeState({ open: true, to, cc: rest.join(', '), quote: buildQuote(detail), ...replyFields(detail) })
   }

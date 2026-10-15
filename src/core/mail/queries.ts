@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { getDb } from '@core/db'
-import { accounts, folders, messages } from '@core/db/schema'
+import { accountAliases, accounts, folders, messages } from '@core/db/schema'
 import { toMessageSummary } from './mappers'
 import { countSpam, listSpam } from './spam'
 import { listThreadFlags } from './threadSettings'
@@ -333,12 +333,23 @@ function parseAddressList(json: string | null): { name: string | null; address: 
 export function threadParticipants(messageId: string, limit = 1500): string[] {
   const rows = findThreadRows(messageId, limit)
   if (rows.length === 0) return []
-  const account = getDb()
+  const db = getDb()
+  const accountId = rows[0].accountId
+  // "Me" is the account address plus any aliases it sends as.
+  const self = new Set<string>()
+  const account = db
     .select({ email: accounts.email })
     .from(accounts)
-    .where(eq(accounts.id, rows[0].accountId))
+    .where(eq(accounts.id, accountId))
     .get()
-  const self = (account?.email ?? '').trim().toLowerCase()
+  if (account?.email) self.add(account.email.trim().toLowerCase())
+  for (const alias of db
+    .select({ email: accountAliases.email })
+    .from(accountAliases)
+    .where(eq(accountAliases.accountId, accountId))
+    .all()) {
+    if (alias.email) self.add(alias.email.trim().toLowerCase())
+  }
 
   const seen = new Set<string>()
   const out: string[] = []
@@ -346,7 +357,7 @@ export function threadParticipants(messageId: string, limit = 1500): string[] {
     const addr = (address ?? '').trim()
     if (!addr) return
     const key = addr.toLowerCase()
-    if (key === self || seen.has(key)) return
+    if (self.has(key) || seen.has(key)) return
     seen.add(key)
     out.push(name ? `${name} <${addr}>` : addr)
   }

@@ -8,7 +8,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeDatabase, getDb, initDatabase } from '../src/core/db'
-import { accounts, folders, messages } from '../src/core/db/schema'
+import { accountAliases, accounts, folders, messages } from '../src/core/db/schema'
 import { listThreads, threadMessageIds, threadParticipants } from '../src/core/mail/queries'
 
 const dir = mkdtempSync(join(tmpdir(), 'clover-threads-'))
@@ -17,6 +17,7 @@ const db = getDb()
 
 const now = Date.now()
 db.insert(accounts).values({ id: 'a1', email: 'me@t', createdAt: now }).run()
+db.insert(accountAliases).values({ id: 'al1', accountId: 'a1', email: 'alias@t', createdAt: now }).run()
 const folder = (id: string, name: string, remotePath: string, specialUse: string | null): void => {
   db.insert(folders).values({ id, accountId: 'a1', name, remotePath, specialUse }).run()
 }
@@ -101,6 +102,22 @@ const parts = threadParticipants('p1')
 out.participantsAll = JSON.stringify(parts) === JSON.stringify(['Alice <alice@x>', 'Bob <bob@x>'])
 out.participantsExcludeSelf = !parts.some((p) => p.toLowerCase().includes('me@t'))
 out.replyAllFromOwnMessage = threadParticipants('p3')[0] === 'Alice <alice@x>'
+
+// A message addressed to the account's alias must not list the alias as a
+// recipient (aliases count as "me").
+db.insert(messages)
+  .values({
+    id: 'q1', accountId: 'a1', folderId: 'inbox', uid: 20, messageId: 'MID-4', threadId: 'T4',
+    subject: 'Alias', dateUtc: 5, fromName: 'Dana', fromEmail: 'dana@x',
+    toJson: addr([
+      { name: null, address: 'me@t' },
+      { name: null, address: 'alias@t' },
+      { name: 'Carol', address: 'carol@x' }
+    ])
+  })
+  .run()
+out.participantsExcludeAlias = JSON.stringify(threadParticipants('q1')) ===
+  JSON.stringify(['Dana <dana@x>', 'Carol <carol@x>'])
 
 closeDatabase()
 console.log(JSON.stringify(out, null, 2))

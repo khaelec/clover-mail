@@ -98,7 +98,9 @@ export function Compose({
   const [to, setTo] = useState(initialTo ?? '')
   const [cc, setCc] = useState(initialCc ?? '')
   const [bcc, setBcc] = useState('')
-  const [showCc, setShowCc] = useState(false)
+  // Show the Cc/Bcc rows up front when a reply already has Cc recipients,
+  // otherwise reply-all looks like it only selected one person.
+  const [showCc, setShowCc] = useState(Boolean(initialCc))
   const [subject, setSubject] = useState(initialSubject ?? '')
   const [attachments, setAttachments] = useState<{ name: string; path: string }[]>(
     initialAttachments ?? []
