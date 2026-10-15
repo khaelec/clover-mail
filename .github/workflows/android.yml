@@ -91,3 +91,11 @@ jobs:
           # The runner executes the script line by line, so use a real script
           # file (multi-line if/for would break otherwise).
           script: bash scripts/android-e2e.sh
+
+      - name: Upload logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logcat
+          path: /tmp/logcat.txt
+          if-no-files-found: ignore

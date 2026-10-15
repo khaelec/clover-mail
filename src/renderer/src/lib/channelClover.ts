@@ -11,6 +11,18 @@ export async function installChannelClover(): Promise<void> {
   const w = window as unknown as { clover?: unknown }
   if (w.clover) return
 
+  // Start the nodejs-mobile runtime (startMode is 'manual' in capacitor.config).
+  try {
+    const { ready } = await Nodejs.isReady()
+    if (!ready) {
+      console.log('CLOVER_UI_STARTING')
+      await Nodejs.start()
+      console.log('CLOVER_UI_STARTED')
+    }
+  } catch (error) {
+    console.log(`CLOVER_UI_START_ERROR ${error instanceof Error ? error.message : String(error)}`)
+  }
+
   const pending = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
   const listeners = new Map<string, Set<(payload: unknown) => void>>()
   let nextId = 0

@@ -11,7 +11,8 @@ const config: CapacitorConfig = {
   appName: 'Clover Mail',
   webDir: 'dist-mobile',
   plugins: {
-    Nodejs: { nodeDir: 'nodejs', startMode: 'auto' }
+    // Manual start so the WebView controls (and can log) when the engine boots.
+    Nodejs: { nodeDir: 'nodejs', startMode: 'manual' }
   }
 }
 
