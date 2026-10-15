@@ -2,6 +2,7 @@ node_modules/
 out/
 dist/
 dist-electron/
+dist-mobile/
 release/
 release-personal/
 seed/

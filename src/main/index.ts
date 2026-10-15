@@ -38,12 +38,19 @@ import { randomUUID } from 'node:crypto'
 import { networkInterfaces } from 'node:os'
 import { getSetting, setSetting } from '@core/settings'
 import { startTransport, type TransportServer } from '@core/transport/server'
+import type { NotificationInput } from '@shared/notifications'
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
 let syncAllAccounts = (): void => undefined
 let lastFocusSync = 0
 let transport: TransportServer | null = null
+
+// Push a bell item to the desktop renderer and any connected mobile client.
+function notify(input: NotificationInput): void {
+  mainWindow?.webContents.send(IpcChannels.appNotify, input)
+  transport?.emit(IpcChannels.appNotify, input)
+}
 
 function lanUrl(port: number, token: string): string {
   for (const list of Object.values(networkInterfaces())) {
@@ -394,7 +401,7 @@ app.whenReady().then(async () => {
     const due = clearDueSnoozes(Date.now())
     if (due.length > 0) {
       mainWindow?.webContents.send(IpcChannels.mail.events, { type: 'mail:refresh', accountId: '' })
-      mainWindow?.webContents.send(IpcChannels.appNotify, {
+      notify({
         kind: 'system',
         title:
           due.length === 1
@@ -416,7 +423,7 @@ app.whenReady().then(async () => {
       const failed = failedOutbox()
       if (failed.length > lastFailed) {
         const latest = failed[failed.length - 1]
-        mainWindow?.webContents.send(IpcChannels.appNotify, {
+        notify({
           kind: 'system',
           title: 'A message could not be sent',
           body: latest?.error ?? 'Open the Outbox to retry or fix it.',
@@ -438,7 +445,7 @@ app.whenReady().then(async () => {
         })
         const body = `${when}${reminder.location ? ` · ${reminder.location}` : ''}`
         // Also collect it in the bell (so it survives even if the OS popup was missed).
-        mainWindow?.webContents.send(IpcChannels.appNotify, {
+        notify({
           kind: 'system',
           title: reminder.summary,
           body,

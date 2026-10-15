@@ -14,8 +14,10 @@ function mobileCspPlugin(): Plugin {
   return {
     name: 'clover-mobile-csp',
     transformIndexHtml(html) {
+      // The meta tag spans several lines, so allow whitespace/newlines between
+      // its attributes.
       return html.replace(
-        /(<meta http-equiv="Content-Security-Policy" content=")[^"]*(")/i,
+        /(<meta[^>]*http-equiv=["']Content-Security-Policy["'][^>]*content=")[^"]*(")/i,
         `$1${MOBILE_CSP}$2`
       )
     }
