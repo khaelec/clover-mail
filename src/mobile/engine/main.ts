@@ -12,19 +12,19 @@ interface BridgeChannel {
   on(event: string, cb: (msg: unknown) => void): void
   post(event: string, ...args: unknown[]): void
 }
-interface BridgeApp {
-  datadir(): string
+export interface Bridge {
+  app: { datadir(): string }
+  channel: BridgeChannel
 }
 
 /**
- * Starts the on-device engine. `index.ts` calls this inside a try/catch so a
- * load/start failure is reported to logcat instead of dying silently.
+ * Starts the on-device engine. `index.ts` requires `bridge` first (so the
+ * runtime becomes ready) and calls this inside a try/catch; a failure is
+ * reported back over the channel.
  */
-export function startEngine(): void {
-  // nodejs-mobile's built-in `bridge` module (from the Capacitor Node.js
-  // plugin). The WebView sends `{ id, channel, args }`; we reply `{ id, ok, … }`,
-  // and engine events go out as `{ channel, payload }` on the 'event' name.
-  const bridge = require('bridge') as { app: BridgeApp; channel: BridgeChannel }
+export function startEngine(bridge: Bridge): void {
+  // The WebView sends `{ id, channel, args }`; we reply `{ id, ok, … }`, and
+  // engine events go out as `{ channel, payload }` on the 'event' name.
 
   // The phone engine runs on nodejs-mobile's Node → the WASM SQLite driver.
   process.env.CLOVER_DB_DRIVER = 'wasm'
