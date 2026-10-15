@@ -2,7 +2,9 @@ const fs = require('fs')
 const path = require('path')
 
 const root = path.join(__dirname, '..')
-const preload = fs.readFileSync(path.join(root, 'src/preload/index.ts'), 'utf8')
+// The window.clover surface (method -> channel) lives in shared so the preload
+// and the mobile web client build it identically.
+const preload = fs.readFileSync(path.join(root, 'src/shared/cloverClient.ts'), 'utf8')
 
 const ipcDir = path.join(root, 'src/main/ipc')
 const mainSrc = fs
@@ -23,7 +25,7 @@ const collect = (src, re, map) => {
 }
 
 const rendererCalls = new Map()
-collect(preload, /ipcRenderer\.(invoke|send|on)\(\s*IpcChannels\.([\w.]+)/g, rendererCalls)
+collect(preload, /\b(invoke|send|on)\(\s*IpcChannels\.([\w.]+)/g, rendererCalls)
 
 const mainCalls = new Map()
 collect(mainSrc, /ipcMain\.(handle|handleOnce|on)\(\s*IpcChannels\.([\w.]+)/g, mainCalls)
