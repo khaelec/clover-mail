@@ -41,7 +41,10 @@ function toApp(row: typeof customWebApps.$inferSelect): CustomApp {
     windowMode: (row.windowMode as 'inline' | 'window') ?? 'inline',
     isPinned: row.isPinned,
     sortOrder: row.sortOrder,
-    runInBackground: row.runInBackground
+    runInBackground: row.runInBackground,
+    notifyInBell: row.notifyInBell,
+    notifyOsPopup: row.notifyOsPopup,
+    notifyHidePreview: row.notifyHidePreview
   }
 }
 
@@ -218,6 +221,9 @@ export function updateApp(id: string, patch: Partial<CustomApp>): void {
   if (patch.isPinned !== undefined) set.isPinned = patch.isPinned
   if (patch.sortOrder !== undefined) set.sortOrder = patch.sortOrder
   if (patch.runInBackground !== undefined) set.runInBackground = patch.runInBackground
+  if (patch.notifyInBell !== undefined) set.notifyInBell = patch.notifyInBell
+  if (patch.notifyOsPopup !== undefined) set.notifyOsPopup = patch.notifyOsPopup
+  if (patch.notifyHidePreview !== undefined) set.notifyHidePreview = patch.notifyHidePreview
   if (Object.keys(set).length === 0) return
   getDb().update(customWebApps).set(set).where(eq(customWebApps.id, id)).run()
 }

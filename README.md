@@ -27,6 +27,7 @@ Built with **Electron + React + TypeScript**, local-first (SQLite), by [@khaelec
 **Apps**
 - Embed your own **web apps / PWAs** (e.g. an internal IT app) in isolated, persistent sessions
 - Open an app **beside the reader** in a resizable dock
+- Apps that **run in the background** capture their own notifications into the bell — sender and preview, and clicking one opens the chat. No special integration is needed: any app that calls the standard `new Notification(title, { body })` is picked up automatically. An app can also put an `(N)` unread count in its page title to drive the badge.
 
 **AI copilot**
 - **Claude**, **Ollama (local)**, and **opencode** — streaming chat with email context

@@ -21,6 +21,39 @@ function hostOf(url: string): string {
   }
 }
 
+function ToggleRow({
+  label,
+  value,
+  onChange
+}: {
+  label: string
+  value: boolean
+  onChange: (value: boolean) => void
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      aria-pressed={value}
+      onClick={() => onChange(!value)}
+      className="flex w-full items-center justify-between gap-2 py-1 text-left text-[12px] text-muted hover:text-ink"
+    >
+      <span>{label}</span>
+      <span
+        className={
+          'relative h-4 w-7 shrink-0 rounded-full transition-colors ' + (value ? 'bg-accent' : 'bg-line')
+        }
+      >
+        <span
+          className={
+            'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ' +
+            (value ? 'left-3.5' : 'left-0.5')
+          }
+        />
+      </span>
+    </button>
+  )
+}
+
 export function AppsView(): ReactNode {
   const apps = useApps((s) => s.apps)
   const activeAppId = useApps((s) => s.activeAppId)
@@ -163,6 +196,29 @@ export function AppsView(): ReactNode {
             )
           })}
         </div>
+
+        {activeApp && (
+          <div className="border-t border-line p-2.5">
+            <div className="mb-1 truncate text-[10px] font-semibold uppercase tracking-wide text-muted">
+              {activeApp.name} notifications
+            </div>
+            <ToggleRow
+              label="Show in bell"
+              value={activeApp.notifyInBell}
+              onChange={(v) => void update(activeApp.id, { notifyInBell: v })}
+            />
+            <ToggleRow
+              label="Also show OS popup"
+              value={activeApp.notifyOsPopup}
+              onChange={(v) => void update(activeApp.id, { notifyOsPopup: v })}
+            />
+            <ToggleRow
+              label="Hide message previews"
+              value={activeApp.notifyHidePreview}
+              onChange={(v) => void update(activeApp.id, { notifyHidePreview: v })}
+            />
+          </div>
+        )}
       </aside>
 
       <section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-canvas">

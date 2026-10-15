@@ -36,7 +36,18 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
-    build: { minify: 'esbuild', sourcemap: false },
+    build: {
+      minify: 'esbuild',
+      sourcemap: false,
+      rollupOptions: {
+        input: {
+          // The main-window preload, and a small preload injected into every
+          // embedded-app webview to capture its notifications.
+          index: resolve('src/preload/index.ts'),
+          app: resolve('src/preload/app.ts')
+        }
+      }
+    },
     resolve: {
       alias: {
         '@shared': resolve('src/shared')

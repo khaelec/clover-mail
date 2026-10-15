@@ -7,6 +7,9 @@ export interface CustomApp {
   isPinned: boolean
   sortOrder: number
   runInBackground: boolean
+  notifyInBell: boolean
+  notifyOsPopup: boolean
+  notifyHidePreview: boolean
 }
 
 export interface CreateAppInput {

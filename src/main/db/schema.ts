@@ -289,7 +289,11 @@ export const customWebApps = sqliteTable('custom_web_apps', {
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: integer('created_at').notNull(),
   // Load the app at startup so it can post notifications even before it's opened.
-  runInBackground: integer('run_in_background', { mode: 'boolean' }).notNull().default(true)
+  runInBackground: integer('run_in_background', { mode: 'boolean' }).notNull().default(true),
+  // Notification capture settings.
+  notifyInBell: integer('notify_in_bell', { mode: 'boolean' }).notNull().default(true),
+  notifyOsPopup: integer('notify_os_popup', { mode: 'boolean' }).notNull().default(true),
+  notifyHidePreview: integer('notify_hide_preview', { mode: 'boolean' }).notNull().default(false)
 })
 
 export const calendars = sqliteTable('calendars', {

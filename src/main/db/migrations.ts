@@ -401,5 +401,14 @@ export const migrations: Migration[] = [
     sql: `
       ALTER TABLE custom_web_apps ADD COLUMN run_in_background INTEGER NOT NULL DEFAULT 1;
     `
+  },
+  {
+    // Per-app notification settings. Adds columns only.
+    id: '0020_app_notify_settings',
+    sql: `
+      ALTER TABLE custom_web_apps ADD COLUMN notify_in_bell INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE custom_web_apps ADD COLUMN notify_os_popup INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE custom_web_apps ADD COLUMN notify_hide_preview INTEGER NOT NULL DEFAULT 0;
+    `
   }
 ]

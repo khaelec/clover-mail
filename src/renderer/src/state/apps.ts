@@ -15,6 +15,7 @@ interface AppsState {
   creating: boolean
   appUnread: Record<string, number>
   appUnreadTotal: number
+  appNotifiedAt: Record<string, number>
   load: () => Promise<void>
   add: (input: CreateAppInput) => Promise<CustomApp>
   remove: (id: string) => Promise<void>
@@ -22,6 +23,7 @@ interface AppsState {
   select: (id: string | null) => void
   setHost: (host: AppHostSlot | null) => void
   setAppUnread: (id: string, name: string, count: number) => void
+  markAppNotified: (id: string) => void
 }
 
 export const useApps = create<AppsState>((set, get) => ({
@@ -32,6 +34,7 @@ export const useApps = create<AppsState>((set, get) => ({
   creating: false,
   appUnread: {},
   appUnreadTotal: 0,
+  appNotifiedAt: {},
 
   load: async () => {
     set({ loading: true })
@@ -76,13 +79,21 @@ export const useApps = create<AppsState>((set, get) => ({
   setAppUnread: (id, name, count) => {
     const prev = get().appUnread[id] ?? 0
     const next = { ...get().appUnread, [id]: count }
-    if (count > prev) {
+    // If the app posts real notifications (captured via the preload), those are
+    // richer than a title count — use the count only for the badge, and only fall
+    // back to a title-count bell item when no real notification arrived recently.
+    const recentReal = Date.now() - (get().appNotifiedAt[id] ?? 0) < 30_000
+    if (count > prev && !recentReal) {
       useNotifications.getState().add({
         kind: 'app',
+        appId: id,
+        appName: name,
         title: `New message in ${name}`,
         body: count > 1 ? `${count} unread` : ''
       })
     }
     set({ appUnread: next, appUnreadTotal: Object.values(next).reduce((a, b) => a + b, 0) })
-  }
+  },
+
+  markAppNotified: (id) => set({ appNotifiedAt: { ...get().appNotifiedAt, [id]: Date.now() } })
 }))

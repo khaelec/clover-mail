@@ -85,6 +85,19 @@ export function App(): ReactNode {
     return () => window.removeEventListener('clover:open-settings', handler)
   }, [])
 
+  // Opening a notification from an app jumps to the Apps view and selects it.
+  useEffect(() => {
+    const handler = (event: Event): void => {
+      const detail = (event as CustomEvent<{ appId?: string }>).detail
+      if (detail?.appId) {
+        useApps.getState().select(detail.appId)
+        setSection('apps')
+      }
+    }
+    window.addEventListener('clover:open-app', handler)
+    return () => window.removeEventListener('clover:open-app', handler)
+  }, [])
+
   // Opening a notification jumps to Mail and focuses the message it refers to.
   useEffect(() => {
     const handler = (event: Event): void => {

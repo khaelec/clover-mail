@@ -201,6 +201,20 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  // Every embedded-app webview gets our notification-capture preload and forced
+  // secure settings, whatever the page or embedder asked for.
+  mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    if (!/^https?:\/\//i.test(params.src)) {
+      event.preventDefault()
+      return
+    }
+    webPreferences.preload = join(__dirname, '../preload/app.js')
+    webPreferences.nodeIntegration = false
+    webPreferences.contextIsolation = true
+    webPreferences.sandbox = true
+    webPreferences.backgroundThrottling = false
+  })
+
   mainWindow.webContents.on('context-menu', (_event, params) => {
     const template: Electron.MenuItemConstructorOptions[] = []
     if (params.misspelledWord) {
