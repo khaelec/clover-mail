@@ -8,6 +8,16 @@ import { useUpdate } from '../../state/update'
 import { useApps } from '../../state/apps'
 import type { TabId } from './ui'
 
+/** Mask email addresses (j***@gmail.com) so pasted diagnostics don't leak them. */
+function redactEmails(text: string): string {
+  return text.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, (match) => {
+    const at = match.indexOf('@')
+    const user = match.slice(0, at)
+    const masked = user.length <= 1 ? '*' : `${user[0]}***`
+    return `${masked}${match.slice(at)}`
+  })
+}
+
 /**
  * All of the Settings state, effects and handlers in one place. SettingsView
  * provides it through a context; each tab consumes the pieces it needs, so the
@@ -55,7 +65,7 @@ export function useSettingsState(tab: TabId) {
     void (async () => {
       const logs = await window.clover.readLogs(200)
       const text = diagnosticsText() + (logs ? `\n\n--- recent log ---\n${logs}` : '')
-      await window.navigator.clipboard.writeText(text)
+      await window.navigator.clipboard.writeText(redactEmails(text))
       setDiagnosticsCopied(true)
       setTimeout(() => setDiagnosticsCopied(false), 2000)
     })()

@@ -4,13 +4,22 @@
 
 1. **Updates must never delete or overwrite user data.** Accounts, cached mail,
    attachments, labels, settings and the database live in the app's user-data
-   folder (`app.getPath('userData')`) — `%APPDATA%\clover-mail` for a development
-   build, `%APPDATA%\Clover Mail` for a packaged install. An update may replace
-   program files only. Never set `deleteAppDataOnUninstall: true`, never point
+   folder (`app.getPath('userData')`) — `%APPDATA%\clover-mail`, for **both**
+   development and packaged installs. Electron names the folder after
+   `"name": "clover-mail"` in `package.json`; `productName` in
+   `electron-builder.yml` does **not** change it. An update may replace program
+   files only. Never set `deleteAppDataOnUninstall: true`, never point
    cleanup/migration/seeding code at existing data destructively, and only seed
    the database on first run (when the target file does not exist). When adding
    any code that removes files, keep it scoped to its own cache directory
    (e.g. the `*-updater` folder), never to the user data directory.
+
+   **Never "fix" that folder name in code.** Do not set `productName` in
+   `package.json`, call `app.setName(...)`, or call `app.setPath('userData', ...)`
+   to rename it. That would point every install at a new, empty folder — users
+   would open the app to no accounts and no mail (rule 1's worst case, even though
+   nothing was deleted). If the name ever has to change, ship a one-time migration
+   that copies the old folder and never deletes it.
 
 2. **Every change ships with a version bump and a push.** Bump `version` in
    `package.json` (patch, e.g. `0.4.9` -> `0.4.10`) in its own commit

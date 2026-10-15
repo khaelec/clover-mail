@@ -1,4 +1,15 @@
-import { app, shell, BrowserWindow, Menu, net, Notification, protocol, session } from 'electron'
+import {
+  app,
+  dialog,
+  powerMonitor,
+  shell,
+  BrowserWindow,
+  Menu,
+  net,
+  Notification,
+  protocol,
+  session
+} from 'electron'
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -8,7 +19,7 @@ import { initDatabase, closeDatabase } from '@main/db'
 import { registerIpc } from '@main/ipc'
 import { setStorageRoot } from '@main/mail/storage'
 import { initMediaAllow, isMediaPathAllowed } from '@main/mediaAllow'
-import { initLogging } from '@main/log'
+import { initLogging, logError } from '@main/log'
 import { setAppsRoot } from '@main/apps'
 import { stopAllIdle } from '@main/mail/idle'
 import { initUpdater } from '@main/updater'
@@ -16,6 +27,7 @@ import { createTray } from '@main/tray'
 import { clearDueSnoozes } from '@main/mail/snooze'
 import { processOutbox } from '@main/mail/outbox'
 import { syncAccount } from '@main/mail/sync'
+import { resetAccountConnection } from '@main/mail/connection'
 import { listAccounts } from '@main/mail/accounts'
 import { createMailEmit } from '@main/mail/events'
 import { registerElectronPlatform } from '@main/platformElectron'
@@ -44,6 +56,17 @@ if (!isPrimaryInstance) {
     win.focus()
   })
 }
+
+// Log any uncaught exception (to logs/main.log) and still surface it, so a
+// missing listener somewhere is diagnosable instead of a silent crash.
+process.on('uncaughtException', (error) => {
+  logError('uncaught', error)
+  try {
+    dialog.showErrorBox('Clover Mail error', error.stack ?? String(error))
+  } catch {
+    // ignore
+  }
+})
 
 const isWebUrl = (url: string): boolean => /^https?:\/\//i.test(url) || url.startsWith('mailto:')
 const isNavigable = (url: string): boolean =>
@@ -275,6 +298,12 @@ app.whenReady().then(async () => {
   setStorageRoot(app.getPath('userData'))
   initMediaAllow(app.getPath('userData'))
   initLogging(app.getPath('userData'))
+
+  // A sleeping laptop leaves IMAP sockets dead; drop the pooled connections so
+  // the next action reconnects instead of hanging until the socket times out.
+  powerMonitor.on('resume', () => {
+    for (const account of listAccounts()) resetAccountConnection(account.id)
+  })
   setAppsRoot(app.getPath('userData'))
   registerIpc(
     () => mainWindow,
