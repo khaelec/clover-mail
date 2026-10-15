@@ -1,26 +1,7 @@
 import { create } from 'zustand'
 import type { NotificationInput, StoredNotification } from '@shared/notifications'
-import { isNative } from '../lib/mobile'
-import { nativeNotify } from '../lib/nativeNotify'
 
 export type AppNotification = StoredNotification
-
-/** Mirror a new bell item to a phone system notification (native shell only). */
-async function maybeNotify(item: AppNotification): Promise<void> {
-  if (!isNative()) return
-  try {
-    if ((await window.clover.settings.get('notifications.dnd')) === true) return
-  } catch {
-    // settings unavailable — still notify
-  }
-  void nativeNotify({
-    title: item.title,
-    body: item.body,
-    nav: item.nav,
-    accountId: item.accountId,
-    messageId: item.messageId
-  })
-}
 
 interface NotificationsState {
   items: AppNotification[]
@@ -115,7 +96,6 @@ export const useNotifications = create<NotificationsState>((set, get) => {
         read: false,
         count: n.count ?? 1
       }
-      void maybeNotify(item)
       commit([item, ...items].slice(0, 50))
     },
 

@@ -319,18 +319,6 @@ export const useMail = create<MailState>((set, get) => {
         }
       })
 
-      // The phone app returning to the foreground: ask the desktop to sync and
-      // refresh what's on screen (the event stream is re-opened separately).
-      window.addEventListener('clover:resume', () => {
-        for (const account of get().accounts) {
-          void window.clover.mail.syncAccount(account.id).catch(() => undefined)
-        }
-        void reloadFolders()
-        void reloadFolder()
-        void get().loadOutbox()
-        void useNotifications.getState().reconcileMail()
-      })
-
       void useNotifications.getState().load()
       await get().refreshAccounts()
       await get().loadLabels()
