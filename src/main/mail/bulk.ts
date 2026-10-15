@@ -5,7 +5,7 @@ import { setFlags } from './messages'
 import { withImap } from './connection'
 import { protocolFor } from './accounts'
 import { removeFromIndex } from './search'
-import { markRecentlyRestored, markRecentlyRemoved } from './recentUids'
+import { markRecentlyRestored, markRecentlyRemoved } from '@core/mail/recentUids'
 import type { BulkActionInput, BulkActionResult, MovedMessage } from '@shared/mail'
 
 function specialFolderId(accountId: string, use: string): string | undefined {

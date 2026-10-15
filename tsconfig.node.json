@@ -15,13 +15,15 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@shared/*": ["./src/shared/*"],
-      "@main/*": ["./src/main/*"]
+      "@main/*": ["./src/main/*"],
+      "@core/*": ["./src/core/*"]
     }
   },
   "include": [
     "src/main/**/*",
     "src/preload/**/*",
     "src/shared/**/*",
+    "src/core/**/*",
     "electron.vite.config.ts"
   ]
 }

@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { closeDatabase, getDb, initDatabase } from '../src/main/db'
 import { accounts, folders, messages } from '../src/main/db/schema'
 import { announceNewInboxMessages } from '../src/main/mail/announce'
-import { markRecentlyRestored } from '../src/main/mail/recentUids'
+import { markRecentlyRestored } from '../src/core/mail/recentUids'
 import { setThreadMuted } from '../src/main/mail/threadSettings'
 import { useNotifications } from '../src/renderer/src/state/notifications'
 
