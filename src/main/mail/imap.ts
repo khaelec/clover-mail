@@ -9,7 +9,7 @@ export interface ImapAuth {
 
 export function buildImapClient(settings: EndpointInput, auth: ImapAuth): ImapFlow {
   const secure = settings.security === 'ssl'
-  return new ImapFlow({
+  const client = new ImapFlow({
     host: settings.host,
     port: settings.port,
     secure,
@@ -24,6 +24,13 @@ export function buildImapClient(settings: EndpointInput, auth: ImapAuth): ImapFl
     greetingTimeout: 15_000,
     socketTimeout: 60_000
   })
+  // imapflow emits 'error' on socket timeouts and dropped connections. With no
+  // listener Node turns that into an uncaught exception and crashes the app
+  // (the "JavaScript error occurred in the main process" dialog). The operation
+  // that owns the client still surfaces the failure through its own promise; this
+  // listener only stops the crash.
+  client.on('error', () => undefined)
+  return client
 }
 
 export async function testImap(settings: EndpointInput, auth: ImapAuth): Promise<string> {
