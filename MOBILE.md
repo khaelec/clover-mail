@@ -64,10 +64,19 @@ has the SDK) and uploads it as the **CloverMail-debug-apk** artifact. Run it fro
 the **Actions → Android → Run workflow** button, or push to `main` /
 `feat/android`, then download `app-debug.apk` from the run.
 
-## Not done yet (Phase 4 in `PLAN-mobile.md`)
+## Status
 
-- System notifications on the phone and background sync (Capacitor
-  LocalNotifications + a push/periodic strategy — IMAP IDLE is unreliable on
-  mobile).
-- Storing the token in the Android Keystore rather than `localStorage`.
-- A touch/mobile UX pass (responsive layout, larger targets).
+- **Phase 3 (shell)** done, and **Phase 4** partly:
+  - **Phone notifications** — new bell items (mail, reminders, send failures,
+    updates) also raise a system notification via
+    `@capacitor/local-notifications`, respecting Do Not Disturb; tapping one
+    opens the message or section it refers to. They arrive while the app is
+    running.
+  - **Secure token** — the access token lives in the **Android Keystore**
+    (`@aparajita/capacitor-secure-storage`); a token an older build saved in
+    `localStorage` is migrated on first read.
+  - **Compact phone layout** — the sidebar and folder pane become drawers and
+    the list/reader swap places with a back button.
+- **Not done:** background sync / push (IMAP IDLE is unreliable on mobile, so
+  notifications only arrive while the app is running), and a fuller touch UX
+  pass (larger targets, gestures).
