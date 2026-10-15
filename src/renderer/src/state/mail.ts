@@ -275,6 +275,11 @@ export const useMail = create<MailState>((set, get) => {
           const detail = `${event.folderName ? `${event.folderName}: ` : ''}${event.error ?? 'unknown error'}`
           set({ status: `Sync error: ${detail}` })
           reportSyncError(detail)
+          useNotifications.getState().add({
+            kind: 'system',
+            title: 'Sync failed',
+            body: detail
+          })
           // A folder error leaves the account as syncing (the sync continues); an
           // account-level error (no folderId) marks the whole account failed.
           if (!event.folderId) {

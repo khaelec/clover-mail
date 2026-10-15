@@ -58,6 +58,17 @@ export const useNotifications = create<NotificationsState>((set, get) => {
       // periodic sync) can emit mail:new for the same message more than once.
       if (n.messageId && items.some((i) => i.messageId === n.messageId)) return
 
+      // Collapse repeated system alerts (the same sync error every few minutes).
+      if (n.kind === 'system') {
+        const idx = items.findIndex((i) => i.kind === 'system' && i.title === n.title && !i.read)
+        if (idx >= 0) {
+          const next = items.slice()
+          next[idx] = { ...next[idx], body: n.body ?? '', at: Date.now() }
+          commit(next)
+          return
+        }
+      }
+
       // Group a burst from one app into a single item ("WhatsApp · 5 new").
       if (n.kind === 'app' && n.appId) {
         const idx = items.findIndex((i) => i.kind === 'app' && i.appId === n.appId && !i.read)
