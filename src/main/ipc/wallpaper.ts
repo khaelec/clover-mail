@@ -1,6 +1,7 @@
 import { readdirSync } from 'node:fs'
 import { extname, join } from 'node:path'
-import { dialog, ipcMain } from 'electron'
+import { dialog } from 'electron'
+import { ipcHost as ipcMain } from '@main/ipcHost'
 import { IpcChannels } from '@shared/channels'
 import { detectWallpaperEngine } from '@main/wallpaper/engine'
 import { allowMediaPath } from '@main/mediaAllow'
