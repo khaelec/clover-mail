@@ -7,7 +7,17 @@ export interface ImapAuth {
   accessToken?: string
 }
 
-export function buildImapClient(settings: EndpointInput, auth: ImapAuth): ImapFlow {
+export interface ImapTimeouts {
+  connectionTimeout?: number
+  greetingTimeout?: number
+  socketTimeout?: number
+}
+
+export function buildImapClient(
+  settings: EndpointInput,
+  auth: ImapAuth,
+  timeouts: ImapTimeouts = {}
+): ImapFlow {
   const secure = settings.security === 'ssl'
   const client = new ImapFlow({
     host: settings.host,
@@ -20,9 +30,9 @@ export function buildImapClient(settings: EndpointInput, auth: ImapAuth): ImapFl
     tls: { rejectUnauthorized: settings.security !== 'none' },
     logger: false,
     emitLogs: false,
-    connectionTimeout: 20_000,
-    greetingTimeout: 15_000,
-    socketTimeout: 60_000
+    connectionTimeout: timeouts.connectionTimeout ?? 20_000,
+    greetingTimeout: timeouts.greetingTimeout ?? 15_000,
+    socketTimeout: timeouts.socketTimeout ?? 60_000
   })
   // imapflow emits 'error' on socket timeouts and dropped connections. With no
   // listener Node turns that into an uncaught exception and crashes the app

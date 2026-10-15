@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { removeFromIndex } from './search'
+import { logLine } from '../log'
 
 /** The only thing reconciliation needs from an IMAP client. */
 export interface ReconcileClient {
@@ -68,9 +69,13 @@ export async function reconcileMailbox(
   try {
     // Ask only about the cached UID range, not the whole mailbox.
     const found = await client.search({ uid: `${min}:${max}` }, { uid: true })
-    if (!Array.isArray(found)) return 'failed'
+    if (!Array.isArray(found)) {
+      logLine('reconcile', `${folderRow.remotePath}: failed (no UID list)`)
+      return 'failed'
+    }
     serverUids = found
-  } catch {
+  } catch (error) {
+    logLine('reconcile', `${folderRow.remotePath}: failed (${error instanceof Error ? error.message : String(error)})`)
     return 'failed'
   }
 
@@ -91,15 +96,16 @@ export async function reconcileMailbox(
     (missing.length === cached.length && cached.length > 1)
   if (suspicious && !folderRow.reconcileSuspect) {
     db.update(folders).set({ reconcileSuspect: true }).where(eq(folders.id, folderId)).run()
+    logLine('reconcile', `${folderRow.remotePath}: suspect (${missing.length}/${cached.length} missing)`)
     return 'suspect'
   }
 
   if (RECONCILE_DRYRUN) {
-    console.log(
-      `[reconcile] would remove ${missing.length}/${cached.length} from ${folderRow.remotePath}: uids ${missing
-        .map((row) => row.uid)
-        .join(',')}`
-    )
+    const detail = `would remove ${missing.length}/${cached.length} from ${folderRow.remotePath}: uids ${missing
+      .map((row) => row.uid)
+      .join(',')}`
+    logLine('reconcile', `dryrun: ${detail}`)
+    console.log(`[reconcile] ${detail}`)
     return 'dryrun'
   }
 
@@ -109,5 +115,6 @@ export async function reconcileMailbox(
   })
   for (const id of removedIds) removeFromIndex(id)
   db.update(folders).set({ reconcileSuspect: false }).where(eq(folders.id, folderId)).run()
+  logLine('reconcile', `${folderRow.remotePath}: removed ${removedIds.length}`)
   return 'ok'
 }

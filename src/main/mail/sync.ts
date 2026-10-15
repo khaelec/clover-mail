@@ -9,6 +9,7 @@ import { withImap } from './connection'
 import { fetchPop3 } from './pop3'
 import { indexMessage } from './search'
 import { reconcileMailbox, type ReconcileStatus } from './reconcile'
+import { logError, logLine } from '../log'
 import { clearSentPlaceholder } from './storeMessage'
 import { applyAssessment } from './spam'
 import { applyRules } from './rules'
@@ -16,6 +17,10 @@ import { inferSpecialUse, SPECIAL_USE_ORDER } from './specialUse'
 import type { MailEvent, SyncResult } from '@shared/mail'
 
 const INITIAL_FETCH = 60
+
+function errText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
 
 export type Emit = (event: MailEvent) => void
 
@@ -217,16 +222,24 @@ async function syncOneMailbox(
   const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
   if (!folderRow) return 0
 
-  await client.mailboxOpen(remotePath, { readOnly: true })
   try {
-    const status = await client.status(remotePath, {
-      messages: true,
-      unseen: true,
-      uidNext: true,
-      uidValidity: true
-    })
+    await client.mailboxOpen(remotePath, { readOnly: true })
+  } catch (error) {
+    throw new Error(`open: ${errText(error)}`)
+  }
+  try {
+    const status = await client
+      .status(remotePath, {
+        messages: true,
+        unseen: true,
+        uidNext: true,
+        uidValidity: true
+      })
+      .catch((error: unknown) => {
+        throw new Error(`open: ${errText(error)}`)
+      })
     if (!status) {
-      throw new Error(`Could not read mailbox status for ${remotePath}`)
+      throw new Error(`open: could not read mailbox status for ${remotePath}`)
     }
 
     const uidValidity = Number(status.uidValidity)
@@ -253,20 +266,24 @@ async function syncOneMailbox(
     }
 
     let count = 0
-    for await (const msg of client.fetch(
-      range,
-      {
-        uid: true,
-        envelope: true,
-        flags: true,
-        internalDate: true,
-        size: true,
-        bodyStructure: true
-      },
-      options
-    )) {
-      upsertMessage(accountId, folderId, msg)
-      count += 1
+    try {
+      for await (const msg of client.fetch(
+        range,
+        {
+          uid: true,
+          envelope: true,
+          flags: true,
+          internalDate: true,
+          size: true,
+          bodyStructure: true
+        },
+        options
+      )) {
+        upsertMessage(accountId, folderId, msg)
+        count += 1
+      }
+    } catch (error) {
+      throw new Error(`fetch: ${errText(error)}`)
     }
 
     // Remove messages deleted on the server by another client. Skipped on a
@@ -327,11 +344,9 @@ export function syncAccount(accountId: string, emit: Emit): Promise<SyncResult> 
       // Account-level failure (bad password, network drop, connect refused). Emit
       // it so the per-account status can show an error; the caller still sees the
       // rejection. This carries no folderId, unlike the per-folder sync:error.
-      emit({
-        type: 'sync:error',
-        accountId,
-        error: error instanceof Error ? error.message : String(error)
-      })
+      const message = errText(error)
+      logError(`sync:${accountId}`, message)
+      emit({ type: 'sync:error', accountId, error: message })
       throw error
     })
     .finally(() => inFlight.delete(accountId))
@@ -354,14 +369,23 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
 
   emit({ type: 'sync:start', accountId })
   const client = await buildAccountClient(accountId)
-  await client.connect()
+  try {
+    await client.connect()
+  } catch (error) {
+    throw new Error(`connect: ${errText(error)}`)
+  }
 
   const db = getDb()
   let folderIds: string[] = []
   let fetched = 0
 
   try {
-    const list = (await client.list()) as unknown as MailboxRecord[]
+    let list: MailboxRecord[]
+    try {
+      list = (await client.list()) as unknown as MailboxRecord[]
+    } catch (error) {
+      throw new Error(`list: ${errText(error)}`)
+    }
     folderIds = upsertFolders(accountId, list)
 
     for (const folderId of folderIds) {
@@ -384,12 +408,14 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
           fetched: count
         })
       } catch (error) {
+        const message = errText(error)
+        logLine(`sync:${accountId}`, `${folderRow.name}: ${message}`)
         emit({
           type: 'sync:error',
           accountId,
           folderId,
           folderName: folderRow.name,
-          error: error instanceof Error ? error.message : String(error)
+          error: message
         })
       }
     }

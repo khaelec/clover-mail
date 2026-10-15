@@ -234,6 +234,7 @@ export interface CloverApi {
   onNavigate: (cb: (target: string) => void) => () => void
   openLicenses: () => Promise<{ opened: boolean; path: string }>
   readLicenses: () => Promise<string | null>
+  readLogs: (limit?: number) => Promise<string>
   apps: AppsApi
   calendar: CalendarApi
   ai: AiApi

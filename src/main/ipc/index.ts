@@ -13,6 +13,7 @@ import { registerUpdateIpc } from './update'
 import { registerBackupIpc } from './backup'
 import { registerDictationIpc } from './dictation'
 import { setTrayUnread } from '@main/tray'
+import { readRecentLogs } from '@main/log'
 
 export function registerIpc(
   getWindow: () => BrowserWindow | null,
@@ -100,6 +101,8 @@ export function registerIpc(
       return null
     }
   })
+
+  ipcMain.handle(IpcChannels.appReadLogs, (_e, limit?: number) => readRecentLogs(limit ?? 200))
 
   registerMailIpc(getWindow)
   registerAppsIpc()

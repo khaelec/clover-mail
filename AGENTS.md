@@ -3,8 +3,9 @@
 ## Hard rules (never break these)
 
 1. **Updates must never delete or overwrite user data.** Accounts, cached mail,
-   attachments, labels, settings and the database live in
-   `%APPDATA%\Clover Mail` (`app.getPath('userData')`). An update may replace
+   attachments, labels, settings and the database live in the app's user-data
+   folder (`app.getPath('userData')`) — `%APPDATA%\clover-mail` for a development
+   build, `%APPDATA%\Clover Mail` for a packaged install. An update may replace
    program files only. Never set `deleteAppDataOnUninstall: true`, never point
    cleanup/migration/seeding code at existing data destructively, and only seed
    the database on first run (when the target file does not exist). When adding

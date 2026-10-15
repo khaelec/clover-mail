@@ -52,10 +52,13 @@ export function useSettingsState(tab: TabId) {
   }
 
   function copyDiagnostics(): void {
-    void window.navigator.clipboard.writeText(diagnosticsText()).then(() => {
+    void (async () => {
+      const logs = await window.clover.readLogs(200)
+      const text = diagnosticsText() + (logs ? `\n\n--- recent log ---\n${logs}` : '')
+      await window.navigator.clipboard.writeText(text)
       setDiagnosticsCopied(true)
       setTimeout(() => setDiagnosticsCopied(false), 2000)
-    })
+    })()
   }
 
   async function runImportMbox(): Promise<void> {

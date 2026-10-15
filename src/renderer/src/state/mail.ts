@@ -262,15 +262,17 @@ export const useMail = create<MailState>((set, get) => {
             status: `${event.folderName ?? ''}: +${event.fetched ?? 0}`
           })
         } else if (event.type === 'sync:error') {
-          set({ status: `Sync error: ${event.error}` })
-          reportSyncError(event.error)
+          // Name the folder and step, e.g. "INBOX: fetch: timeout".
+          const detail = `${event.folderName ? `${event.folderName}: ` : ''}${event.error ?? 'unknown error'}`
+          set({ status: `Sync error: ${detail}` })
+          reportSyncError(detail)
           // A folder error leaves the account as syncing (the sync continues); an
           // account-level error (no folderId) marks the whole account failed.
           if (!event.folderId) {
             setAccountSync(event.accountId, {
               status: 'error',
               at: Date.now(),
-              error: event.error
+              error: detail
             })
           }
         } else if (event.type === 'sync:done') {

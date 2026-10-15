@@ -8,6 +8,7 @@ import { initDatabase, closeDatabase } from '@main/db'
 import { registerIpc } from '@main/ipc'
 import { setStorageRoot } from '@main/mail/storage'
 import { initMediaAllow, isMediaPathAllowed } from '@main/mediaAllow'
+import { initLogging } from '@main/log'
 import { setAppsRoot } from '@main/apps'
 import { stopAllIdle } from '@main/mail/idle'
 import { initUpdater } from '@main/updater'
@@ -273,6 +274,7 @@ app.whenReady().then(async () => {
   initDatabase(app.getPath('userData'))
   setStorageRoot(app.getPath('userData'))
   initMediaAllow(app.getPath('userData'))
+  initLogging(app.getPath('userData'))
   setAppsRoot(app.getPath('userData'))
   registerIpc(
     () => mainWindow,
