@@ -53,6 +53,7 @@ export interface MailApi {
   listFolders: (accountId: string) => Promise<FolderSummary[]>
   listMessages: (folderId: string, limit?: number, offset?: number) => Promise<MessageSummary[]>
   listThreads: (folderId: string, limit?: number) => Promise<import('./mail').ThreadSummary[]>
+  hasOlderMessages: (folderId: string, limit: number) => Promise<boolean>
   listJunk: (accountId: string) => Promise<MessageSummary[]>
   spamCount: (accountId: string) => Promise<number>
   listImportant: (accountId: string) => Promise<MessageSummary[]>

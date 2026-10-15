@@ -177,6 +177,21 @@ export function listThreads(folderId: string, limit = 1500): ThreadSummary[] {
   return buildThreads(rows).filter((t) => t.messages.some((m) => m.folderId === folderId))
 }
 
+/** Whether the folder has any messages older than the current list window. */
+export function hasOlderMessages(folderId: string, limit: number): boolean {
+  const db = getDb()
+  const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
+  if (!folderRow) return false
+  const rows = db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(and(eq(messages.accountId, folderRow.accountId), ne(messages.isSpam, true), notSnoozed()))
+    .orderBy(desc(messages.dateUtc))
+    .limit(limit + 1)
+    .all()
+  return rows.length > limit
+}
+
 /**
  * Message ids of the conversation that contains `messageId`, oldest first,
  * using the exact same grouping as the message list so the reader always shows

@@ -257,6 +257,8 @@ export function MailView(): ReactNode {
   const folders = useMail((s) => s.folders)
   const activeFolderId = useMail((s) => s.activeFolderId)
   const messages = useMail((s) => s.messages)
+  const hasOlder = useMail((s) => s.hasOlder)
+  const loadOlder = useMail((s) => s.loadOlder)
   const searchResults = useMail((s) => s.searchResults)
   const searchQuery = useMail((s) => s.searchQuery)
   const selectedMessageId = useMail((s) => s.selectedMessageId)
@@ -891,6 +893,18 @@ export function MailView(): ReactNode {
             </>
           )}
           {!showingThreads && activeFolderId !== OUTBOX_FOLDER_ID && !splitMessages && visibleList.map(messageRowProps)}
+
+          {hasOlder && !searchQuery && activeFolderId !== OUTBOX_FOLDER_ID && (
+            <div className="flex justify-center p-3">
+              <button
+                type="button"
+                onClick={() => void loadOlder()}
+                className="rounded-lg border border-line px-4 py-2 text-[12px] text-muted hover:border-accent hover:text-accent"
+              >
+                Load older messages
+              </button>
+            </div>
+          )}
           </BenchProfiler>
         </div>
       </section>

@@ -127,6 +127,8 @@ const api: CloverApi = {
       ipcRenderer.invoke(IpcChannels.mail.listMessages, folderId, limit, offset),
     listThreads: (folderId, limit) =>
       ipcRenderer.invoke(IpcChannels.mail.listThreads, folderId, limit),
+    hasOlderMessages: (folderId, limit) =>
+      ipcRenderer.invoke(IpcChannels.mail.hasOlderMessages, folderId, limit),
     listJunk: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listJunk, accountId),
     spamCount: (accountId) => ipcRenderer.invoke(IpcChannels.mail.spamCount, accountId),
     listImportant: (accountId) => ipcRenderer.invoke(IpcChannels.mail.listImportant, accountId),

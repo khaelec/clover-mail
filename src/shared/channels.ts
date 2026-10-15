@@ -26,6 +26,7 @@ export const IpcChannels = {
     listFolders: 'mail:list-folders',
     listMessages: 'mail:list-messages',
     listThreads: 'mail:list-threads',
+    hasOlderMessages: 'mail:has-older-messages',
     listJunk: 'mail:list-junk',
     spamCount: 'mail:spam-count',
     listImportant: 'mail:list-important',

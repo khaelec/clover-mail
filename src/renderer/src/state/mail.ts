@@ -58,6 +58,10 @@ interface MailState {
   threaded: boolean
   threads: ThreadSummary[]
   expandedThreadIds: string[]
+  /** How many messages the list window covers (null = the backend default). */
+  listLimit: number | null
+  hasOlder: boolean
+  loadOlder: () => Promise<void>
 
   init: () => Promise<void>
   refreshAccounts: () => Promise<void>
@@ -179,32 +183,35 @@ export const useMail = create<MailState>((set, get) => {
     set({ loadingMessages: true })
 
     const synthetic = folderId === JUNK_FOLDER_ID || folderId === IMPORTANT_FOLDER_ID
+    const limit = get().listLimit ?? undefined
     if (folderId === OUTBOX_FOLDER_ID) {
       const outbox = await window.clover.mail.listOutbox()
-      set({ outbox, messages: [], threads: [], loadingMessages: false })
+      set({ outbox, messages: [], threads: [], hasOlder: false, loadingMessages: false })
     } else if (labelId) {
       const messages = await window.clover.mail.listLabelMessages(labelId)
-      set({ messages: stableMessages(messages), threads: [], loadingMessages: false })
+      set({ messages: stableMessages(messages), threads: [], hasOlder: false, loadingMessages: false })
     } else if (folderId === UNIFIED_FOLDER_ID) {
       if (get().threaded) {
         const threads = await window.clover.mail.listUnifiedThreads()
-        set({ threads: stableThreads(threads), messages: [], loadingMessages: false })
+        set({ threads: stableThreads(threads), messages: [], hasOlder: false, loadingMessages: false })
       } else {
         const messages = await window.clover.mail.listUnifiedMessages()
-        set({ messages: stableMessages(messages), threads: [], loadingMessages: false })
+        set({ messages: stableMessages(messages), threads: [], hasOlder: false, loadingMessages: false })
       }
     } else if (synthetic && accountId) {
       const messages =
         folderId === JUNK_FOLDER_ID
           ? await window.clover.mail.listJunk(accountId)
           : await window.clover.mail.listImportant(accountId)
-      set({ messages: stableMessages(messages), threads: [], loadingMessages: false })
+      set({ messages: stableMessages(messages), threads: [], hasOlder: false, loadingMessages: false })
     } else if (get().threaded && get().folders.find((f) => f.id === folderId)?.specialUse !== 'drafts') {
-      const threads = await window.clover.mail.listThreads(folderId)
-      set({ threads: stableThreads(threads), messages: [], loadingMessages: false })
+      const threads = await window.clover.mail.listThreads(folderId, limit)
+      const hasOlder = await window.clover.mail.hasOlderMessages(folderId, get().listLimit ?? 1500)
+      set({ threads: stableThreads(threads), messages: [], hasOlder, loadingMessages: false })
     } else {
-      const messages = await window.clover.mail.listMessages(folderId)
-      set({ messages: stableMessages(messages), threads: [], loadingMessages: false })
+      const messages = await window.clover.mail.listMessages(folderId, limit)
+      const hasOlder = await window.clover.mail.hasOlderMessages(folderId, get().listLimit ?? 150)
+      set({ messages: stableMessages(messages), threads: [], hasOlder, loadingMessages: false })
     }
   }
 
@@ -246,6 +253,8 @@ export const useMail = create<MailState>((set, get) => {
     threaded: true,
     threads: [],
     expandedThreadIds: [],
+    listLimit: null,
+    hasOlder: false,
     unreadOnly: false,
     showHidden: false,
     labels: [],
@@ -322,7 +331,7 @@ export const useMail = create<MailState>((set, get) => {
     },
 
     selectAccount: async (id) => {
-      set({ activeAccountId: id, searchResults: null, searchQuery: '' })
+      set({ activeAccountId: id, searchResults: null, searchQuery: '', listLimit: null })
       const folders = await window.clover.mail.listFolders(id)
       set({ folders })
       const inbox = folders.find((f) => f.specialUse === 'inbox') ?? folders[0]
@@ -331,7 +340,22 @@ export const useMail = create<MailState>((set, get) => {
     },
 
     selectFolder: async (id) => {
-      set({ activeFolderId: id, selectedMessageId: null, detail: null, searchResults: null, searchQuery: '' })
+      set({
+        activeFolderId: id,
+        selectedMessageId: null,
+        detail: null,
+        searchResults: null,
+        searchQuery: '',
+        listLimit: null
+      })
+      await reloadFolder()
+    },
+
+    loadOlder: async () => {
+      const folderId = get().activeFolderId
+      if (!folderId) return
+      const base = get().listLimit ?? (get().threaded ? 1500 : 150)
+      set({ listLimit: base + 1000 })
       await reloadFolder()
     },
 

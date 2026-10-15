@@ -15,7 +15,7 @@ import * as accountService from '@main/mail/accounts'
 import { testImap } from '@main/mail/imap'
 import { testSmtp } from '@main/mail/smtp'
 import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@main/mail/sync'
-import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount } from '@main/mail/queries'
+import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount, hasOlderMessages } from '@main/mail/queries'
 import { deleteMessage, downloadAttachment, getAttachmentPath, getConversation, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@main/mail/messages'
 import { listOutbox, retryOutbox, cancelOutbox, sendNow } from '@main/mail/outbox'
 import { searchMessages, searchServer } from '@main/mail/search'
@@ -118,6 +118,9 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   )
   ipcMain.handle(IpcChannels.mail.listThreads, (_e, folderId: string, limit?: number) =>
     listThreads(folderId, limit)
+  )
+  ipcMain.handle(IpcChannels.mail.hasOlderMessages, (_e, folderId: string, limit: number) =>
+    hasOlderMessages(folderId, limit)
   )
   ipcMain.handle(IpcChannels.mail.listJunk, (_e, accountId: string) => listJunk(accountId))
   ipcMain.handle(IpcChannels.mail.spamCount, (_e, accountId: string) => spamCount(accountId))
