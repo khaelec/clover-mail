@@ -3,6 +3,9 @@ out/
 dist/
 dist-electron/
 release/
+# Phase 0 spike (throwaway) build outputs
+spike/dist/
+spike/node/node_modules/
 release-personal/
 seed/
 *.local
