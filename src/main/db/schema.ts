@@ -77,7 +77,13 @@ export const folders = sqliteTable(
     totalCount: integer('total_count').notNull().default(0),
     isSubscribed: integer('is_subscribed', { mode: 'boolean' }).notNull().default(true),
     sortOrder: integer('sort_order').notNull().default(0),
-    isVisible: integer('is_visible', { mode: 'boolean' }).notNull().default(true)
+    isVisible: integer('is_visible', { mode: 'boolean' }).notNull().default(true),
+    // Server-deletion reconciliation: the message count and uidNext seen at the
+    // last sync (to skip the check when nothing changed), and a flag set when a
+    // suspicious mass deletion needs confirming on the next sync.
+    lastMessages: integer('last_messages'),
+    lastUidNext: integer('last_uid_next'),
+    reconcileSuspect: integer('reconcile_suspect', { mode: 'boolean' }).notNull().default(false)
   },
   (table) => [uniqueIndex('ux_folders_account_path').on(table.accountId, table.remotePath)]
 )

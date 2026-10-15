@@ -384,5 +384,15 @@ export const migrations: Migration[] = [
       );
       CREATE INDEX IF NOT EXISTS ix_outbox_status_send ON outbox(status, send_at);
     `
+  },
+  {
+    // Server-deletion reconciliation. Adds columns only; existing rows keep their
+    // data (the new columns default to NULL/0).
+    id: '0018_folder_reconcile',
+    sql: `
+      ALTER TABLE folders ADD COLUMN last_messages INTEGER;
+      ALTER TABLE folders ADD COLUMN last_uid_next INTEGER;
+      ALTER TABLE folders ADD COLUMN reconcile_suspect INTEGER NOT NULL DEFAULT 0;
+    `
   }
 ]

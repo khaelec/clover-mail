@@ -8,6 +8,7 @@ import { buildAccountClient } from './auth'
 import { withImap } from './connection'
 import { fetchPop3 } from './pop3'
 import { indexMessage } from './search'
+import { reconcileMailbox } from './reconcile'
 import { clearSentPlaceholder } from './storeMessage'
 import { applyAssessment } from './spam'
 import { applyRules } from './rules'
@@ -268,8 +269,21 @@ async function syncOneMailbox(
       count += 1
     }
 
+    // Remove messages deleted on the server by another client. Skipped on a
+    // UIDVALIDITY reset (the folder was just wiped and re-fetched).
+    if (!reset) {
+      await reconcileMailbox(client, accountId, folderId, folderRow, messagesCount, uidNext)
+    }
+
     db.update(folders)
-      .set({ uidValidity, uidNext, unreadCount: unseen, totalCount: messagesCount })
+      .set({
+        uidValidity,
+        uidNext,
+        unreadCount: unseen,
+        totalCount: messagesCount,
+        lastMessages: messagesCount,
+        lastUidNext: uidNext
+      })
       .where(eq(folders.id, folderId))
       .run()
 
