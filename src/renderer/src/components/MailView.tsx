@@ -34,20 +34,16 @@ import { BenchProfiler } from '../bench'
 import { useToasts } from '../state/toasts'
 import { resolveShortcut } from '../lib/shortcuts'
 import { ShortcutHelp } from './ShortcutHelp'
-
-function syncAgo(at: number): string {
-  const minutes = Math.floor((Date.now() - at) / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return new Date(at).toLocaleDateString()
-}
-
-function folderIcon(folder: FolderSummary): ReactNode {
-  if (folder.specialUse === 'trash') return <IconTrash className="h-4 w-4" />
-  return <IconInbox className="h-4 w-4" />
-}
+import {
+  MailContextMenus,
+  type ConfirmState,
+  type FolderMenuState,
+  type MessageMenuState,
+  type PromptState,
+  type ThreadMenuState
+} from './MailContextMenus'
+import { FolderPane } from './FolderPane'
+import { MailToolbar } from './MailToolbar'
 
 function Splitter({
   width,
@@ -130,33 +126,6 @@ function EmptyState({ onAdd }: { onAdd: () => void }): ReactNode {
       </div>
     </div>
   )
-}
-
-function MenuItem({
-  onClick,
-  danger,
-  children
-}: {
-  onClick: () => void
-  danger?: boolean
-  children: ReactNode
-}): ReactNode {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10 ' +
-        (danger ? 'text-rose-500' : 'text-ink')
-      }
-    >
-      {children}
-    </button>
-  )
-}
-
-function MenuDivider(): ReactNode {
-  return <div className="my-1 h-px bg-line" />
 }
 
 function AppDock(): ReactNode {
@@ -314,11 +283,7 @@ export function MailView(): ReactNode {
   const [showNewLabel, setShowNewLabel] = useState(false)
   const [labelName, setLabelName] = useState('')
   const [menuLabelIds, setMenuLabelIds] = useState<string[]>([])
-  const [threadMenu, setThreadMenu] = useState<{
-    x: number
-    y: number
-    thread: ThreadSummary
-  } | null>(null)
+  const [threadMenu, setThreadMenu] = useState<ThreadMenuState | null>(null)
 
   useEffect(() => {
     if (!threadMenu) return
@@ -366,18 +331,8 @@ export function MailView(): ReactNode {
   const emptyJunk = useMail((s) => s.emptyJunk)
   const unreadOnly = useMail((s) => s.unreadOnly)
   const setUnreadOnly = useMail((s) => s.setUnreadOnly)
-  const [menu, setMenu] = useState<{
-    x: number
-    y: number
-    message: MessageSummary
-    mode: 'main' | 'move' | 'label'
-  } | null>(null)
-  const [folderMenu, setFolderMenu] = useState<{
-    x: number
-    y: number
-    kind: 'folder' | 'junk'
-    folder?: FolderSummary
-  } | null>(null)
+  const [menu, setMenu] = useState<MessageMenuState | null>(null)
+  const [folderMenu, setFolderMenu] = useState<FolderMenuState | null>(null)
 
   useEffect(() => {
     if (!menu && !folderMenu) return
@@ -607,14 +562,8 @@ export function MailView(): ReactNode {
     []
   )
 
-  const [confirm, setConfirm] = useState<{ title: string; body: string; action: () => void } | null>(
-    null
-  )
-  const [prompt, setPrompt] = useState<{
-    title: string
-    value: string
-    onSubmit: (value: string) => void
-  } | null>(null)
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null)
+  const [prompt, setPrompt] = useState<PromptState | null>(null)
   function ask(title: string, body: string, action: () => void): void {
     setConfirm({ title, body, action })
   }
@@ -734,359 +683,15 @@ export function MailView(): ReactNode {
 
   return (
     <div className="flex h-full min-h-0">
-      {layout.showFolders && (
-      <aside
-        className="flex shrink-0 flex-col border-r border-line bg-surface"
-        style={{ width: layout.foldersWidth }}
-      >
-        <div className="border-b border-line p-2.5">
-          {accounts.map((account) => {
-            const active = account.id === activeAccountId
-            return (
-              <button
-                key={account.id}
-                type="button"
-                onClick={() => void selectAccount(account.id)}
-                className={
-                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12px] transition-colors ' +
-                  (active ? 'bg-accent/12 text-accent' : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
-                }
-              >
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: account.color ?? 'var(--accent)' }}
-                />
-                <span className="truncate">{account.email}</span>
-                {accountSync[account.id]?.status === 'syncing' && (
-                  <IconRefresh className="ml-auto h-3.5 w-3.5 shrink-0 animate-spin text-muted" />
-                )}
-                {accountSync[account.id]?.status === 'error' && (
-                  <button
-                    type="button"
-                    title={`Sync error: ${accountSync[account.id]?.error ?? 'unknown'} — open account settings`}
-                    aria-label="Sync error — open account settings"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      window.dispatchEvent(
-                        new CustomEvent('clover:open-settings', { detail: { tab: 'accounts' } })
-                      )
-                    }}
-                    className="ml-auto grid h-3.5 w-3.5 shrink-0 place-items-center"
-                  >
-                    <span className="block h-2.5 w-2.5 rounded-full bg-rose-500" />
-                  </button>
-                )}
-                {accountSync[account.id]?.status === 'synced' && (
-                  <span
-                    title={`Synced ${syncAgo(accountSync[account.id]?.at ?? 0)}`}
-                    className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500/70"
-                  />
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setComposeState({ open: true })}
-          className="m-2.5 flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-accent-ink shadow-sm"
-        >
-          <IconCompose className="h-4 w-4" />
-          Compose
-        </button>
-
-        <div className="flex items-center justify-between px-3.5 pb-1 pt-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Folders</span>
-          <span className="flex items-center gap-1.5">
-            <button
-              type="button"
-              title={showHidden ? 'Hide hidden folders' : 'Show hidden folders'}
-              aria-label={showHidden ? 'Hide hidden folders' : 'Show hidden folders'}
-              aria-pressed={showHidden}
-              onClick={() => setShowHidden(!showHidden)}
-              className={showHidden ? 'text-accent' : 'text-muted hover:text-accent'}
-            >
-              <IconEye className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              title="New folder"
-              aria-label="New folder"
-              onClick={() => setShowNewFolder((v) => !v)}
-              className="text-muted hover:text-accent"
-            >
-              <IconFolderPlus className="h-3.5 w-3.5" />
-            </button>
-          </span>
-        </div>
-        {showNewFolder && (
-          <div className="flex items-center gap-1 px-2.5 pb-1.5">
-            <input
-              autoFocus
-              value={folderName}
-              onChange={(e) => setFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && folderName.trim()) {
-                  void createFolder(folderName)
-                  setFolderName('')
-                  setShowNewFolder(false)
-                }
-              }}
-              placeholder="Folder name"
-              className="flex-1 rounded-lg border border-line bg-canvas/60 px-2.5 py-1.5 text-[12px] text-ink outline-none focus:border-accent"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                void createFolder(folderName)
-                setFolderName('')
-                setShowNewFolder(false)
-              }}
-              className="rounded-lg bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink"
-            >
-              Add
-            </button>
-          </div>
-        )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
-          <button
-            type="button"
-            onClick={() => void selectFolder(UNIFIED_FOLDER_ID)}
-            className={
-              'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
-              (activeFolderId === UNIFIED_FOLDER_ID
-                ? 'bg-accent/12 font-medium text-accent'
-                : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
-            }
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <IconInbox className="h-4 w-4" />
-              <span className="truncate">Unified Inbox</span>
-            </span>
-          </button>
-          {visibleFolders.map((folder) => {
-            const active = folder.id === activeFolderId
-            return (
-              <button
-                key={folder.id}
-                type="button"
-                onClick={() => void selectFolder(folder.id)}
-                onContextMenu={(e) => openFolderMenu(e, folder)}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const raw = e.dataTransfer.getData('application/x-clover-messages')
-                  if (raw) void bulkIds(JSON.parse(raw) as string[], 'move', folder.id)
-                }}
-                className={
-                  'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
-                  (active ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
-                }
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  {folderIcon(folder)}
-                  <span className="truncate">{folder.name}</span>
-                </span>
-                {folder.unreadCount > 0 && (
-                  <span className={'shrink-0 text-[11px] ' + (active ? 'text-accent' : 'text-muted')}>
-                    {folder.unreadCount}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-
-          <button
-            type="button"
-            onClick={() => void selectFolder(JUNK_FOLDER_ID)}
-            onContextMenu={(e) => openJunkMenu(e)}
-            className={
-              'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
-              (activeFolderId === JUNK_FOLDER_ID
-                ? 'bg-accent/12 font-medium text-accent'
-                : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
-            }
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <IconShield className="h-4 w-4" />
-              <span className="truncate">Junk</span>
-            </span>
-            {spamCount > 0 && (
-              <span className={'shrink-0 text-[11px] ' + (activeFolderId === JUNK_FOLDER_ID ? 'text-accent' : 'text-muted')}>
-                {spamCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void selectFolder(IMPORTANT_FOLDER_ID)}
-            className={
-              'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
-              (activeFolderId === IMPORTANT_FOLDER_ID
-                ? 'bg-accent/12 font-medium text-accent'
-                : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
-            }
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <IconImportance className="h-4 w-4" />
-              <span className="truncate">Important</span>
-            </span>
-            {importantCount > 0 && (
-              <span className={'shrink-0 text-[11px] ' + (activeFolderId === IMPORTANT_FOLDER_ID ? 'text-accent' : 'text-muted')}>
-                {importantCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void selectFolder(OUTBOX_FOLDER_ID)}
-            className={
-              'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
-              (activeFolderId === OUTBOX_FOLDER_ID
-                ? 'bg-accent/12 font-medium text-accent'
-                : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
-            }
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <IconSend className="h-4 w-4" />
-              <span className="truncate">Outbox</span>
-            </span>
-            {outbox.length > 0 && (
-              <span
-                className={
-                  'shrink-0 rounded-full px-1.5 text-[10px] ' +
-                  (outbox.some((o) => o.status === 'failed')
-                    ? 'bg-rose-500/15 text-rose-500'
-                    : activeFolderId === OUTBOX_FOLDER_ID
-                      ? 'text-accent'
-                      : 'text-muted')
-                }
-              >
-                {outbox.length}
-              </span>
-            )}
-          </button>
-
-          <div className="mt-3 flex items-center justify-between px-1 pb-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Labels</span>
-            <button
-              type="button"
-              title="New label"
-              aria-label="New label"
-              onClick={() => setShowNewLabel((v) => !v)}
-              className="text-muted hover:text-accent"
-            >
-              <IconPlus className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          {showNewLabel && (
-            <div className="flex items-center gap-1 px-1 pb-1.5">
-              <input
-                autoFocus
-                value={labelName}
-                onChange={(e) => setLabelName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && labelName.trim()) {
-                    void createLabel(labelName)
-                    setLabelName('')
-                    setShowNewLabel(false)
-                  }
-                }}
-                placeholder="Label name"
-                className="flex-1 rounded-lg border border-line bg-canvas/60 px-2.5 py-1.5 text-[12px] text-ink outline-none focus:border-accent"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  void createLabel(labelName)
-                  setLabelName('')
-                  setShowNewLabel(false)
-                }}
-                className="rounded-lg bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink"
-              >
-                Add
-              </button>
-            </div>
-          )}
-          {labels.map((label) => (
-            <button
-              key={label.id}
-              type="button"
-              onClick={() => void selectFolder(`label:${label.id}`)}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                ask('Delete label', `Delete label "${label.name}"?`, () => void deleteLabel(label.id))
-              }}
-              className={
-                'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
-                (activeFolderId === `label:${label.id}`
-                  ? 'bg-accent/12 font-medium text-accent'
-                  : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
-              }
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: label.color }} />
-                <span className="truncate">{label.name}</span>
-              </span>
-            </button>
-          ))}
-
-          <div className="mt-3 flex items-center justify-between px-1 pb-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-              Saved searches
-            </span>
-            {query.trim() && (
-              <button
-                type="button"
-                title="Save current search"
-                onClick={() => void createSavedSearch(query, query)}
-                className="text-muted hover:text-accent"
-              >
-                <IconPlus className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          {savedSearches.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setQuery(s.query)}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                ask('Delete saved search', `Delete "${s.name}"?`, () => void deleteSavedSearch(s.id))
-              }}
-              className={
-                'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ' +
-                (query === s.query
-                  ? 'bg-accent/12 font-medium text-accent'
-                  : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
-              }
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <IconSearch className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{s.name}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 border-t border-line px-3.5 py-2.5 text-[12px] text-muted hover:text-ink"
-        >
-          <IconPlus className="h-3.5 w-3.5" />
-          Add account
-        </button>
-      </aside>
-      )}
+      <FolderPane
+        onCompose={() => setComposeState({ open: true })}
+        onAddAccount={() => setShowAdd(true)}
+        openFolderMenu={openFolderMenu}
+        openJunkMenu={openJunkMenu}
+        query={query}
+        setQuery={setQuery}
+        ask={ask}
+      />
 
       {layout.showFolders && (
         <Splitter
@@ -1102,85 +707,12 @@ export function MailView(): ReactNode {
         className="flex shrink-0 flex-col border-r border-line bg-surface"
         style={{ width: layout.listWidth }}
       >
-        <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
-          <IconSearch className="h-4 w-4 text-muted" />
-          <input
-            ref={searchRef}
-            aria-label="Search mail"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search (try from:, is:unread, has:attachment)"
-            className="w-full bg-transparent text-[13px] text-ink placeholder:text-muted focus:outline-none"
-          />
-          <button
-            type="button"
-            title={threaded ? 'Group by conversation' : 'Show individual messages'}
-            aria-label={threaded ? 'Group by conversation' : 'Show individual messages'}
-            aria-pressed={threaded}
-            onClick={() => void setThreaded(!threaded)}
-            className={
-              'grid h-7 w-7 place-items-center rounded-md ' +
-              (threaded ? 'text-accent' : 'text-muted hover:text-accent')
-            }
-          >
-            <IconThreads className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            title="Unread only"
-            aria-label="Unread only"
-            aria-pressed={unreadOnly}
-            onClick={() => setUnreadOnly(!unreadOnly)}
-            className={
-              'grid h-7 w-7 place-items-center rounded-md ' +
-              (unreadOnly ? 'text-accent' : 'text-muted hover:text-accent')
-            }
-          >
-            <IconUnread className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            title="Toggle folder pane"
-            aria-label="Toggle folder pane"
-            aria-pressed={layout.showFolders}
-            onClick={() => {
-              setLayout({ showFolders: !layout.showFolders })
-              void saveLayout()
-            }}
-            className={
-              'grid h-7 w-7 place-items-center rounded-md ' +
-              (layout.showFolders ? 'text-accent' : 'text-muted hover:text-accent')
-            }
-          >
-            <IconLayout className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            title="Open app beside the reader"
-            aria-label="Open app beside the reader"
-            aria-pressed={layout.dockOpen}
-            onClick={() => {
-              setLayout({ dockOpen: !layout.dockOpen })
-              void saveLayout()
-            }}
-            className={
-              'grid h-7 w-7 place-items-center rounded-md ' +
-              (layout.dockOpen ? 'text-accent' : 'text-muted hover:text-accent')
-            }
-          >
-            <IconGrid className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            title="Rules & workflow"
-            aria-label="Rules and workflow"
-            onClick={() => setShowRules(true)}
-            className="grid h-7 w-7 place-items-center rounded-md text-muted hover:text-accent"
-          >
-            <IconFilter className="h-4 w-4" />
-          </button>
-          <SyncButton onSync={sync} />
-        </div>
+        <MailToolbar
+          query={query}
+          setQuery={setQuery}
+          onShowRules={() => setShowRules(true)}
+          searchRef={searchRef}
+        />
         <SyncStatus />
 
         {selectedIds.length > 0 ? (
@@ -1394,410 +926,22 @@ export function MailView(): ReactNode {
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
       {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
 
-      {menu && (
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setMenu(null)}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              setMenu(null)
-            }}
-          />
-          <div
-            className="fixed z-50 w-52 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-2xl"
-            style={{ left: menu.x, top: menu.y }}
-          >
-            {menu.mode === 'main' ? (
-              <>
-                <MenuItem
-                  onClick={() => {
-                    void selectMessage(menu.message.id)
-                    setMenu(null)
-                  }}
-                >
-                  Open
-                </MenuItem>
-                <MenuItem onClick={() => menuRun(menu.message.isRead ? 'markUnread' : 'markRead')}>
-                  {menu.message.isRead ? 'Mark as unread' : 'Mark as read'}
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    void toggleImportant(menu.message)
-                    setMenu(null)
-                  }}
-                >
-                  {menu.message.isImportant ? 'Remove important' : 'Mark as important'}
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    void toggleFlag(menu.message)
-                    setMenu(null)
-                  }}
-                >
-                  {menu.message.isFlagged ? 'Unstar' : 'Star'}
-                </MenuItem>
-                <MenuDivider />
-                <MenuItem onClick={() => menuRun('archive')}>Archive</MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    void (async () => {
-                      await selectMessage(menu.message.id)
-                      await openForward()
-                    })()
-                    setMenu(null)
-                  }}
-                >
-                  Forward
-                </MenuItem>
-                <MenuItem onClick={() => setMenu({ ...menu, mode: 'move' })}>Move to folder ›</MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    void window.clover.mail.labelsForMessage(menu.message.id).then(setMenuLabelIds)
-                    setMenu({ ...menu, mode: 'label' })
-                  }}
-                >
-                  Labels ›
-                </MenuItem>
-                <MenuItem danger onClick={menuDelete}>
-                  Delete
-                </MenuItem>
-              </>
-            ) : menu.mode === 'move' ? (
-              <>
-                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>‹ Back</MenuItem>
-                <MenuDivider />
-                <div className="max-h-64 overflow-y-auto">
-                  {folders.map((folder) => (
-                    <MenuItem key={folder.id} onClick={() => menuRun('move', folder.id)}>
-                      {folder.name}
-                    </MenuItem>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <MenuItem onClick={() => setMenu({ ...menu, mode: 'main' })}>‹ Back</MenuItem>
-                <MenuDivider />
-                <div className="max-h-64 overflow-y-auto">
-                  {labels.length === 0 && (
-                    <div className="px-3 py-1.5 text-[12px] text-muted">No labels yet</div>
-                  )}
-                  {labels.map((label) => {
-                    const on = menuLabelIds.includes(label.id)
-                    return (
-                      <MenuItem
-                        key={label.id}
-                        onClick={() => {
-                          const mid = menu.message.id
-                          void toggleLabel(mid, label.id, !on)
-                          setMenuLabelIds(
-                            on
-                              ? menuLabelIds.filter((x) => x !== label.id)
-                              : [...menuLabelIds, label.id]
-                          )
-                          useToasts.getState().push({
-                            message: `${on ? 'Removed' : 'Added'} label “${label.name}”`,
-                            kind: 'info',
-                            actionLabel: 'Undo',
-                            onAction: () => void toggleLabel(mid, label.id, on)
-                          })
-                        }}
-                      >
-                        <span className="flex flex-1 items-center gap-2">
-                          <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{ background: label.color }}
-                          />
-                          <span className="flex-1">{label.name}</span>
-                          {on && <span className="text-accent">✓</span>}
-                        </span>
-                      </MenuItem>
-                    )
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        </>
-      )}
-
-      {threadMenu && (
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setThreadMenu(null)}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              setThreadMenu(null)
-            }}
-          />
-          <div
-            className="fixed z-50 w-48 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-2xl"
-            style={{ left: threadMenu.x, top: threadMenu.y }}
-          >
-            <MenuItem
-              onClick={() => {
-                void muteThread(threadMenu.thread.threadId, !threadMenu.thread.muted)
-                setThreadMenu(null)
-              }}
-            >
-              {threadMenu.thread.muted ? 'Unmute thread' : 'Mute thread'}
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                void pinThread(threadMenu.thread.threadId, !threadMenu.thread.pinned)
-                setThreadMenu(null)
-              }}
-            >
-              {threadMenu.thread.pinned ? 'Unpin thread' : 'Pin thread'}
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                void bulkIds(
-                  threadMenu.thread.messages.map((x) => x.id),
-                  'markRead'
-                )
-                setThreadMenu(null)
-              }}
-            >
-              Mark thread read
-            </MenuItem>
-            <MenuDivider />
-            <MenuItem
-              onClick={() => {
-                void bulkIds(
-                  threadMenu.thread.messages.map((x) => x.id),
-                  'archive'
-                )
-                setThreadMenu(null)
-              }}
-            >
-              Archive thread
-            </MenuItem>
-            <MenuItem
-              danger
-              onClick={() => {
-                if (window.confirm('Move this whole conversation to Trash?')) {
-                  void bulkIds(
-                    threadMenu.thread.messages.map((x) => x.id),
-                    'trash'
-                  )
-                }
-                setThreadMenu(null)
-              }}
-            >
-              Delete thread
-            </MenuItem>
-          </div>
-        </>
-      )}
-
-      {folderMenu && (
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setFolderMenu(null)}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              setFolderMenu(null)
-            }}
-          />
-          <div
-            className="fixed z-50 w-52 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-2xl"
-            style={{ left: folderMenu.x, top: folderMenu.y }}
-          >
-            {folderMenu.kind === 'junk' ? (
-              <MenuItem
-                danger
-                onClick={() => {
-                  setFolderMenu(null)
-                  ask('Empty Junk', 'Permanently delete all messages in Junk?', () => void emptyJunk())
-                }}
-              >
-                Empty Junk
-              </MenuItem>
-            ) : (
-              <>
-                <MenuItem
-                  onClick={() => {
-                    if (folderMenu.folder) void syncFolder(folderMenu.folder.id)
-                    setFolderMenu(null)
-                  }}
-                >
-                  Sync now
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    if (folderMenu.folder) void markFolderRead(folderMenu.folder.id)
-                    setFolderMenu(null)
-                  }}
-                >
-                  Mark all as read
-                </MenuItem>
-                <MenuDivider />
-                <MenuItem
-                  onClick={() => {
-                    const folder = folderMenu.folder
-                    setFolderMenu(null)
-                    if (folder) void exportMbox(folder.id)
-                  }}
-                >
-                  Export to mbox…
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    const folder = folderMenu.folder
-                    setFolderMenu(null)
-                    if (folder) void setFolderVisible(folder.id, !folder.isVisible)
-                  }}
-                >
-                  {folderMenu.folder?.isVisible ? 'Hide folder' : 'Show folder'}
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    setFolderMenu(null)
-                    setPrompt({
-                      title: 'New folder',
-                      value: '',
-                      onSubmit: (v) => {
-                        if (v.trim()) void createFolder(v)
-                      }
-                    })
-                  }}
-                >
-                  New folder…
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    const folder = folderMenu.folder
-                    setFolderMenu(null)
-                    if (folder) {
-                      setPrompt({
-                        title: 'Rename folder',
-                        value: folder.name,
-                        onSubmit: (v) => {
-                          if (v.trim()) void renameFolder(folder.id, v)
-                        }
-                      })
-                    }
-                  }}
-                >
-                  Rename…
-                </MenuItem>
-                {folderMenu.folder?.specialUse !== 'trash' && folderMenu.folder?.specialUse !== 'inbox' && (
-                  <MenuItem
-                    danger
-                    onClick={() => {
-                      const folder = folderMenu.folder
-                      setFolderMenu(null)
-                      if (folder) {
-                        ask('Delete folder', `Delete the folder “${folder.name}”?`, () =>
-                          void deleteFolder(folder.id)
-                        )
-                      }
-                    }}
-                  >
-                    Delete folder
-                  </MenuItem>
-                )}
-                {folderMenu.folder?.specialUse === 'trash' && (
-                  <>
-                    <MenuDivider />
-                    <MenuItem
-                      danger
-                      onClick={() => {
-                        const id = folderMenu.folder?.id
-                        setFolderMenu(null)
-                        if (id) {
-                          ask('Empty Trash', 'Permanently delete everything in Trash?', () =>
-                            void emptyFolder(id)
-                          )
-                        }
-                      }}
-                    >
-                      Empty Trash
-                    </MenuItem>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        </>
-      )}
-
-      {prompt && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
-            <h3 className="text-[15px] font-semibold text-ink">{prompt.title}</h3>
-            <input
-              autoFocus
-              value={prompt.value}
-              onChange={(e) => setPrompt({ ...prompt, value: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const value = prompt.value
-                  const submit = prompt.onSubmit
-                  setPrompt(null)
-                  submit(value)
-                }
-                if (e.key === 'Escape') setPrompt(null)
-              }}
-              className="mt-3 w-full rounded-lg border border-line bg-canvas/60 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPrompt(null)}
-                className="rounded-lg px-3.5 py-2 text-[13px] text-muted hover:text-ink"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const value = prompt.value
-                  const submit = prompt.onSubmit
-                  setPrompt(null)
-                  submit(value)
-                }}
-                className="rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-accent-ink"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {confirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
-            <h3 className="text-[15px] font-semibold text-ink">{confirm.title}</h3>
-            <p className="mt-1.5 text-[13px] text-muted">{confirm.body}</p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirm(null)}
-                className="rounded-lg px-3.5 py-2 text-[13px] text-muted hover:text-ink"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const action = confirm.action
-                  setConfirm(null)
-                  action()
-                }}
-                className="rounded-lg bg-rose-500 px-4 py-2 text-[13px] font-semibold text-white"
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MailContextMenus
+        menu={menu}
+        setMenu={setMenu}
+        threadMenu={threadMenu}
+        setThreadMenu={setThreadMenu}
+        folderMenu={folderMenu}
+        setFolderMenu={setFolderMenu}
+        prompt={prompt}
+        setPrompt={setPrompt}
+        confirm={confirm}
+        setConfirm={setConfirm}
+        menuLabelIds={menuLabelIds}
+        setMenuLabelIds={setMenuLabelIds}
+        onForward={() => void openForward()}
+        ask={ask}
+      />
     </div>
   )
 }
