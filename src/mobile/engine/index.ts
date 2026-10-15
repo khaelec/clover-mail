@@ -6,6 +6,7 @@ import { dispatch } from '@core/transport/registry'
 import { androidPlatform } from './platform'
 import { setMailPoster } from './events'
 import { registerAndroidHandlers } from './register'
+import { runE2eIfConfigured } from './e2e'
 
 interface BridgeChannel {
   on(event: string, cb: (msg: unknown) => void): void
@@ -48,3 +49,6 @@ bridge.channel.on('invoke', (msg) => {
 })
 
 bridge.channel.post('ready')
+
+// CI emulator only: run the on-device end-to-end check if configured.
+void runE2eIfConfigured(dataDir)

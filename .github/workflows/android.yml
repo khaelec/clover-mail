@@ -1,0 +1,105 @@
+name: Android (Phase 2)
+
+# Verifies the phone engine on-device: builds the app, runs it on an emulator
+# against a throwaway Dovecot, and checks the end-to-end result (add account,
+# sync, list, search, archive→Undo) that the engine prints. No phone, no manual
+# step. See PLAN-mobile.md Phase 2.
+on:
+  push:
+    branches: [feat/android]
+    paths:
+      - 'src/mobile/**'
+      - 'src/core/**'
+      - 'src/main/ipc/**'
+      - 'src/renderer/**'
+      - 'android/**'
+      - 'capacitor.config.ts'
+      - 'vite.mobile.config.ts'
+      - 'package.json'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+jobs:
+  emulator-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Start Dovecot (throwaway account)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dovecot-imapd
+          sudo useradd -m -s /bin/bash clovertest || true
+          echo 'clovertest:cloverpass' | sudo chpasswd
+          sudo tee /etc/dovecot/conf.d/99-clover.conf >/dev/null <<'EOF'
+          protocols = imap
+          disable_plaintext_auth = no
+          ssl = no
+          mail_location = maildir:~/Maildir
+          auth_mechanisms = plain login
+          EOF
+          sudo systemctl restart dovecot
+          sleep 2
+          sudo ss -ltn | grep ':143' || (echo 'Dovecot not listening on 143'; exit 1)
+
+      - name: Seed a message into the test mailbox
+        run: |
+          sudo -u clovertest bash -c 'mkdir -p ~/Maildir/cur ~/Maildir/new ~/Maildir/tmp'
+          printf 'From: Alice <alice@example.com>\r\nTo: clovertest@localhost\r\nSubject: Clover test message\r\nDate: Mon, 01 Jan 2024 10:00:00 +0000\r\nMessage-ID: <clover-e2e-1@example.com>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nHello from the Clover Mail Android end-to-end test.\r\n' \
+            | sudo tee /home/clovertest/Maildir/new/1700000000.eml >/dev/null
+          sudo chown clovertest:clovertest /home/clovertest/Maildir/new/1700000000.eml
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the engine + WebView UI
+        run: |
+          npm run mobile:engine
+          npm run mobile:web
+
+      - name: Point the on-device e2e at the host Dovecot
+        run: |
+          # The emulator reaches the host at 10.0.2.2.
+          printf '{"host":"10.0.2.2","port":143,"user":"clovertest","pass":"cloverpass"}' \
+            > dist-mobile/nodejs/e2e.json
+
+      - name: Sync the Android project
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Run on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            adb shell am start -n com.clovermail.app/.MainActivity
+            RESULT=""
+            for i in $(seq 1 60); do
+              RESULT=$(adb logcat -d | grep -o 'CLOVER_E2E {.*}' | tail -1 || true)
+              [ -n "$RESULT" ] && break
+              sleep 2
+            done
+            if [ -z "$RESULT" ]; then
+              echo "Not in logcat; trying the result file…"
+              RESULT=$(adb shell run-as com.clovermail.app cat files/e2e-result.json 2>/dev/null || true)
+            fi
+            echo "E2E RESULT: $RESULT"
+            echo "$RESULT" | grep -q '"ok":true' || { echo "E2E failed"; adb logcat -d | tail -300; exit 1; }
