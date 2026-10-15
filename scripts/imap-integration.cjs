@@ -8,6 +8,9 @@ const os = require('node:os')
 const { app, BrowserWindow } = require('electron')
 const { ImapFlow } = require('imapflow')
 
+// CI runners can't set up the SUID sandbox helper; disable it for this test.
+app.commandLine.appendSwitch('no-sandbox')
+
 const testUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'clover-imap-'))
 app.setPath('userData', testUserData)
 

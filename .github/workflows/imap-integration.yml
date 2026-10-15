@@ -40,11 +40,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Fix Electron sandbox helper for the runner
-        run: |
-          sudo chown root:root node_modules/electron/dist/chrome-sandbox
-          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
-
       - name: Rebuild native modules for Electron
         run: npx electron-builder install-app-deps
 
@@ -52,4 +47,4 @@ jobs:
         run: npm run build
 
       - name: IMAP integration test
-        run: xvfb-run -a npm run test:imap
+        run: xvfb-run -a npm run test:imap -- --no-sandbox
