@@ -1,20 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { buildCloverApi, type CloverHost } from '@shared/cloverClient'
+import { getBase, getToken, setToken as saveToken } from './mobile'
 
 /**
  * Browser client (the mobile app / a phone browser). When the renderer runs
  * outside Electron there's no preload, so this builds `window.clover` over the
  * transport server: POST /rpc for calls, an SSE stream for events. The token
- * comes from `?token=` (saved to localStorage) so the phone only needs a link.
+ * comes from `?token=` (saved to storage) so the phone only needs a link; in the
+ * native shell the desktop address comes from the connect screen instead.
  */
-export function installWebClover(): void {
+let reconnectStream: (() => void) | null = null
+
+/** Re-open the event stream (e.g. after the phone app returns to the foreground). */
+export function reconnectEvents(): void {
+  reconnectStream?.()
+}
+
+export async function installWebClover(): Promise<void> {
   const w = window as unknown as { clover?: unknown }
   if (w.clover) return
 
   const params = new URLSearchParams(window.location.search)
-  const token = params.get('token') ?? localStorage.getItem('clover.token') ?? ''
-  if (token) localStorage.setItem('clover.token', token)
-  const base = window.location.origin
+  const incoming = params.get('token')
+  if (incoming) await saveToken(incoming)
+  const token = incoming ?? (await getToken())
+  const base = getBase() || window.location.origin
 
   const listeners = new Map<string, Set<(...args: any[]) => void>>()
   const fire = (channel: string, payload: unknown): void => {
@@ -23,9 +33,11 @@ export function installWebClover(): void {
   }
 
   if (token) {
+    let source: EventSource | null = null
     const connect = (): void => {
-      const es = new EventSource(`${base}/events?token=${encodeURIComponent(token)}`)
-      es.onmessage = (event) => {
+      source?.close()
+      source = new EventSource(`${base}/events?token=${encodeURIComponent(token)}`)
+      source.onmessage = (event) => {
         try {
           const { channel, payload } = JSON.parse(event.data) as {
             channel: string
@@ -36,11 +48,12 @@ export function installWebClover(): void {
           // ignore malformed frames
         }
       }
-      es.onerror = () => {
-        es.close()
+      source.onerror = () => {
+        source?.close()
         setTimeout(connect, 2000)
       }
     }
+    reconnectStream = connect
     connect()
   }
 

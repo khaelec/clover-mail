@@ -199,6 +199,12 @@ export const IconArrowLeft = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconMenu = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </Base>
+)
+
 export const IconReply = (p: IconProps): ReactNode => (
   <Base {...p}>
     <path d="M9 7 4 12l5 5" />

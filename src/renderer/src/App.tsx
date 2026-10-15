@@ -12,11 +12,12 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { Toaster } from './components/Toaster'
 import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
-import { IconCalendar, IconGrid, IconSparkles, IconWallpaper } from './components/icons'
+import { IconCalendar, IconGrid, IconMenu, IconSparkles, IconWallpaper } from './components/icons'
 import { useMail } from './state/mail'
 import { useApps } from './state/apps'
 import { useWallpaper } from './state/wallpaper'
 import { useUpdate } from './state/update'
+import { useCompact } from './lib/compact'
 import { applyUnreadBadge } from './lib/badge'
 
 /**
@@ -32,10 +33,19 @@ function BackgroundLayer(): ReactNode {
   )
 }
 
-function renderSection(section: SectionId): ReactNode {
+const SECTION_LABELS: Record<SectionId, string> = {
+  mail: 'Mail',
+  calendar: 'Calendar',
+  apps: 'Apps',
+  wallpaper: 'Wallpaper',
+  copilot: 'Copilot',
+  settings: 'Settings'
+}
+
+function renderSection(section: SectionId, compact: boolean): ReactNode {
   switch (section) {
     case 'mail':
-      return <MailView />
+      return <MailView compact={compact} />
     case 'settings':
       return <SettingsView />
     case 'calendar':
@@ -53,6 +63,8 @@ function renderSection(section: SectionId): ReactNode {
 
 export function App(): ReactNode {
   const [section, setSection] = useState<SectionId>('mail')
+  const [navOpen, setNavOpen] = useState(false)
+  const compact = useCompact()
   const mailUnread = useMail((s) => s.unreadTotal)
   const appUnread = useApps((s) => s.appUnreadTotal)
 
@@ -61,6 +73,11 @@ export function App(): ReactNode {
     void useWallpaper.getState().load()
     useUpdate.getState().init()
   }, [])
+
+  // On a phone the nav is a drawer; close it once a section is chosen.
+  useEffect(() => {
+    setNavOpen(false)
+  }, [section])
 
   // Combined unread (mail + embedded apps) drives the tray tooltip and taskbar badge.
   useEffect(() => {
@@ -149,13 +166,39 @@ export function App(): ReactNode {
 
   return (
     <div className="flex h-full flex-col bg-canvas text-ink">
-      <TitleBar />
+      <TitleBar compact={compact} />
+      {compact && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-line bg-surface/70 px-2 py-1.5 backdrop-blur-xl">
+          <button
+            type="button"
+            aria-label="Menu"
+            onClick={() => setNavOpen(true)}
+            className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:text-ink"
+          >
+            <IconMenu className="h-5 w-5" />
+          </button>
+          <span className="text-[14px] font-semibold tracking-tight">
+            {SECTION_LABELS[section]}
+          </span>
+        </div>
+      )}
       <div className="flex min-h-0 flex-1">
-        <Sidebar active={section} onSelect={setSection} />
+        {compact ? (
+          navOpen && (
+            <div className="fixed inset-0 z-50 flex">
+              <div className="bg-surface shadow-2xl">
+                <Sidebar active={section} onSelect={setSection} compact />
+              </div>
+              <div className="flex-1 bg-black/40" onClick={() => setNavOpen(false)} />
+            </div>
+          )
+        ) : (
+          <Sidebar active={section} onSelect={setSection} />
+        )}
         <main className="relative min-h-0 flex-1 overflow-hidden">
           <WallpaperLayer />
           <BackgroundLayer />
-          <div className="relative h-full">{renderSection(section)}</div>
+          <div className="relative h-full">{renderSection(section, compact)}</div>
         </main>
       </div>
       <UpdateBanner />

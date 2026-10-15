@@ -11,10 +11,12 @@ import { AccountSetup } from './AccountSetup'
 import { RulesModal } from './RulesModal'
 import {
   IconArchive,
+  IconArrowLeft,
   IconClose,
   IconCompose,
   IconEye,
   IconFilter,
+  IconFolder,
   IconFolderPlus,
   IconGrid,
   IconImportance,
@@ -250,7 +252,10 @@ function buildForwardQuote(detail: MessageDetail): string {
   return `<div data-clover-quote="1"><p>${header}</p><blockquote>${body}</blockquote></div>`
 }
 
-export function MailView(): ReactNode {
+export function MailView({ compact = false }: { compact?: boolean }): ReactNode {
+  // Phone layout: the folder pane is a drawer, and the list/reader swap places.
+  const [foldersOpen, setFoldersOpen] = useState(false)
+  const detailSubject = useMail((s) => s.detail?.subject)
   const accounts = useMail((s) => s.accounts)
   const accountSync = useMail((s) => s.accountSync)
   const activeAccountId = useMail((s) => s.activeAccountId)
@@ -530,6 +535,11 @@ export function MailView(): ReactNode {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // On a phone, close the folder drawer once a folder is chosen.
+  useEffect(() => {
+    setFoldersOpen(false)
+  }, [activeFolderId])
+
   const activeAccount = useMemo(
     () => accounts.find((a) => a.id === activeAccountId) ?? null,
     [accounts, activeAccountId]
@@ -719,32 +729,64 @@ export function MailView(): ReactNode {
     )
   }
 
-  return (
-    <div className="flex h-full min-h-0">
-      <FolderPane
-        onCompose={() => setComposeState({ open: true })}
-        onAddAccount={() => setShowAdd(true)}
-        openFolderMenu={openFolderMenu}
-        openJunkMenu={openJunkMenu}
-        query={query}
-        setQuery={setQuery}
-        ask={ask}
-      />
+  const folderPane = (
+    <FolderPane
+      onCompose={() => setComposeState({ open: true })}
+      onAddAccount={() => setShowAdd(true)}
+      openFolderMenu={openFolderMenu}
+      openJunkMenu={openJunkMenu}
+      query={query}
+      setQuery={setQuery}
+      ask={ask}
+    />
+  )
 
-      {layout.showFolders && (
-        <Splitter
-          width={layout.foldersWidth}
-          min={170}
-          max={420}
-          onChange={(w) => setLayout({ foldersWidth: w })}
-          onCommit={() => void saveLayout()}
-        />
+  return (
+    <div className="relative flex h-full min-h-0">
+      {compact ? (
+        foldersOpen && (
+          <div className="fixed inset-0 z-40 flex">
+            <div className="max-w-[82%] bg-surface shadow-2xl">{folderPane}</div>
+            <div className="flex-1 bg-black/40" onClick={() => setFoldersOpen(false)} />
+          </div>
+        )
+      ) : (
+        <>
+          {folderPane}
+          {layout.showFolders && (
+            <Splitter
+              width={layout.foldersWidth}
+              min={170}
+              max={420}
+              onChange={(w) => setLayout({ foldersWidth: w })}
+              onCommit={() => void saveLayout()}
+            />
+          )}
+        </>
       )}
 
       <section
-        className="flex shrink-0 flex-col border-r border-line bg-surface"
-        style={{ width: layout.listWidth }}
+        className={
+          'flex shrink-0 flex-col border-r border-line bg-surface ' +
+          (compact && selectedMessageId ? 'hidden' : '')
+        }
+        style={{ width: compact ? '100%' : layout.listWidth }}
       >
+        {compact && (
+          <div className="flex shrink-0 items-center gap-2 border-b border-line px-2 py-1.5">
+            <button
+              type="button"
+              aria-label="Folders"
+              onClick={() => setFoldersOpen(true)}
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:text-ink"
+            >
+              <IconFolder className="h-4 w-4" />
+            </button>
+            <span className="truncate text-[13px] font-medium">
+              {folders.find((f) => f.id === activeFolderId)?.name ?? 'Mail'}
+            </span>
+          </div>
+        )}
         <MailToolbar
           query={query}
           setQuery={setQuery}
@@ -945,15 +987,38 @@ export function MailView(): ReactNode {
         </div>
       </section>
 
-      <Splitter
-        width={layout.listWidth}
-        min={260}
-        max={680}
-        onChange={(w) => setLayout({ listWidth: w })}
-        onCommit={() => void saveLayout()}
-      />
+      {!compact && (
+        <Splitter
+          width={layout.listWidth}
+          min={260}
+          max={680}
+          onChange={(w) => setLayout({ listWidth: w })}
+          onCommit={() => void saveLayout()}
+        />
+      )}
 
-      <Reader onReply={openReply} onReplyAll={openReplyAll} onForward={() => void openForward()} />
+      <div
+        className={
+          'flex min-w-0 flex-1 flex-col ' + (compact && !selectedMessageId ? 'hidden' : '')
+        }
+      >
+        {compact && (
+          <div className="flex shrink-0 items-center gap-2 border-b border-line bg-surface/90 px-2 py-1.5">
+            <button
+              type="button"
+              aria-label="Back to list"
+              onClick={() =>
+                useMail.setState({ selectedMessageId: null, detail: null, conversation: [] })
+              }
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:text-ink"
+            >
+              <IconArrowLeft className="h-4 w-4" />
+            </button>
+            <span className="truncate text-[13px] font-medium">{detailSubject || 'Message'}</span>
+          </div>
+        )}
+        <Reader onReply={openReply} onReplyAll={openReplyAll} onForward={() => void openForward()} />
+      </div>
 
       {layout.dockOpen && <AppDock />}
 
