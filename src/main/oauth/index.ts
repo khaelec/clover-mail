@@ -2,67 +2,28 @@ import { createServer } from 'node:http'
 import { createHash, randomBytes } from 'node:crypto'
 import type { AddressInfo } from 'node:net'
 import { BrowserWindow, shell } from 'electron'
-import { getSecret, setSecret } from '@core/settings/secrets'
-import { getSetting, setSetting } from '@core/settings'
-import {
-  emailFromIdToken,
-  exchangeGoogleCode,
-  googleAuthUrl,
-  refreshGoogleAccessToken
-} from './google'
+import { getGoogleConfig, getMicrosoftConfig } from '@core/oauth/config'
+import { emailFromIdToken, exchangeGoogleCode, googleAuthUrl } from '@core/oauth/google'
 import {
   emailFromMicrosoftIdToken,
   exchangeMicrosoftCode,
-  microsoftAuthUrl,
-  refreshMicrosoftAccessToken
-} from './microsoft'
-import { createOAuthAccount } from '../mail/accounts'
+  microsoftAuthUrl
+} from '@core/oauth/microsoft'
+import { createOAuthAccount } from '@core/mail/accounts'
 import type { AccountSummary } from '@shared/mail'
 
-const GOOGLE_ID = 'oauth.google.clientId'
-const GOOGLE_SECRET = 'oauth.google.clientSecret'
-const MS_ID = 'oauth.microsoft.clientId'
-const MS_SECRET = 'oauth.microsoft.clientSecret'
-
-export function getGoogleConfig(): { clientId: string; clientSecret: string } {
-  return {
-    clientId: getSetting<string>(GOOGLE_ID) ?? '',
-    clientSecret: getSecret(GOOGLE_SECRET) ?? ''
-  }
-}
-export function setGoogleConfig(clientId: string, clientSecret?: string): void {
-  setSetting(GOOGLE_ID, clientId.trim())
-  if (clientSecret !== undefined) setSecret(GOOGLE_SECRET, clientSecret.trim())
-}
-export function googleConfigured(): boolean {
-  return Boolean(getGoogleConfig().clientId)
-}
-
-export function getMicrosoftConfig(): { clientId: string; clientSecret: string } {
-  return {
-    clientId: getSetting<string>(MS_ID) ?? '',
-    clientSecret: getSecret(MS_SECRET) ?? ''
-  }
-}
-export function setMicrosoftConfig(clientId: string, clientSecret?: string): void {
-  setSetting(MS_ID, clientId.trim())
-  if (clientSecret !== undefined) setSecret(MS_SECRET, clientSecret.trim())
-}
-export function microsoftConfigured(): boolean {
-  return Boolean(getMicrosoftConfig().clientId)
-}
-
-export async function refreshGoogle(refreshToken: string): Promise<string | null> {
-  const cfg = getGoogleConfig()
-  if (!cfg.clientId) return null
-  return refreshGoogleAccessToken(cfg.clientId, cfg.clientSecret, refreshToken)
-}
-
-export async function refreshMicrosoft(refreshToken: string): Promise<string | null> {
-  const cfg = getMicrosoftConfig()
-  if (!cfg.clientId) return null
-  return refreshMicrosoftAccessToken(cfg.clientId, cfg.clientSecret, refreshToken)
-}
+// Re-export the Electron-free config/refresh helpers so existing importers of
+// this module keep working.
+export {
+  getGoogleConfig,
+  setGoogleConfig,
+  googleConfigured,
+  getMicrosoftConfig,
+  setMicrosoftConfig,
+  microsoftConfigured,
+  refreshGoogle,
+  refreshMicrosoft
+} from '@core/oauth/config'
 
 function base64url(buffer: Buffer): string {
   return buffer.toString('base64url')

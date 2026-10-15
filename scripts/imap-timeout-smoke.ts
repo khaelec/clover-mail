@@ -4,7 +4,7 @@
 //
 //   npx tsx scripts/imap-timeout-smoke.ts
 import net from 'node:net'
-import { buildImapClient } from '../src/main/mail/imap'
+import { buildImapClient } from '../src/core/mail/imap'
 
 async function run(): Promise<void> {
   const server = net.createServer(() => {

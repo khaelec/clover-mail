@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeDatabase, getDb, initDatabase } from '../src/core/db'
 import { accounts } from '../src/core/db/schema'
-import { createRule, deleteRule, listRules, updateRule } from '../src/main/mail/rules'
+import { createRule, deleteRule, listRules, updateRule } from '../src/core/mail/rules'
 
 const dir = mkdtempSync(join(tmpdir(), 'clover-rules-'))
 initDatabase(dir)

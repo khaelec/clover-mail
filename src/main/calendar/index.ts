@@ -6,7 +6,7 @@ import { asc, eq } from 'drizzle-orm'
 import { platform } from '@core/platform'
 import { getDb } from '@core/db'
 import { attachments, calendarEventAttendees, calendarEvents, calendars } from '@core/db/schema'
-import { attachmentAbsolutePath } from '../mail/storage'
+import { attachmentAbsolutePath } from '@core/mail/storage'
 import { deleteSecret } from '@core/settings/secrets'
 import type {
   AttendeeLite,

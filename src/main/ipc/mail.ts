@@ -11,18 +11,18 @@ import type {
   MovedMessage,
   RuleInput
 } from '@shared/mail'
-import * as accountService from '@main/mail/accounts'
-import { testImap } from '@main/mail/imap'
-import { testSmtp } from '@main/mail/smtp'
-import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@main/mail/sync'
-import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount, hasOlderMessages } from '@main/mail/queries'
-import { deleteMessage, downloadAttachment, getAttachmentPath, getConversation, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@main/mail/messages'
-import { listOutbox, retryOutbox, cancelOutbox, sendNow } from '@main/mail/outbox'
-import { searchMessages, searchServer } from '@main/mail/search'
-import { addSnippet, deleteSnippet, listSnippets } from '@main/mail/snippets'
-import { snooze, unsnooze } from '@main/mail/snooze'
-import { cancelScheduled, listScheduled, scheduleSend } from '@main/mail/schedules'
-import { setThreadMuted, setThreadPinned } from '@main/mail/threadSettings'
+import * as accountService from '@core/mail/accounts'
+import { testImap } from '@core/mail/imap'
+import { testSmtp } from '@core/mail/smtp'
+import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@core/mail/sync'
+import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount, hasOlderMessages } from '@core/mail/queries'
+import { deleteMessage, downloadAttachment, getAttachmentPath, getConversation, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@core/mail/messages'
+import { listOutbox, retryOutbox, cancelOutbox, sendNow } from '@core/mail/outbox'
+import { searchMessages, searchServer } from '@core/mail/search'
+import { addSnippet, deleteSnippet, listSnippets } from '@core/mail/snippets'
+import { snooze, unsnooze } from '@core/mail/snooze'
+import { cancelScheduled, listScheduled, scheduleSend } from '@core/mail/schedules'
+import { setThreadMuted, setThreadPinned } from '@core/mail/threadSettings'
 import {
   addLabelToMessage,
   createLabel,
@@ -31,15 +31,15 @@ import {
   listLabelMessages,
   listLabels,
   removeLabelFromMessage
-} from '@main/mail/labels'
-import { createSavedSearch, deleteSavedSearch, listSavedSearches } from '@main/mail/savedSearches'
-import { importMboxFile, pickAndImportMbox } from '@main/mail/importMail'
-import { testPop3 } from '@main/mail/pop3'
-import { markNotSpam, markSpam, setSenderKind } from '@main/mail/spam'
-import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@main/mail/folders'
-import { addAlias, deleteAlias, getDefaultFrom, listAliases, setDefaultFrom } from '@main/mail/aliases'
-import { exportFolderMbox } from '@main/mail/archive'
-import { deleteDraft, saveDraft } from '@main/mail/drafts'
+} from '@core/mail/labels'
+import { createSavedSearch, deleteSavedSearch, listSavedSearches } from '@core/mail/savedSearches'
+import { importMboxFile, pickAndImportMbox } from '@core/mail/importMail'
+import { testPop3 } from '@core/mail/pop3'
+import { markNotSpam, markSpam, setSenderKind } from '@core/mail/spam'
+import { createFolder, deleteFolder, renameFolder, setFolderVisible } from '@core/mail/folders'
+import { addAlias, deleteAlias, getDefaultFrom, listAliases, setDefaultFrom } from '@core/mail/aliases'
+import { exportFolderMbox } from '@core/mail/archive'
+import { deleteDraft, saveDraft } from '@core/mail/drafts'
 import {
   getGoogleConfig,
   getMicrosoftConfig,
@@ -50,10 +50,10 @@ import {
   startGoogleOAuth,
   startMicrosoftOAuth
 } from '@main/oauth'
-import { bulkAction, deleteSpam, emptyFolder, markFolderRead, undoMoves } from '@main/mail/bulk'
-import { startAllIdle, startIdle, stopIdle } from '@main/mail/idle'
+import { bulkAction, deleteSpam, emptyFolder, markFolderRead, undoMoves } from '@core/mail/bulk'
+import { startAllIdle, startIdle, stopIdle } from '@core/mail/idle'
 import { createMailEmit } from '@main/mail/events'
-import { applyRules, createRule, deleteRule, listRules, updateRule } from '@main/mail/rules'
+import { applyRules, createRule, deleteRule, listRules, updateRule } from '@core/mail/rules'
 
 export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   const emit: Emit = createMailEmit(getWindow)
