@@ -1,5 +1,5 @@
 import { getSetting, setSetting, deleteSetting } from './index'
-import { platform } from '../platform'
+import { platform } from '@core/platform'
 
 const PREFIX = 'secret:'
 

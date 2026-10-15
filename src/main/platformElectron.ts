@@ -1,5 +1,5 @@
 import { dialog, shell, safeStorage } from 'electron'
-import { setPlatform, type Platform } from './platform'
+import { setPlatform, type Platform } from '@core/platform'
 
 /** Register the Electron-backed platform services used by the desktop app. */
 export function registerElectronPlatform(): void {

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { simpleParser } from 'mailparser'
-import { platform } from '../platform'
+import { platform } from '@core/platform'
 import { ensureLocalAccount } from './accounts'
 import { ensureFolder, nextUidForFolder, storeParsedMessage } from './storeMessage'
 
