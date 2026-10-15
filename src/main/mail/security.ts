@@ -1,5 +1,5 @@
 import { SETTINGS_KEYS } from '@shared/theme'
-import { getSetting } from '../settings'
+import { getSetting } from '@core/settings'
 import type { MessagePhishing, MessageSecurity } from '@shared/mail'
 
 const PUNYCODE = /xn--/i

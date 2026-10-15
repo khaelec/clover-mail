@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { getDb } from '@core/db'
 import { calendars } from '@core/db/schema'
-import { getSecret, setSecret } from '../settings/secrets'
+import { getSecret, setSecret } from '@core/settings/secrets'
 import { importIcsText, toCalendar, touchCalendarSync } from './index'
 import type { Calendar, ImportResult } from '@shared/calendar'
 

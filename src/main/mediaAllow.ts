@@ -1,7 +1,7 @@
 import { readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { SETTINGS_KEY_WALLPAPER, type WallpaperSettings } from '@shared/wallpaper'
-import { getSetting } from '@main/settings'
+import { getSetting } from '@core/settings'
 import { detectWallpaperEngine } from '@main/wallpaper/engine'
 
 /**

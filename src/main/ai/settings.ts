@@ -1,5 +1,5 @@
-import { getSetting, setSetting } from '../settings'
-import { getSecret, setSecret } from '../settings/secrets'
+import { getSetting, setSetting } from '@core/settings'
+import { getSecret, setSecret } from '@core/settings/secrets'
 import {
   DEFAULT_AI_SETTINGS,
   DEFAULT_MCP_SETTINGS,

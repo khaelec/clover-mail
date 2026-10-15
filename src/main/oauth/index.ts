@@ -2,8 +2,8 @@ import { createServer } from 'node:http'
 import { createHash, randomBytes } from 'node:crypto'
 import type { AddressInfo } from 'node:net'
 import { BrowserWindow, shell } from 'electron'
-import { getSecret, setSecret } from '../settings/secrets'
-import { getSetting, setSetting } from '../settings'
+import { getSecret, setSecret } from '@core/settings/secrets'
+import { getSetting, setSetting } from '@core/settings'
 import {
   emailFromIdToken,
   exchangeGoogleCode,
