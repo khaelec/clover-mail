@@ -4,6 +4,14 @@ Notable changes, newest first. Releases are batched (roughly daily or per
 feature; hotfixes immediately) and the in-app updater reads GitHub Releases, so a
 version only reaches users when its release exists on GitHub.
 
+## 0.4.76
+
+### Fix
+- Right-click → **Move to folder** works again in conversation view. The
+  conversation menu now has a "Move to folder ›" list; it moves the copies in
+  the folder you're viewing (so on Gmail your replies keep their Sent label),
+  and Undo works as for other moves.
+
 ## 0.4.67 – 0.4.73
 
 ### Notification bell
