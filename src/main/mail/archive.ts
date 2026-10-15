@@ -1,8 +1,8 @@
 import { createWriteStream } from 'node:fs'
 import { eq } from 'drizzle-orm'
 import { platform } from '../platform'
-import { getDb } from '../db'
-import { folders, messageBodies, messages } from '../db/schema'
+import { getDb } from '@core/db'
+import { folders, messageBodies, messages } from '@core/db/schema'
 import { protocolFor } from './accounts'
 import { withImap } from './connection'
 

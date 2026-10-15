@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { getDb } from '../db'
-import { folders, messages } from '../db/schema'
+import { getDb } from '@core/db'
+import { folders, messages } from '@core/db/schema'
 import { buildAccountClient } from './auth'
 import { protocolFor } from './accounts'
 import { withImap } from './connection'

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { and, desc, eq, ne, sql } from 'drizzle-orm'
-import { getDb } from '../db'
-import { messageBodies, messages, spamSenders, spamTokens } from '../db/schema'
+import { getDb } from '@core/db'
+import { messageBodies, messages, spamSenders, spamTokens } from '@core/db/schema'
 
 export const AUTO_SPAM_THRESHOLD = 60
 export const REVIEW_THRESHOLD = 30

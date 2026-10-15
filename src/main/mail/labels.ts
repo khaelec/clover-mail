@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { and, asc, eq, inArray } from 'drizzle-orm'
-import { getDb } from '../db'
-import { labels, messageLabels, messages } from '../db/schema'
+import { getDb } from '@core/db'
+import { labels, messageLabels, messages } from '@core/db/schema'
 import { toMessageSummary } from './mappers'
 import type { Label, MessageSummary } from '@shared/mail'
 

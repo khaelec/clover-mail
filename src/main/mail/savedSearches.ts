@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { asc, eq } from 'drizzle-orm'
-import { getDb } from '../db'
-import { savedSearches } from '../db/schema'
+import { getDb } from '@core/db'
+import { savedSearches } from '@core/db/schema'
 import type { SavedSearch } from '@shared/mail'
 
 export function listSavedSearches(): SavedSearch[] {

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, lt, ne, or, sql } from 'drizzle-orm'
-import { getDb } from '../db'
-import { folders, messages } from '../db/schema'
+import { getDb } from '@core/db'
+import { folders, messages } from '@core/db/schema'
 import { toMessageSummary } from './mappers'
 import { countSpam, listSpam } from './spam'
 import { listThreadFlags } from './threadSettings'

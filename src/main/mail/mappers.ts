@@ -1,5 +1,5 @@
 import type { AttachmentSummary, MessageSummary } from '@shared/mail'
-import { attachments, messages } from '../db/schema'
+import { attachments, messages } from '@core/db/schema'
 
 export function toMessageSummary(row: typeof messages.$inferSelect): MessageSummary {
   return {

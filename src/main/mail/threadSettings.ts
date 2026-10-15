@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { getDb } from '../db'
-import { threadSettings } from '../db/schema'
+import { getDb } from '@core/db'
+import { threadSettings } from '@core/db/schema'
 
 export interface ThreadFlags {
   muted: boolean

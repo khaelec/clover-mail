@@ -2,7 +2,7 @@ import { app, dialog, type BrowserWindow, type SaveDialogOptions, type OpenDialo
 import AdmZip from 'adm-zip'
 import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { closeDatabase, getRawDb } from '@main/db'
+import { closeDatabase, getRawDb } from '@core/db'
 
 export interface BackupResult {
   saved?: boolean
