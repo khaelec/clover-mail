@@ -31,6 +31,7 @@
     "test:attach": "tsx scripts/attachments-clean-smoke.ts",
     "test:notifications": "tsx scripts/notifications-smoke.ts",
     "test:threads": "tsx scripts/thread-dedupe-smoke.ts",
+    "test:engine-bridge": "node src/mobile/engine/test-bridge.mjs",
     "test:imap": "electron scripts/imap-integration.cjs",
     "test:imap-timeout": "tsx scripts/imap-timeout-smoke.ts",
     "bench:build": "node scripts/bench-build.cjs",
@@ -64,6 +65,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "esbuild": "^0.25.0",
     "@types/adm-zip": "^0.5.8",
     "@types/better-sqlite3": "^9.6.0",
     "@types/mailparser": "^3.9.0",

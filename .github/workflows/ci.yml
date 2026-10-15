@@ -44,3 +44,8 @@ jobs:
           npm run test:notifications
           npm run test:announce
           npm run test:attach
+
+      # The phone engine bundle (Phase 2): Electron-free, WASM driver, driven
+      # through the message-channel bridge under Node.
+      - name: Phone engine bridge
+        run: npm run test:engine-bridge

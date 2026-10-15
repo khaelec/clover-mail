@@ -3,6 +3,8 @@ out/
 dist/
 dist-electron/
 release/
+# Phase 2 phone-engine bundle (built output)
+mobile-engine/
 release-personal/
 seed/
 *.local
