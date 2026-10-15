@@ -108,6 +108,9 @@ app.whenReady().then(async () => {
       const accounts = await api.listAccounts()
       const localMail = (await api.listFolders(imported.accountId)).find((f) => f.id === imported.folderId)
       const localMessages = localMail ? await api.listMessages(localMail.id) : []
+      // Creating a folder on a local account must work without a server (#2).
+      await api.createFolder({ accountId: imported.accountId, name: 'Local Folder' })
+      const createdLocal = (await api.listFolders(imported.accountId)).some((f) => f.name === 'Local Folder')
       return {
         pop3Folders: folders.length,
         pop3Messages: messages.length,
@@ -115,6 +118,7 @@ app.whenReady().then(async () => {
         mboxImported: imported.imported,
         mboxSkipped: imported.skipped,
         localMessages: localMessages.length,
+        createdLocal,
         accountCount: accounts.length
       }
     })()`)
