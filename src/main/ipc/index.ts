@@ -1,4 +1,5 @@
-import { app, ipcMain, nativeImage, shell, type BrowserWindow } from 'electron'
+import { app, nativeImage, shell, type BrowserWindow } from 'electron'
+import { ipcHost as ipcMain } from '@main/ipcHost'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { IpcChannels } from '@shared/channels'

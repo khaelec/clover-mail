@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcHost as ipcMain } from '@main/ipcHost'
 import { IpcChannels } from '@shared/channels'
 import type { CreateAppInput, CustomApp } from '@shared/apps'
 import { createApp, listApps, removeApp, updateApp } from '@main/apps'

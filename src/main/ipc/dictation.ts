@@ -1,4 +1,5 @@
-import { ipcMain, type BrowserWindow } from 'electron'
+import type { BrowserWindow } from 'electron'
+import { ipcHost as ipcMain } from '@main/ipcHost'
 import { IpcChannels } from '@shared/channels'
 import { dictationSupported, setDictationEmitter, startDictation, stopDictation } from '@main/dictation'
 
