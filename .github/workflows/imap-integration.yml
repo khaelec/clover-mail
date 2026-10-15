@@ -1,0 +1,50 @@
+name: IMAP integration
+
+# Runs the app against a local Dovecot (MOVE/UIDPLUS/SEARCH support) to test the
+# parts that need a real server: grouped moves + undo, server-deletion
+# reconciliation, and folder creation. Kept separate from CI because it needs a
+# Dovecot service and a display (xvfb).
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  imap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Start Dovecot
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dovecot-imapd
+          sudo useradd -m -s /bin/bash clovertest || true
+          echo 'clovertest:cloverpass' | sudo chpasswd
+          sudo tee /etc/dovecot/conf.d/99-clover.conf >/dev/null <<'EOF'
+          protocols = imap
+          disable_plaintext_auth = no
+          ssl = no
+          mail_location = maildir:~/Maildir
+          auth_mechanisms = plain login
+          EOF
+          sudo systemctl restart dovecot
+          sleep 2
+          sudo ss -ltn | grep ':143' || (echo 'Dovecot not listening on 143'; exit 1)
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules for Electron
+        run: npx electron-builder install-app-deps
+
+      - name: Build
+        run: npm run build
+
+      - name: IMAP integration test
+        run: xvfb-run -a npm run test:imap

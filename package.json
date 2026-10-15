@@ -28,6 +28,7 @@
     "test:ipc": "node scripts/check-ipc.cjs",
     "test:reconcile": "tsx scripts/reconcile-smoke.ts",
     "test:announce": "tsx scripts/announce-smoke.ts",
+    "test:imap": "electron scripts/imap-integration.cjs",
     "test:imap-timeout": "tsx scripts/imap-timeout-smoke.ts",
     "bench:build": "node scripts/bench-build.cjs",
     "bench:seed": "electron scripts/bench-seed.cjs",
