@@ -12,11 +12,13 @@ until [ "$(adb get-state 2>/dev/null)" = "device" ]; do sleep 2; done
 adb install -r "$APK"
 adb logcat -c
 adb shell am start -n com.clovermail.app/.MainActivity
-sleep 120
+sleep 90
 
 adb logcat -d > /tmp/logcat.txt
 RESULT=$(grep -o 'CLOVER_E2E {.*}' /tmp/logcat.txt | tail -1 || true)
 echo "E2E RESULT: ${RESULT:-<none>}"
+echo "--- CLOVER markers ---"
+grep -oE 'CLOVER_(ENGINE_BOOT|ENGINE_DATADIR [^ ]*|ENGINE_READY|ENGINE_LOAD_ERROR .*|UI_OK .*|UI_ERROR .*)' /tmp/logcat.txt | tail -20 || true
 
 if echo "$RESULT" | grep -q '"ok":true'; then
   echo "E2E OK"
