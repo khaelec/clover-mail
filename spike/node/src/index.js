@@ -146,6 +146,15 @@ async function testImap(cfg) {
     }
   } catch (e) {
     out.error = String(e && e.message ? e.message : e)
+    const detail = {}
+    if (e) {
+      if (e.code) detail.code = e.code
+      if (e.responseText) detail.responseText = String(e.responseText)
+      if (e.serverResponseCode) detail.serverResponseCode = String(e.serverResponseCode)
+      if (e.authenticationFailed !== undefined) detail.authenticationFailed = e.authenticationFailed
+      if (e.response) detail.response = String(e.response)
+    }
+    if (Object.keys(detail).length > 0) out.detail = detail
   }
   return out
 }
@@ -177,7 +186,7 @@ async function testSmtp(cfg) {
 
 channel.on('run', async (cfg) => {
   const report = {
-    build: 'phase0-patched-imapflow',
+    build: 'phase0-imap-detail',
     node: process.version,
     platform: process.platform,
     arch: process.arch,
