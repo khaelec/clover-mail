@@ -61,8 +61,18 @@ A release build needs a signing keystore (`android/keystore.properties` +
 
 `.github/workflows/android.yml` builds the debug APK on GitHub's runner (which
 has the SDK) and uploads it as the **CloverMail-debug-apk** artifact. Run it from
-the **Actions → Android → Run workflow** button, or push to `main` /
-`feat/android`, then download `app-debug.apk` from the run.
+the **Actions → Android → Run workflow** button, or push to `main`, then
+download `app-debug.apk` from the run.
+
+### Releases
+
+Each GitHub release also builds the Android client
+(`.github/workflows/release-android.yml`) and attaches
+`CloverMail-X.Y.Z-android.apk`, so one release carries the Windows, Linux and
+Android artifacts. It produces a **debug** APK unless signing secrets are set —
+add `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`
+and `ANDROID_KEY_PASSWORD` (and the signing block in `android/app/build.gradle`)
+to ship a signed release APK.
 
 ## Status
 
