@@ -21,10 +21,14 @@
    nothing was deleted). If the name ever has to change, ship a one-time migration
    that copies the old folder and never deletes it.
 
-2. **Every change ships with a version bump and a push.** Bump `version` in
+2. **Commits land on `main` freely; releases are batched.** Keep `main` green
+   (CI runs typecheck + `test:ipc` on every push), and push work as it's ready —
+   it doesn't need its own release. Cut a release by bumping `version` in
    `package.json` (patch, e.g. `0.4.9` -> `0.4.10`) in its own commit
-   `Bump version to X.Y.Z`, then push `main`. Never leave `main` with
-   unpublished commits.
+   `Bump version to X.Y.Z`, then follow the release process below. Batch releases
+   — roughly once a day, or per feature — except for hotfixes, which may ship
+   immediately. Never leave `main` broken, and never leave a release commit
+   unpushed.
 
 ## Release process
 
