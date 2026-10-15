@@ -4,6 +4,7 @@ import { useLayout } from '../state/layout'
 import { useApps } from '../state/apps'
 import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, OUTBOX_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
 import type { BulkActionType, FolderSummary, MessageDetail, MessageSummary, ThreadSummary } from '@shared/mail'
+import { isNative } from '../lib/mobile'
 import { Reader } from './Reader'
 import { Compose } from './Compose'
 import { CopilotView } from './CopilotView'
@@ -114,8 +115,9 @@ function EmptyState({ onAdd }: { onAdd: () => void }): ReactNode {
         </div>
         <h2 className="mt-4 text-lg font-semibold tracking-tight text-ink">Welcome to Clover Mail</h2>
         <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
-          Connect an IMAP/SMTP account to get started. Your password is encrypted with Windows DPAPI and
-          never leaves this machine.
+          {isNative()
+            ? 'Connect an IMAP/SMTP account to get started. Your password is kept on this device.'
+            : 'Connect an IMAP/SMTP account to get started. Your password is encrypted with Windows DPAPI and never leaves this machine.'}
         </p>
         <button
           type="button"

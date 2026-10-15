@@ -5,9 +5,11 @@
 // CLOVER_BRIDGE_STUB=1, `bridge` is aliased to a stdin/stdout stub for the local
 // test (no phone needed).
 import { build } from 'esbuild'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const root = process.cwd()
+const version = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version
 
 const alias = {
   '@main/ipcHost': resolve(root, 'src/mobile/engine/ipcHost.ts'),
@@ -32,6 +34,7 @@ await build({
   tsconfig: resolve(root, 'tsconfig.node.json'),
   alias,
   packages: 'external',
+  define: { 'process.env.CLOVER_VERSION': JSON.stringify(version) },
   logLevel: 'warning'
 })
 

@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { CreateAccountInput, EndpointInput, IncomingProtocol, Security } from '@shared/mail'
 import { useMail } from '../state/mail'
+import { isNative } from '../lib/mobile'
 import { IconClose, IconRefresh } from './icons'
 
 interface Preset {
@@ -187,29 +188,38 @@ export function AccountSetup({ onClose }: { onClose: () => void }): ReactNode {
         </header>
 
         <div className="max-h-[70vh] space-y-4 overflow-y-auto px-5 py-4">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => void signInGoogle()}
-              disabled={oauthBusy}
-              className="rounded-lg border border-line bg-canvas/50 px-3 py-2.5 text-[12px] font-medium text-ink hover:border-accent disabled:opacity-50"
-            >
-              Sign in with Google
-            </button>
-            <button
-              type="button"
-              onClick={() => void signInMicrosoft()}
-              disabled={oauthBusy}
-              className="rounded-lg border border-line bg-canvas/50 px-3 py-2.5 text-[12px] font-medium text-ink hover:border-accent disabled:opacity-50"
-            >
-              Sign in with Microsoft
-            </button>
-          </div>
-          <div className="flex items-center gap-3 text-[11px] text-muted">
-            <span className="h-px flex-1 bg-line" />
-            or add manually
-            <span className="h-px flex-1 bg-line" />
-          </div>
+          {isNative() ? (
+            <p className="rounded-lg border border-line bg-canvas/50 px-3 py-2.5 text-[11px] text-muted">
+              Google and Microsoft sign-in aren’t available on Android yet — add the account manually
+              below with an app password.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => void signInGoogle()}
+                  disabled={oauthBusy}
+                  className="rounded-lg border border-line bg-canvas/50 px-3 py-2.5 text-[12px] font-medium text-ink hover:border-accent disabled:opacity-50"
+                >
+                  Sign in with Google
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void signInMicrosoft()}
+                  disabled={oauthBusy}
+                  className="rounded-lg border border-line bg-canvas/50 px-3 py-2.5 text-[12px] font-medium text-ink hover:border-accent disabled:opacity-50"
+                >
+                  Sign in with Microsoft
+                </button>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-muted">
+                <span className="h-px flex-1 bg-line" />
+                or add manually
+                <span className="h-px flex-1 bg-line" />
+              </div>
+            </>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Email address" value={email} onChange={applyEmail} placeholder="you@example.com" />
