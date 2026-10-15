@@ -5,6 +5,7 @@ import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { getAccountById, protocolFor } from './accounts'
 import { buildAccountClient } from './auth'
+import { withImap } from './connection'
 import { fetchPop3 } from './pop3'
 import { indexMessage } from './search'
 import { clearSentPlaceholder } from './storeMessage'
@@ -414,13 +415,10 @@ export async function syncFolder(folderId: string, emit: Emit): Promise<SyncResu
   const running = inFlight.get(folderRow.accountId)
   if (running) await running.catch(() => undefined)
 
-  const client = await buildAccountClient(folderRow.accountId)
-  await client.connect()
-  try {
-    const count = await syncOneMailbox(client, folderRow.accountId, folderId, folderRow.remotePath)
-    emit({ type: 'sync:done', accountId: folderRow.accountId, fetched: count })
-    return { folders: 1, fetched: count }
-  } finally {
-    await client.logout().catch(() => undefined)
-  }
+  // Reuse the shared per-account connection instead of logging in again.
+  const count = await withImap(folderRow.accountId, (client) =>
+    syncOneMailbox(client, folderRow.accountId, folderId, folderRow.remotePath)
+  )
+  emit({ type: 'sync:done', accountId: folderRow.accountId, fetched: count })
+  return { folders: 1, fetched: count }
 }

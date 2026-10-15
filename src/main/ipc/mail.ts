@@ -216,9 +216,10 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.bulkAction, (_e, input: BulkActionInput) => bulkAction(input))
   ipcMain.handle(IpcChannels.mail.undoMoves, async (_e, moves: MovedMessage[]) => {
     const result = await undoMoves(moves)
-    // Re-sync the origin folders so the restored messages reappear locally.
+    // Re-sync the origin folders in the background so the restored messages
+    // reappear (via sync:done) without making the Undo action wait for a sync.
     for (const folderId of result.folderIds) {
-      await runSyncFolder(folderId, emit).catch(() => undefined)
+      void runSyncFolder(folderId, emit).catch(() => undefined)
     }
     return { restored: result.restored, failed: result.failed }
   })

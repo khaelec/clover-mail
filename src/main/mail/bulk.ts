@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
-import { moveMessage, setFlags } from './messages'
+import { setFlags } from './messages'
 import { withImap } from './connection'
 import { protocolFor } from './accounts'
 import { removeFromIndex } from './search'
@@ -15,11 +15,122 @@ function specialFolderId(accountId: string, use: string): string | undefined {
     .get()?.id
 }
 
+interface MoveItem {
+  id: string
+  uid: number
+  messageId: string | null
+}
+interface MoveGroup {
+  accountId: string
+  fromFolderId: string
+  toFolderId: string
+  items: MoveItem[]
+}
+
+function targetFolderFor(
+  accountId: string,
+  action: BulkActionInput['action'],
+  targetFolderId?: string
+): string | undefined {
+  // Gmail-style archive: move out of Inbox to Archive / All Mail.
+  if (action === 'archive') return specialFolderId(accountId, 'archive') ?? specialFolderId(accountId, 'all')
+  if (action === 'trash') return specialFolderId(accountId, 'trash')
+  if (action === 'move') return targetFolderId
+  return undefined
+}
+
+/**
+ * Move a whole (account, source folder, target folder) group with a single MOVE
+ * command, reading the new UIDs from UIDPLUS's uidMap. That's one mailbox open +
+ * one MOVE per group instead of two round-trips per message, so archiving 50
+ * messages is a couple of round-trips, not a hundred.
+ */
+async function moveGroup(group: MoveGroup): Promise<MovedMessage[]> {
+  const db = getDb()
+  const from = db.select().from(folders).where(eq(folders.id, group.fromFolderId)).get()
+  const to = db.select().from(folders).where(eq(folders.id, group.toFolderId)).get()
+  if (!from || !to) throw new Error('folder not found')
+
+  if (protocolFor(group.accountId) !== 'imap') {
+    for (const item of group.items) {
+      db.update(messages).set({ folderId: group.toFolderId }).where(eq(messages.id, item.id)).run()
+    }
+    return group.items.map((item) => ({
+      accountId: group.accountId,
+      fromFolderId: group.fromFolderId,
+      toFolderId: group.toFolderId,
+      uid: item.uid,
+      messageId: item.messageId
+    }))
+  }
+
+  const response = await withImap(group.accountId, async (client) => {
+    await client.mailboxOpen(from.remotePath)
+    return client.messageMove(
+      group.items.map((i) => i.uid),
+      to.remotePath,
+      { uid: true }
+    )
+  })
+  const uidMap = response && response.uidMap ? response.uidMap : null
+
+  const undo: MovedMessage[] = []
+  for (const item of group.items) {
+    db.delete(messages).where(eq(messages.id, item.id)).run()
+    removeFromIndex(item.id)
+    undo.push({
+      accountId: group.accountId,
+      fromFolderId: group.fromFolderId,
+      toFolderId: group.toFolderId,
+      uid: uidMap ? (uidMap.get(item.uid) ?? null) : null,
+      messageId: item.messageId
+    })
+  }
+  return undo
+}
+
 export async function bulkAction(input: BulkActionInput): Promise<BulkActionResult> {
   const result: BulkActionResult = { moved: 0, updated: 0, failed: 0 }
-  const undo: MovedMessage[] = []
   const db = getDb()
 
+  if (input.action === 'archive' || input.action === 'trash' || input.action === 'move') {
+    const groups = new Map<string, MoveGroup>()
+    for (const id of input.messageIds) {
+      const row = db.select().from(messages).where(eq(messages.id, id)).get()
+      if (!row) {
+        result.failed += 1
+        continue
+      }
+      const toFolderId = targetFolderFor(row.accountId, input.action, input.targetFolderId)
+      if (!toFolderId) {
+        result.failed += 1
+        continue
+      }
+      const key = `${row.accountId}\u0000${row.folderId}\u0000${toFolderId}`
+      const group = groups.get(key) ?? {
+        accountId: row.accountId,
+        fromFolderId: row.folderId,
+        toFolderId,
+        items: []
+      }
+      group.items.push({ id, uid: row.uid, messageId: row.messageId })
+      groups.set(key, group)
+    }
+
+    const undo: MovedMessage[] = []
+    for (const group of groups.values()) {
+      try {
+        undo.push(...(await moveGroup(group)))
+        result.moved += group.items.length
+      } catch {
+        result.failed += group.items.length
+      }
+    }
+    if (undo.length > 0) result.undo = undo
+    return result
+  }
+
+  // Flag-only actions stay per message.
   for (const id of input.messageIds) {
     try {
       const row = db.select().from(messages).where(eq(messages.id, id)).get()
@@ -27,56 +138,15 @@ export async function bulkAction(input: BulkActionInput): Promise<BulkActionResu
         result.failed += 1
         continue
       }
-
-      if (input.action === 'archive') {
-        // Gmail-style archive: move out of Inbox to Archive / All Mail.
-        const target =
-          specialFolderId(row.accountId, 'archive') ?? specialFolderId(row.accountId, 'all')
-        if (!target) {
-          result.failed += 1
-          continue
-        }
-        const moved = await moveMessage(id, target)
-        if (moved) {
-          undo.push(moved)
-          result.moved += 1
-        } else result.failed += 1
-      } else if (input.action === 'trash') {
-        const target = specialFolderId(row.accountId, 'trash')
-        if (!target) {
-          result.failed += 1
-          continue
-        }
-        const moved = await moveMessage(id, target)
-        if (moved) {
-          undo.push(moved)
-          result.moved += 1
-        } else result.failed += 1
-      } else if (input.action === 'markRead') {
-        await setFlags(id, { seen: true })
-        result.updated += 1
-      } else if (input.action === 'markUnread') {
-        await setFlags(id, { seen: false })
-        result.updated += 1
-      } else if (input.action === 'markImportant') {
-        await setFlags(id, { important: true })
-        result.updated += 1
-      } else if (input.action === 'markNotImportant') {
-        await setFlags(id, { important: false })
-        result.updated += 1
-      } else if (input.action === 'move' && input.targetFolderId) {
-        const moved = await moveMessage(id, input.targetFolderId)
-        if (moved) {
-          undo.push(moved)
-          result.moved += 1
-        } else result.failed += 1
-      }
+      if (input.action === 'markRead') await setFlags(id, { seen: true })
+      else if (input.action === 'markUnread') await setFlags(id, { seen: false })
+      else if (input.action === 'markImportant') await setFlags(id, { important: true })
+      else if (input.action === 'markNotImportant') await setFlags(id, { important: false })
+      result.updated += 1
     } catch {
       result.failed += 1
     }
   }
-
-  if (undo.length > 0) result.undo = undo
   return result
 }
 
@@ -94,17 +164,27 @@ export async function undoMoves(
   let failed = 0
   const folderIds = new Set<string>()
 
+  // Group by (account, destination, origin) so a whole undo is one MOVE back.
+  const groups = new Map<string, MovedMessage[]>()
   for (const move of moves) {
-    try {
-      const from = db.select().from(folders).where(eq(folders.id, move.fromFolderId)).get()
-      const to = db.select().from(folders).where(eq(folders.id, move.toFolderId)).get()
-      if (!from || !to) {
-        failed += 1
-        continue
-      }
+    const key = `${move.accountId}\u0000${move.toFolderId}\u0000${move.fromFolderId}`
+    const list = groups.get(key) ?? []
+    list.push(move)
+    groups.set(key, list)
+  }
 
-      if (protocolFor(move.accountId) !== 'imap') {
-        // Local move kept the row in place, so just point it back.
+  for (const group of groups.values()) {
+    const first = group[0]
+    const from = db.select().from(folders).where(eq(folders.id, first.fromFolderId)).get()
+    const to = db.select().from(folders).where(eq(folders.id, first.toFolderId)).get()
+    if (!from || !to) {
+      failed += group.length
+      continue
+    }
+
+    if (protocolFor(first.accountId) !== 'imap') {
+      // Local move kept the row in place, so just point it back.
+      for (const move of group) {
         const row =
           move.uid !== null
             ? db
@@ -118,14 +198,18 @@ export async function undoMoves(
           restored += 1
           folderIds.add(move.fromFolderId)
         } else failed += 1
-        continue
       }
+      continue
+    }
 
-      let movedUids: number[] = []
-      await withImap(move.accountId, async (client) => {
-        await client.mailboxOpen(to.remotePath)
+    // One mailbox open + one MOVE back for the whole group.
+    const movedUids: number[] = []
+    let missing = 0
+    await withImap(first.accountId, async (client) => {
+      await client.mailboxOpen(to.remotePath)
+      for (const move of group) {
         if (move.uid !== null) {
-          movedUids = [move.uid]
+          movedUids.push(move.uid)
         } else if (move.messageId) {
           const found = await client.search(
             { header: { 'message-id': move.messageId } },
@@ -134,30 +218,32 @@ export async function undoMoves(
           const list = Array.isArray(found) ? found : []
           // A copy may already exist in the destination; the one we just moved is
           // always the newest, so only undo that one.
-          movedUids = list.length ? [Math.max(...list)] : []
+          if (list.length) movedUids.push(Math.max(...list))
+          else missing += 1
+        } else {
+          missing += 1
         }
-        if (movedUids.length === 0) throw new Error('message not found in destination')
-        await client.messageMove(movedUids, from.remotePath, { uid: true })
-      })
+      }
+      if (movedUids.length > 0) await client.messageMove(movedUids, from.remotePath, { uid: true })
+    })
 
-      // The move back leaves the local copy in the destination behind (sync only
-      // ever adds new UIDs, it never notices removed ones), so drop it or the
-      // message would appear in both folders forever.
+    // The move back leaves the local copy in the destination behind (sync only
+    // ever adds new UIDs, it never notices removed ones), so drop it or the
+    // message would appear in both folders forever.
+    if (movedUids.length > 0) {
       const ghosts = db
         .select({ id: messages.id })
         .from(messages)
-        .where(and(eq(messages.folderId, move.toFolderId), inArray(messages.uid, movedUids)))
+        .where(and(eq(messages.folderId, first.toFolderId), inArray(messages.uid, movedUids)))
         .all()
       for (const ghost of ghosts) {
         db.delete(messages).where(eq(messages.id, ghost.id)).run()
         removeFromIndex(ghost.id)
       }
-
-      restored += 1
-      folderIds.add(move.fromFolderId)
-    } catch {
-      failed += 1
+      restored += movedUids.length
+      folderIds.add(first.fromFolderId)
     }
+    failed += missing
   }
 
   return { restored, failed, folderIds: [...folderIds] }
