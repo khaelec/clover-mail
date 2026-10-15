@@ -1,11 +1,10 @@
 import type { ImapFlow } from 'imapflow'
-import { and, eq, desc, ne } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { folders, messages } from '../db/schema'
+import { folders } from '../db/schema'
 import { getAccountById, listAccounts, protocolFor } from './accounts'
 import { buildAccountClient } from './auth'
 import { syncFolder } from './sync'
-import { isThreadMuted } from './threadSettings'
 import type { MailEvent } from '@shared/mail'
 
 export type Emit = (event: MailEvent) => void
@@ -54,61 +53,23 @@ async function connect(handle: Handle, emit: Emit): Promise<void> {
 }
 
 async function onNewMail(handle: Handle, emit: Emit): Promise<void> {
-  const db = getDb()
-  const inbox = db
+  const inbox = getDb()
     .select()
     .from(folders)
     .where(and(eq(folders.accountId, handle.accountId), eq(folders.specialUse, 'inbox')))
     .get()
   if (!inbox) return
 
-  const before = db
-    .select()
-    .from(messages)
-    .where(and(eq(messages.accountId, handle.accountId), eq(messages.folderId, inbox.id)))
-    .orderBy(desc(messages.dateUtc))
-    .limit(1)
-    .get()
-
+  // syncFolder now emits mail:new for newly-fetched inbox mail (and the native
+  // notification) whenever any sync finds it, so IDLE just triggers the sync and
+  // refreshes the list — no separate notification here, which also avoids a
+  // duplicate when the periodic sync races with IDLE.
   try {
     await syncFolder(inbox.id, emit)
   } catch {
     // ignore; next event or manual sync will reconcile
   }
-
-  const newest = db
-    .select()
-    .from(messages)
-    .where(
-      and(
-        eq(messages.accountId, handle.accountId),
-        eq(messages.folderId, inbox.id),
-        ne(messages.isSpam, true)
-      )
-    )
-    .orderBy(desc(messages.dateUtc))
-    .limit(1)
-    .get()
-
-  // Only announce a message that actually landed in the inbox (and isn't junk),
-  // so the notification always matches something visible in the list.
-  if (!newest || newest.id === before?.id) {
-    emit({ type: 'mail:refresh', accountId: handle.accountId })
-    return
-  }
-  if (isThreadMuted(newest.threadId)) {
-    // Muted conversation — refresh quietly without a notification.
-    emit({ type: 'mail:refresh', accountId: handle.accountId })
-    return
-  }
-  emit({
-    type: 'mail:new',
-    accountId: handle.accountId,
-    messageId: newest.id,
-    threadId: newest.threadId ?? undefined,
-    title: newest.fromName || newest.fromEmail || 'New mail',
-    body: newest.subject ?? ''
-  })
+  emit({ type: 'mail:refresh', accountId: handle.accountId })
 }
 
 function reconnect(handle: Handle, emit: Emit): void {

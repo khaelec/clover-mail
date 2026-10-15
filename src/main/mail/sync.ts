@@ -1,6 +1,6 @@
 import type { FetchMessageObject, ImapFlow } from 'imapflow'
 import { randomUUID } from 'node:crypto'
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq, ne } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { getAccountById, protocolFor } from './accounts'
@@ -9,6 +9,7 @@ import { withImap } from './connection'
 import { fetchPop3 } from './pop3'
 import { indexMessage } from './search'
 import { reconcileMailbox, type ReconcileStatus } from './reconcile'
+import { isThreadMuted } from './threadSettings'
 import { logError, logLine } from '../log'
 import { clearSentPlaceholder } from './storeMessage'
 import { applyAssessment } from './spam'
@@ -216,7 +217,8 @@ async function syncOneMailbox(
   client: ImapFlow,
   accountId: string,
   folderId: string,
-  remotePath: string
+  remotePath: string,
+  emit: Emit
 ): Promise<number> {
   const db = getDb()
   const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
@@ -284,6 +286,34 @@ async function syncOneMailbox(
       }
     } catch (error) {
       throw new Error(`fetch: ${errText(error)}`)
+    }
+
+    // Announce new inbox mail found by any sync (not just IDLE). Incremental
+    // fetches only, so a first/backfill sync doesn't flood the bell.
+    if (!reset && folderRow.uidNext !== null && count > 0 && folderRow.specialUse === 'inbox') {
+      const newest = db
+        .select()
+        .from(messages)
+        .where(
+          and(
+            eq(messages.accountId, accountId),
+            eq(messages.folderId, folderId),
+            ne(messages.isSpam, true)
+          )
+        )
+        .orderBy(desc(messages.dateUtc))
+        .limit(1)
+        .get()
+      if (newest && !isThreadMuted(newest.threadId)) {
+        emit({
+          type: 'mail:new',
+          accountId,
+          messageId: newest.id,
+          threadId: newest.threadId ?? undefined,
+          title: newest.fromName || newest.fromEmail || 'New mail',
+          body: newest.subject ?? ''
+        })
+      }
     }
 
     // Remove messages deleted on the server by another client. Skipped on a
@@ -398,7 +428,7 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
         folderName: folderRow.name
       })
       try {
-        const count = await syncOneMailbox(client, accountId, folderId, folderRow.remotePath)
+        const count = await syncOneMailbox(client, accountId, folderId, folderRow.remotePath, emit)
         fetched += count
         emit({
           type: 'sync:progress',
@@ -438,7 +468,7 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
     try {
       for (const id of targetFolderIds) {
         const target = getDb().select().from(folders).where(eq(folders.id, id)).get()
-        if (target) await syncOneMailbox(resyncClient, accountId, id, target.remotePath)
+        if (target) await syncOneMailbox(resyncClient, accountId, id, target.remotePath, emit)
       }
     } catch {
       // Best-effort; the next sync will reconcile.
@@ -468,7 +498,7 @@ export async function syncFolder(folderId: string, emit: Emit): Promise<SyncResu
 
   // Reuse the shared per-account connection instead of logging in again.
   const count = await withImap(folderRow.accountId, (client) =>
-    syncOneMailbox(client, folderRow.accountId, folderId, folderRow.remotePath)
+    syncOneMailbox(client, folderRow.accountId, folderId, folderRow.remotePath, emit)
   )
   emit({ type: 'sync:done', accountId: folderRow.accountId, fetched: count })
   return { folders: 1, fetched: count }
