@@ -9,14 +9,14 @@ import { getBase, getToken, setToken as saveToken } from './mobile'
  * comes from `?token=` (saved to storage) so the phone only needs a link; in the
  * native shell the desktop address comes from the connect screen instead.
  */
-export function installWebClover(): void {
+export async function installWebClover(): Promise<void> {
   const w = window as unknown as { clover?: unknown }
   if (w.clover) return
 
   const params = new URLSearchParams(window.location.search)
   const incoming = params.get('token')
-  if (incoming) saveToken(incoming)
-  const token = incoming ?? getToken()
+  if (incoming) await saveToken(incoming)
+  const token = incoming ?? (await getToken())
   const base = getBase() || window.location.origin
 
   const listeners = new Map<string, Set<(...args: any[]) => void>>()

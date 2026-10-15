@@ -34,7 +34,28 @@ export function setBase(url: string): void {
   }
 }
 
-export function getToken(): string {
+/**
+ * The access token is a secret, so in the native shell it lives in the Android
+ * Keystore (via secure storage); elsewhere it falls back to localStorage. A
+ * token saved by an older build in localStorage is migrated on first read.
+ */
+export async function getToken(): Promise<string> {
+  if (isNative()) {
+    try {
+      const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+      const stored = await SecureStorage.get(TOKEN_KEY)
+      if (typeof stored === 'string' && stored) return stored
+      const legacy = localStorage.getItem(TOKEN_KEY)
+      if (legacy) {
+        await SecureStorage.set(TOKEN_KEY, legacy)
+        localStorage.removeItem(TOKEN_KEY)
+        return legacy
+      }
+      return ''
+    } catch {
+      // fall through to localStorage
+    }
+  }
   try {
     return localStorage.getItem(TOKEN_KEY) ?? ''
   } catch {
@@ -42,9 +63,21 @@ export function getToken(): string {
   }
 }
 
-export function setToken(token: string): void {
+export async function setToken(token: string): Promise<void> {
+  const value = token.trim()
+  if (isNative()) {
+    try {
+      const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+      if (value) await SecureStorage.set(TOKEN_KEY, value)
+      else await SecureStorage.remove(TOKEN_KEY)
+      return
+    } catch {
+      // fall through to localStorage
+    }
+  }
   try {
-    localStorage.setItem(TOKEN_KEY, token.trim())
+    if (value) localStorage.setItem(TOKEN_KEY, value)
+    else localStorage.removeItem(TOKEN_KEY)
   } catch {
     // storage unavailable
   }

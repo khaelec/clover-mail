@@ -29,7 +29,7 @@ export function ConnectScreen(): ReactNode {
       })
       if (!res.ok) throw new Error(`The desktop replied ${res.status}.`)
       setBase(base)
-      setToken(token)
+      await setToken(token)
       window.location.reload()
     } catch {
       setError('Could not reach the desktop. Check the address, token and that both devices are on the same network.')
