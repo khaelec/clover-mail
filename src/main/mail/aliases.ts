@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { asc, eq } from 'drizzle-orm'
 import { getDb } from '@core/db'
 import { accountAliases } from '@core/db/schema'
-import { deleteSetting, getSetting, setSetting } from '../settings'
+import { deleteSetting, getSetting, setSetting } from '@core/settings'
 import type { AccountAlias } from '@shared/mail'
 
 const DEFAULT_FROM_PREFIX = 'mail.defaultFrom.'

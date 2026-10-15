@@ -7,7 +7,7 @@ import { platform } from '@core/platform'
 import { getDb } from '@core/db'
 import { attachments, calendarEventAttendees, calendarEvents, calendars } from '@core/db/schema'
 import { attachmentAbsolutePath } from '../mail/storage'
-import { deleteSecret } from '../settings/secrets'
+import { deleteSecret } from '@core/settings/secrets'
 import type {
   AttendeeLite,
   Calendar,

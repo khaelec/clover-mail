@@ -2,7 +2,7 @@ import { and, eq, lt } from 'drizzle-orm'
 import { getDb } from '@core/db'
 import { reminderLog } from '@core/db/schema'
 import { listOccurrences } from './index'
-import { getSetting } from '../settings'
+import { getSetting } from '@core/settings'
 
 export const REMINDER_MINUTES_KEY = 'calendar.reminderMinutes'
 

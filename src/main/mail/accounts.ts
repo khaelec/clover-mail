@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { asc, eq } from 'drizzle-orm'
 import { getDb } from '@core/db'
 import { accounts, accountOauth, incomingSettings, outgoingSettings } from '@core/db/schema'
-import { deleteSecret, getSecret, setSecret } from '../settings/secrets'
+import { deleteSecret, getSecret, setSecret } from '@core/settings/secrets'
 import type {
   AccountAuthType,
   AccountInput,
