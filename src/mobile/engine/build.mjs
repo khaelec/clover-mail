@@ -12,7 +12,9 @@ const root = process.cwd()
 const alias = {
   '@main/ipcHost': resolve(root, 'src/mobile/engine/ipcHost.ts'),
   '@main/mail/events': resolve(root, 'src/mobile/engine/events.ts'),
-  '@main/oauth': resolve(root, 'src/mobile/engine/oauth.ts')
+  '@main/oauth': resolve(root, 'src/mobile/engine/oauth.ts'),
+  // No better-sqlite3 on the phone; the WASM driver is used instead.
+  'better-sqlite3': resolve(root, 'src/mobile/engine/betterSqliteStub.ts')
 }
 if (process.env.CLOVER_BRIDGE_STUB === '1') {
   alias['bridge'] = resolve(root, 'src/mobile/engine/bridge-stub.cjs')

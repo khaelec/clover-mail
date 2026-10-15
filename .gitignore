@@ -3,8 +3,10 @@ out/
 dist/
 dist-electron/
 release/
-# Phase 2 phone-engine bundle (built output)
+# Android app build outputs (the Capacitor webDir + the engine Node project)
+dist-mobile/
 mobile-engine/
+src/mobile/app/node_modules/
 release-personal/
 seed/
 *.local

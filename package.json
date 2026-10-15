@@ -40,9 +40,16 @@
     "test:smoke": "electron-vite build && electron scripts/electron-integration.cjs && electron scripts/pop3-integration.cjs && electron scripts/api-smoke.cjs && electron scripts/bell-layering.cjs && npm run test:reconcile && npm run test:announce && npm run test:attach && npm run test:notifications && npm run test:threads && npm run test:imap-timeout",
     "dist": "electron-vite build && electron-builder --win",
     "dist:dir": "electron-vite build && electron-builder --win --dir",
-    "dist:personal": "electron-vite build && electron-builder --win --config electron-builder.personal.yml --publish never"
+    "dist:personal": "electron-vite build && electron-builder --win --config electron-builder.personal.yml --publish never",
+    "mobile:engine": "node src/mobile/build-engine.mjs",
+    "mobile:web": "vite build --config vite.mobile.config.ts",
+    "mobile:sync": "npm run mobile:engine && npm run mobile:web && cap sync android",
+    "mobile:open": "cap open android"
   },
   "dependencies": {
+    "@capawesome/capacitor-nodejs": "^0.1.1",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
@@ -64,6 +71,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@tailwindcss/vite": "^4.3.3",
     "esbuild": "^0.25.0",
     "@types/adm-zip": "^0.5.8",
