@@ -72,7 +72,7 @@ function ItemIcon({ n, icon }: { n: AppNotification; icon: string | null }): Rea
   return <Icon className="h-4 w-4 shrink-0 text-muted" />
 }
 
-export function TitleBar(): ReactNode {
+export function TitleBar({ compact = false }: { compact?: boolean }): ReactNode {
   const [maximized, setMaximized] = useState(false)
   const [open, setOpen] = useState(false)
   const [panel, setPanel] = useState<{ top: number; right: number } | null>(null)
@@ -366,18 +366,22 @@ export function TitleBar(): ReactNode {
             )}
         </div>
 
-        <WindowButton label="Minimize" onClick={() => window.clover.window.minimize()}>
-          <IconMinimize />
-        </WindowButton>
-        <WindowButton
-          label={maximized ? 'Restore' : 'Maximize'}
-          onClick={() => window.clover.window.toggleMaximize()}
-        >
-          {maximized ? <IconRestore /> : <IconMaximize />}
-        </WindowButton>
-        <WindowButton label="Close" danger onClick={() => window.clover.window.close()}>
-          <IconClose />
-        </WindowButton>
+        {!compact && (
+          <>
+            <WindowButton label="Minimize" onClick={() => window.clover.window.minimize()}>
+              <IconMinimize />
+            </WindowButton>
+            <WindowButton
+              label={maximized ? 'Restore' : 'Maximize'}
+              onClick={() => window.clover.window.toggleMaximize()}
+            >
+              {maximized ? <IconRestore /> : <IconMaximize />}
+            </WindowButton>
+            <WindowButton label="Close" danger onClick={() => window.clover.window.close()}>
+              <IconClose />
+            </WindowButton>
+          </>
+        )}
       </div>
     </header>
   )
