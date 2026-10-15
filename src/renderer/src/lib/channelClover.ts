@@ -7,21 +7,24 @@ import { buildCloverApi, type CloverHost } from '@shared/cloverClient'
  * the reply arrives as `{ id, ok, result | error }`; engine events are pushed as
  * `{ channel, payload }`. No HTTP, no ports, no desktop.
  */
-export async function installChannelClover(): Promise<void> {
+export async function installChannelClover(onStatus: (text: string) => void): Promise<void> {
   const w = window as unknown as { clover?: unknown }
   if (w.clover) return
 
-  // Start the nodejs-mobile runtime (startMode is 'manual' in capacitor.config).
-  try {
-    const { ready } = await Nodejs.isReady()
-    if (!ready) {
-      console.log('CLOVER_UI_STARTING')
-      await Nodejs.start()
-      console.log('CLOVER_UI_STARTED')
+  // Wait for the nodejs-mobile runtime to require its `bridge` module.
+  let ready = false
+  for (let i = 0; i < 40; i += 1) {
+    try {
+      ready = (await Nodejs.isReady()).ready
+    } catch (error) {
+      onStatus(`isReady error: ${error instanceof Error ? error.message : String(error)}`)
     }
-  } catch (error) {
-    console.log(`CLOVER_UI_START_ERROR ${error instanceof Error ? error.message : String(error)}`)
+    if (ready) break
+    onStatus(`waiting for the engine runtime… (${i + 1})`)
+    await new Promise((r) => setTimeout(r, 500))
   }
+  if (!ready) throw new Error('engine runtime did not become ready')
+  onStatus('runtime ready')
 
   const pending = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
   const listeners = new Map<string, Set<(payload: unknown) => void>>()
@@ -40,12 +43,12 @@ export async function installChannelClover(): Promise<void> {
       if (set) for (const cb of set) cb(arg.payload)
     }
   })
+  onStatus('listening')
 
   const invoke = (channel: string, ...args: unknown[]): Promise<unknown> =>
     new Promise((resolve, reject) => {
       const id = String(++nextId)
       pending.set(id, { resolve, reject })
-      // The args are JSON-serializable by construction (channel + CloverApi args).
       void Nodejs.send({ eventName: 'invoke', args: [{ id, channel, args }] as never })
     })
 
@@ -64,4 +67,5 @@ export async function installChannelClover(): Promise<void> {
   }
 
   w.clover = buildCloverApi(host)
+  onStatus('channel installed')
 }
