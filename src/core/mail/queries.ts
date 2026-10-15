@@ -82,7 +82,79 @@ function normalizeSubject(subject: string | null): string {
     .toLowerCase()
 }
 
-function buildThreads(rows: (typeof messages.$inferSelect)[]): ThreadSummary[] {
+type MessageRow = typeof messages.$inferSelect
+type FolderRow = typeof folders.$inferSelect
+
+// Gmail stores one message in several folders (INBOX + All Mail + Important, …)
+// as separate rows sharing a Message-ID. Fetch extra rows so de-duplication
+// still leaves roughly `limit` real messages.
+const COPY_HEADROOM = 4
+
+function isTrashOrJunk(folder: FolderRow | undefined): boolean {
+  if (!folder) return false
+  const role = folder.specialUse ?? inferSpecialUse(folder.remotePath, folder.name)
+  return role === 'trash' || role === 'junk'
+}
+
+/** Lower wins. The copy in the folder being viewed always wins. */
+function copyRank(folder: FolderRow | undefined, viewed: string | null): number {
+  if (folder && folder.id === viewed) return 0
+  if (isTrashOrJunk(folder)) return 100
+  const role = folder
+    ? (folder.specialUse ?? inferSpecialUse(folder.remotePath, folder.name))
+    : null
+  if (role === 'inbox') return 1
+  if (role === 'sent') return 2
+  if (role === 'drafts') return 3
+  if ((folder?.name ?? '').toLowerCase() === 'important') return 5
+  if (role === 'archive') return 6
+  return 4
+}
+
+/**
+ * Keep a single row per Message-ID (rows without one are left alone). Preferring
+ * the viewed folder's copy means archive/delete/read act on the copy the user is
+ * looking at; Trash/Junk copies are dropped unless that folder is the one being
+ * viewed, so deleted mail stops showing up inside Inbox conversations.
+ */
+function dedupeCopies(
+  rows: MessageRow[],
+  foldersById: Map<string, FolderRow>,
+  viewed: string | null
+): MessageRow[] {
+  const best = new Map<string, MessageRow>()
+  for (const row of rows) {
+    if (!row.messageId) continue
+    const current = best.get(row.messageId)
+    if (
+      !current ||
+      copyRank(foldersById.get(row.folderId), viewed) <
+        copyRank(foldersById.get(current.folderId), viewed)
+    ) {
+      best.set(row.messageId, row)
+    }
+  }
+  return rows.filter((row) => {
+    if (!row.messageId) return true
+    if (row.folderId !== viewed && isTrashOrJunk(foldersById.get(row.folderId))) return false
+    return best.get(row.messageId) === row
+  })
+}
+
+function foldersById(accountId?: string): Map<string, FolderRow> {
+  const db = getDb()
+  const rows = accountId
+    ? db.select().from(folders).where(eq(folders.accountId, accountId)).all()
+    : db.select().from(folders).all()
+  return new Map(rows.map((f) => [f.id, f]))
+}
+
+function buildThreads(
+  input: MessageRow[],
+  foldersMap: Map<string, FolderRow>,
+  viewed: string | null
+): ThreadSummary[] {
+  const rows = dedupeCopies(input, foldersMap, viewed)
   const parent = new Map<string, string>()
   const find = (x: string): string => {
     let root = parent.get(x) ?? x
@@ -172,9 +244,11 @@ export function listThreads(folderId: string, limit = 1500): ThreadSummary[] {
     .from(messages)
     .where(and(eq(messages.accountId, folderRow.accountId), ne(messages.isSpam, true), notSnoozed()))
     .orderBy(desc(messages.dateUtc))
-    .limit(limit)
+    .limit(limit * COPY_HEADROOM)
     .all()
-  return buildThreads(rows).filter((t) => t.messages.some((m) => m.folderId === folderId))
+  return buildThreads(rows, foldersById(folderRow.accountId), folderId).filter((t) =>
+    t.messages.some((m) => m.folderId === folderId)
+  )
 }
 
 /**
@@ -223,9 +297,11 @@ export function threadMessageIds(messageId: string, limit = 1500): string[] {
     .from(messages)
     .where(and(eq(messages.accountId, row.accountId), ne(messages.isSpam, true), notSnoozed()))
     .orderBy(desc(messages.dateUtc))
-    .limit(limit)
+    .limit(limit * COPY_HEADROOM)
     .all()
-  const thread = buildThreads(rows).find((t) => t.messages.some((m) => m.id === messageId))
+  const thread = buildThreads(rows, foldersById(row.accountId), row.folderId).find((t) =>
+    t.messages.some((m) => m.id === messageId)
+  )
   if (!thread) return [messageId]
   return thread.messages.map((m) => m.id)
 }
@@ -237,9 +313,9 @@ export function listUnifiedThreads(limit = 300): ThreadSummary[] {
     .from(messages)
     .where(and(ne(messages.isSpam, true), notSnoozed()))
     .orderBy(desc(messages.dateUtc))
-    .limit(limit)
+    .limit(limit * COPY_HEADROOM)
     .all()
-  return buildThreads(rows)
+  return buildThreads(rows, foldersById(), null)
 }
 
 export function listUnifiedMessages(limit = 300): MessageSummary[] {
