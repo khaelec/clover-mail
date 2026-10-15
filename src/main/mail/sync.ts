@@ -10,6 +10,7 @@ import { fetchPop3 } from './pop3'
 import { indexMessage } from './search'
 import { reconcileMailbox, type ReconcileStatus } from './reconcile'
 import { announceNewInboxMessages } from './announce'
+import { isRecentlyRemoved } from './recentUids'
 import { logError, logLine } from '../log'
 import { clearSentPlaceholder } from './storeMessage'
 import { applyAssessment } from './spam'
@@ -21,6 +22,15 @@ const INITIAL_FETCH = 60
 
 function errText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+const FETCH_FIELDS = {
+  uid: true,
+  envelope: true,
+  flags: true,
+  internalDate: true,
+  size: true,
+  bodyStructure: true
 }
 
 export type Emit = (event: MailEvent) => void
@@ -270,18 +280,7 @@ async function syncOneMailbox(
     let count = 0
     const insertedUids: number[] = []
     try {
-      for await (const msg of client.fetch(
-        range,
-        {
-          uid: true,
-          envelope: true,
-          flags: true,
-          internalDate: true,
-          size: true,
-          bodyStructure: true
-        },
-        options
-      )) {
+      for await (const msg of client.fetch(range, FETCH_FIELDS, options)) {
         upsertMessage(accountId, folderId, msg)
         insertedUids.push(msg.uid)
         count += 1
@@ -302,8 +301,28 @@ async function syncOneMailbox(
     // Remove messages deleted on the server by another client. Skipped on a
     // UIDVALIDITY reset (the folder was just wiped and re-fetched).
     let reconcile: ReconcileStatus = 'skipped'
+    let gaps: number[] = []
     if (!reset) {
-      reconcile = await reconcileMailbox(client, accountId, folderId, folderRow, messagesCount, uidNext)
+      const result = await reconcileMailbox(client, accountId, folderId, folderRow, messagesCount, uidNext)
+      reconcile = result.status
+      gaps = result.gaps
+    }
+
+    // Refill server messages the cache is missing — fills gaps left by a fetch
+    // that failed partway and repairs an accidental removal. Skip UIDs Clover
+    // just deleted locally (the server may not have processed it yet).
+    if (reconcile === 'ok' && gaps.length > 0) {
+      const wanted = gaps.filter((uid) => !isRecentlyRemoved(accountId, folderId, uid))
+      if (wanted.length > 0) {
+        try {
+          for await (const msg of client.fetch(wanted, FETCH_FIELDS, { uid: true })) {
+            upsertMessage(accountId, folderId, msg)
+          }
+          logLine(`sync:${accountId}`, `refilled ${wanted.length} in ${folderRow.remotePath}`)
+        } catch (error) {
+          logLine(`sync:${accountId}`, `refill failed in ${folderRow.remotePath}: ${errText(error)}`)
+        }
+      }
     }
 
     // Only record the seen counts when the check actually ran. On 'failed' /

@@ -13,6 +13,7 @@ import { withImap } from './connection'
 import { indexMessage, removeFromIndex } from './search'
 import { threadMessageIds } from './queries'
 import { applyAssessment } from './spam'
+import { markRecentlyRemoved } from './recentUids'
 import { attachmentAbsolutePath, readAttachmentDataUrl, saveAttachment } from './storage'
 import { assessPhishing, classifySecurity, trustedSenders } from './security'
 import { inferSpecialUse } from './specialUse'
@@ -388,6 +389,8 @@ export async function deleteMessage(messageId: string): Promise<void> {
     await withMessageMailbox(messageId, async (client, uid) => {
       await client.messageDelete(String(uid), { uid: true })
     })
+    // Don't let refill re-add it if the server still lists the UID briefly.
+    markRecentlyRemoved(row.accountId, row.folderId, [row.uid])
   }
   db.delete(messages).where(eq(messages.id, messageId)).run()
   removeFromIndex(messageId)

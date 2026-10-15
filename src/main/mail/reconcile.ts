@@ -29,6 +29,12 @@ export const RECONCILE_DRYRUN = process.env.CLOVER_RECONCILE_DRYRUN === '1'
  * once the next sync confirms it; and negative UIDs (local sent-copy
  * placeholders) are never touched. Only rows in this account+folder are considered.
  */
+export interface ReconcileResult {
+  status: ReconcileStatus
+  /** Server UIDs in the cached range not stored locally, for the caller to refill. */
+  gaps: number[]
+}
+
 export async function reconcileMailbox(
   client: ReconcileClient,
   accountId: string,
@@ -36,7 +42,7 @@ export async function reconcileMailbox(
   folderRow: typeof folders.$inferSelect,
   messagesCount: number,
   uidNext: number
-): Promise<ReconcileStatus> {
+): Promise<ReconcileResult> {
   const db = getDb()
 
   // Nothing can have been deleted if the count and uidNext are unchanged.
@@ -45,7 +51,7 @@ export async function reconcileMailbox(
     folderRow.lastMessages === messagesCount &&
     folderRow.lastUidNext === uidNext
   ) {
-    return 'skipped'
+    return { status: 'skipped', gaps: [] }
   }
 
   const local = db
@@ -55,7 +61,7 @@ export async function reconcileMailbox(
     .all()
   // Only real server UIDs; negative UIDs are local sent-copy placeholders.
   const cached = local.filter((row) => row.uid > 0)
-  if (cached.length === 0) return 'skipped'
+  if (cached.length === 0) return { status: 'skipped', gaps: [] }
 
   // Loops, not spread: a large folder would blow the argument limit.
   let min = Infinity
@@ -71,21 +77,24 @@ export async function reconcileMailbox(
     const found = await client.search({ uid: `${min}:${max}` }, { uid: true })
     if (!Array.isArray(found)) {
       logLine('reconcile', `${folderRow.remotePath}: failed (no UID list)`)
-      return 'failed'
+      return { status: 'failed', gaps: [] }
     }
     serverUids = found
   } catch (error) {
     logLine('reconcile', `${folderRow.remotePath}: failed (${error instanceof Error ? error.message : String(error)})`)
-    return 'failed'
+    return { status: 'failed', gaps: [] }
   }
 
   const serverSet = new Set(serverUids)
+  const localSet = new Set(cached.map((row) => row.uid))
+  // The server has these in the cached range but we don't — fill them in.
+  const gaps = serverUids.filter((uid) => !localSet.has(uid))
   const missing = cached.filter((row) => !serverSet.has(row.uid))
   if (missing.length === 0) {
     if (folderRow.reconcileSuspect) {
       db.update(folders).set({ reconcileSuspect: false }).where(eq(folders.id, folderId)).run()
     }
-    return 'ok'
+    return { status: 'ok', gaps }
   }
 
   // Mass-deletion guard: >20 and >half, or *everything* in a small folder. A
@@ -97,7 +106,7 @@ export async function reconcileMailbox(
   if (suspicious && !folderRow.reconcileSuspect) {
     db.update(folders).set({ reconcileSuspect: true }).where(eq(folders.id, folderId)).run()
     logLine('reconcile', `${folderRow.remotePath}: suspect (${missing.length}/${cached.length} missing)`)
-    return 'suspect'
+    return { status: 'suspect', gaps: [] }
   }
 
   if (RECONCILE_DRYRUN) {
@@ -106,7 +115,7 @@ export async function reconcileMailbox(
       .join(',')}`
     logLine('reconcile', `dryrun: ${detail}`)
     console.log(`[reconcile] ${detail}`)
-    return 'dryrun'
+    return { status: 'dryrun', gaps: [] }
   }
 
   const removedIds = missing.map((row) => row.id)
@@ -116,5 +125,5 @@ export async function reconcileMailbox(
   for (const id of removedIds) removeFromIndex(id)
   db.update(folders).set({ reconcileSuspect: false }).where(eq(folders.id, folderId)).run()
   logLine('reconcile', `${folderRow.remotePath}: removed ${removedIds.length}`)
-  return 'ok'
+  return { status: 'ok', gaps }
 }
