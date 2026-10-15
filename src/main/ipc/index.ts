@@ -107,11 +107,6 @@ export function registerIpc(
 
   ipcMain.handle(IpcChannels.appReadLogs, (_e, limit?: number) => readRecentLogs(limit ?? 200))
 
-  ipcMain.handle(IpcChannels.appMobileInfo, () => ({
-    enabled: getSetting('mobile.enabled') === true,
-    url: (getSetting<string>('mobile.url') as string) ?? ''
-  }))
-
   ipcMain.handle(IpcChannels.notificationsList, () => listNotifications())
   ipcMain.handle(IpcChannels.notificationsSave, (_e, items: StoredNotification[]) =>
     saveNotifications(items)

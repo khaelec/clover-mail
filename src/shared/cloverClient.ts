@@ -4,8 +4,8 @@ import type { CloverApi } from './ipc'
 
 /**
  * Builds the `window.clover` API against any host transport. The Electron preload
- * passes ipcRenderer; the mobile web client passes an HTTP/SSE host. Keeps the
- * ~140 method→channel mappings in one place so both clients stay identical.
+ * passes ipcRenderer. Keeps the method→channel mappings in one place so a client
+ * only has to supply a host (invoke/send/on) to get the whole API.
  */
 export interface CloverHost {
   invoke: (channel: string, ...args: any[]) => Promise<any>
@@ -24,7 +24,6 @@ export function buildCloverApi(host: CloverHost): CloverApi {
     openLicenses: () => invoke(IpcChannels.appOpenLicenses),
     readLicenses: () => invoke(IpcChannels.appReadLicenses),
     readLogs: (limit) => invoke(IpcChannels.appReadLogs, limit),
-    mobileInfo: () => invoke(IpcChannels.appMobileInfo),
     notifications: {
       list: () => invoke(IpcChannels.notificationsList),
       save: (items) => invoke(IpcChannels.notificationsSave, items),

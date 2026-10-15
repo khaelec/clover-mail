@@ -15,7 +15,6 @@ export const IpcChannels = {
   appOpenLicenses: 'app:open-licenses',
   appReadLicenses: 'app:read-licenses',
   appReadLogs: 'app:read-logs',
-  appMobileInfo: 'app:mobile-info',
   notificationsList: 'notifications:list',
   notificationsSave: 'notifications:save',
   appNotify: 'app:notify',
