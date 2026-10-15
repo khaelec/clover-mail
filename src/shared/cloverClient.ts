@@ -27,7 +27,8 @@ export function buildCloverApi(host: CloverHost): CloverApi {
     mobileInfo: () => invoke(IpcChannels.appMobileInfo),
     notifications: {
       list: () => invoke(IpcChannels.notificationsList),
-      save: (items) => invoke(IpcChannels.notificationsSave, items)
+      save: (items) => invoke(IpcChannels.notificationsSave, items),
+      onNotify: (cb) => on(IpcChannels.appNotify, cb)
     },
     onNavigate: (cb) => on(IpcChannels.appNavigate, cb),
     apps: {

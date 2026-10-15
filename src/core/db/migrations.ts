@@ -432,5 +432,12 @@ export const migrations: Migration[] = [
       );
       CREATE INDEX IF NOT EXISTS ix_notifications_at ON notifications(at);
     `
+  },
+  {
+    // Where a bell item opens (e.g. reminders -> calendar). Adds a column only.
+    id: '0022_notification_nav',
+    sql: `
+      ALTER TABLE notifications ADD COLUMN nav TEXT;
+    `
   }
 ]

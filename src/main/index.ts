@@ -25,7 +25,7 @@ import { stopAllIdle } from '@core/mail/idle'
 import { initUpdater } from '@main/updater'
 import { createTray } from '@main/tray'
 import { clearDueSnoozes } from '@core/mail/snooze'
-import { processOutbox } from '@core/mail/outbox'
+import { failedOutbox, processOutbox } from '@core/mail/outbox'
 import { syncAccount } from '@core/mail/sync'
 import { resetAccountConnection } from '@core/mail/connection'
 import { cleanOrphanAttachments } from '@core/mail/attachmentsCleanup'
@@ -394,15 +394,36 @@ app.whenReady().then(async () => {
     const due = clearDueSnoozes(Date.now())
     if (due.length > 0) {
       mainWindow?.webContents.send(IpcChannels.mail.events, { type: 'mail:refresh', accountId: '' })
+      mainWindow?.webContents.send(IpcChannels.appNotify, {
+        kind: 'system',
+        title:
+          due.length === 1
+            ? 'A snoozed conversation is back'
+            : `${due.length} snoozed conversations are back`,
+        body: 'They have returned to your inbox.',
+        nav: 'mail'
+      })
     }
   }, 60_000)
 
   // Send queued/scheduled outbox messages when due (and retry recent failures).
+  let lastFailed = 0
   setInterval(() => {
     void processOutbox(Date.now()).then((sent) => {
       if (sent > 0) {
         mainWindow?.webContents.send(IpcChannels.mail.events, { type: 'mail:refresh', accountId: '' })
       }
+      const failed = failedOutbox()
+      if (failed.length > lastFailed) {
+        const latest = failed[failed.length - 1]
+        mainWindow?.webContents.send(IpcChannels.appNotify, {
+          kind: 'system',
+          title: 'A message could not be sent',
+          body: latest?.error ?? 'Open the Outbox to retry or fix it.',
+          nav: 'mail'
+        })
+      }
+      lastFailed = failed.length
     })
   }, 20_000)
 
@@ -411,15 +432,20 @@ app.whenReady().then(async () => {
     try {
       for (const reminder of dueReminders(Date.now())) {
         markReminded(reminder.eventId, reminder.startUtc)
-        if (!Notification.isSupported()) continue
         const when = new Date(reminder.startUtc).toLocaleTimeString([], {
           hour: 'numeric',
           minute: '2-digit'
         })
-        const notification = new Notification({
+        const body = `${when}${reminder.location ? ` · ${reminder.location}` : ''}`
+        // Also collect it in the bell (so it survives even if the OS popup was missed).
+        mainWindow?.webContents.send(IpcChannels.appNotify, {
+          kind: 'system',
           title: reminder.summary,
-          body: `${when}${reminder.location ? ` · ${reminder.location}` : ''}`
+          body,
+          nav: 'calendar'
         })
+        if (!Notification.isSupported()) continue
+        const notification = new Notification({ title: reminder.summary, body })
         notification.on('click', () => {
           mainWindow?.show()
           mainWindow?.webContents.send(IpcChannels.appNavigate, 'calendar')

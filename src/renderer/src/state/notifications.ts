@@ -1,12 +1,12 @@
 import { create } from 'zustand'
-import type { StoredNotification } from '@shared/notifications'
+import type { NotificationInput, StoredNotification } from '@shared/notifications'
 
 export type AppNotification = StoredNotification
 
 interface NotificationsState {
   items: AppNotification[]
   load: () => Promise<void>
-  add: (n: Omit<AppNotification, 'id' | 'at' | 'read'>) => void
+  add: (n: NotificationInput) => void
   markAllRead: () => void
   markRead: (id: string) => void
   markMessageRead: (messageId: string) => void
@@ -19,6 +19,7 @@ interface NotificationsState {
 }
 
 let counter = 0
+let subscribed = false
 
 export const useNotifications = create<NotificationsState>((set, get) => {
   // Persist to the database (main) so the bell survives restarts. Skipped outside
@@ -43,6 +44,12 @@ export const useNotifications = create<NotificationsState>((set, get) => {
       } catch {
         // first run / offline
       }
+      // Main-process sources (calendar reminders, send failures, snooze returns)
+      // push items here so they reach the same bell.
+      if (!subscribed) {
+        subscribed = true
+        window.clover.notifications.onNotify((n) => get().add(n))
+      }
     },
 
     add: (n) => {
@@ -60,7 +67,7 @@ export const useNotifications = create<NotificationsState>((set, get) => {
           next[idx] = {
             ...existing,
             title: n.title,
-            body: n.body,
+            body: n.body ?? '',
             at: Date.now(),
             count: (existing.count ?? 1) + 1,
             appNotifId: n.appNotifId ?? existing.appNotifId
@@ -71,11 +78,12 @@ export const useNotifications = create<NotificationsState>((set, get) => {
       }
 
       const item: AppNotification = {
+        ...n,
+        body: n.body ?? '',
         id: `${Date.now()}-${counter++}`,
         at: Date.now(),
         read: false,
-        count: 1,
-        ...n
+        count: n.count ?? 1
       }
       commit([item, ...items].slice(0, 50))
     },

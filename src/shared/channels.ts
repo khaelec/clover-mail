@@ -18,6 +18,7 @@ export const IpcChannels = {
   appMobileInfo: 'app:mobile-info',
   notificationsList: 'notifications:list',
   notificationsSave: 'notifications:save',
+  appNotify: 'app:notify',
   mail: {
     listAccounts: 'mail:list-accounts',
     createAccount: 'mail:create-account',

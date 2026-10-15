@@ -244,6 +244,8 @@ export interface CloverApi {
   notifications: {
     list: () => Promise<import('./notifications').StoredNotification[]>
     save: (items: import('./notifications').StoredNotification[]) => Promise<void>
+    /** Main-process notifications (reminders, send failures, …) pushed to the bell. */
+    onNotify: (cb: (n: import('./notifications').NotificationInput) => void) => () => void
   }
   apps: AppsApi
   calendar: CalendarApi

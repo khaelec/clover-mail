@@ -85,6 +85,25 @@ export function App(): ReactNode {
     return () => window.removeEventListener('clover:open-settings', handler)
   }, [])
 
+  // Bell items (reminders, update notices, …) carry a section to open.
+  useEffect(() => {
+    const handler = (event: Event): void => {
+      const target = (event as CustomEvent<{ section?: SectionId }>).detail?.section
+      if (
+        target === 'mail' ||
+        target === 'calendar' ||
+        target === 'settings' ||
+        target === 'apps' ||
+        target === 'copilot' ||
+        target === 'wallpaper'
+      ) {
+        setSection(target)
+      }
+    }
+    window.addEventListener('clover:navigate', handler)
+    return () => window.removeEventListener('clover:navigate', handler)
+  }, [])
+
   // Opening a notification from an app jumps to the Apps view and selects it.
   useEffect(() => {
     const handler = (event: Event): void => {

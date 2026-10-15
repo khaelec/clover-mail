@@ -59,6 +59,11 @@ export function outboxCount(): number {
   return getDb().select().from(outbox).all().length
 }
 
+/** Messages that failed to send (still retryable from the Outbox). */
+export function failedOutbox(): OutboxItem[] {
+  return getDb().select().from(outbox).where(eq(outbox.status, 'failed')).all().map(toItem)
+}
+
 export function cancelOutbox(id: string): void {
   getDb().delete(outbox).where(eq(outbox.id, id)).run()
 }

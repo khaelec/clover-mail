@@ -55,7 +55,14 @@ function timeAgo(at: number): string {
   return new Date(at).toLocaleDateString()
 }
 
-type Filter = 'all' | 'mail' | 'app'
+type Filter = 'all' | 'mail' | 'app' | 'system'
+
+function matchesFilter(n: AppNotification, filter: Filter): boolean {
+  if (filter === 'all') return true
+  if (filter === 'mail') return n.kind === 'mail'
+  if (filter === 'app') return n.kind === 'app'
+  return n.kind === 'system' || n.kind === 'update'
+}
 
 function ItemIcon({ n, icon }: { n: AppNotification; icon: string | null }): ReactNode {
   if (n.kind === 'app' && icon) {
@@ -148,6 +155,9 @@ export function TitleBar(): ReactNode {
       useNotifications.getState().markAppRead(n.appId)
       window.dispatchEvent(new CustomEvent('clover:open-app', { detail: { appId: n.appId } }))
       if (n.appNotifId) sendToApp(n.appId, 'clover-trigger-notification', n.appNotifId)
+    } else if (n.nav) {
+      // Reminders open the calendar; update notices open Settings, etc.
+      window.dispatchEvent(new CustomEvent('clover:navigate', { detail: { section: n.nav } }))
     }
   }
 
@@ -173,9 +183,7 @@ export function TitleBar(): ReactNode {
     markRead(n.id)
   }
 
-  const shown = items.filter((i) =>
-    filter === 'all' ? true : filter === 'mail' ? i.kind === 'mail' : i.kind === 'app'
-  )
+  const shown = items.filter((i) => matchesFilter(i, filter))
 
   return (
     <header className="app-drag flex h-11 shrink-0 items-center gap-2 border-b border-line bg-surface/70 pl-3 pr-2 backdrop-blur-xl">
@@ -246,7 +254,7 @@ export function TitleBar(): ReactNode {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 border-b border-line px-3 py-1.5">
-                    {(['all', 'mail', 'app'] as Filter[]).map((f) => (
+                    {(['all', 'mail', 'app', 'system'] as Filter[]).map((f) => (
                       <button
                         key={f}
                         type="button"
@@ -259,7 +267,7 @@ export function TitleBar(): ReactNode {
                             : 'text-muted hover:text-ink')
                         }
                       >
-                        {f === 'all' ? 'All' : f === 'mail' ? 'Mail' : 'Apps'}
+                        {f === 'all' ? 'All' : f === 'mail' ? 'Mail' : f === 'app' ? 'Apps' : 'System'}
                       </button>
                     ))}
                   </div>

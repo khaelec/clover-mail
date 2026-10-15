@@ -26,6 +26,13 @@ const loaded = listNotifications()
 out.persists = loaded.length === 2 && loaded[0].id === 'n1' && loaded[0].messageId === 'f1:1'
 out.keepsAppFields = loaded[1].appName === 'WhatsApp' && loaded[1].count === 3
 
+// System items (reminders, send failures) carry a nav target.
+saveNotifications([
+  { id: 'n3', kind: 'system', title: 'Standup', body: '9:30', at: 3, read: false, nav: 'calendar' }
+])
+const system = listNotifications()
+out.keepsSystemNav = system.length === 1 && system[0].kind === 'system' && system[0].nav === 'calendar'
+
 // Replacing the set.
 saveNotifications([items[0]])
 out.replaces = listNotifications().length === 1

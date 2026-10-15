@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { UpdateEvent } from '@shared/ipc'
+import { useNotifications } from './notifications'
 
 export type UpdateStatus =
   | 'idle'
@@ -41,6 +42,12 @@ export const useUpdate = create<UpdateState>((set) => ({
           break
         case 'available':
           set({ status: 'available', version: event.version, dismissed: false })
+          useNotifications.getState().add({
+            kind: 'update',
+            title: `Clover Mail ${event.version} is available`,
+            body: 'Open Settings → Updates to download it.',
+            nav: 'settings'
+          })
           break
         case 'none':
           set({ status: 'none' })

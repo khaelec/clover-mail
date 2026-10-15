@@ -26,7 +26,8 @@ export function listNotifications(): StoredNotification[] {
       appId: row.appId ?? undefined,
       appName: row.appName ?? undefined,
       appNotifId: row.appNotifId ?? undefined,
-      count: row.count
+      count: row.count,
+      nav: row.nav ?? undefined
     }))
 }
 
@@ -50,7 +51,8 @@ export function saveNotifications(items: StoredNotification[]): void {
           appId: n.appId ?? null,
           appName: n.appName ?? null,
           appNotifId: n.appNotifId ?? null,
-          count: n.count ?? 1
+          count: n.count ?? 1,
+          nav: n.nav ?? null
         })
         .run()
     }
