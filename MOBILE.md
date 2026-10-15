@@ -56,6 +56,13 @@ A release build needs a signing keystore (`android/keystore.properties` +
 > The APK cannot be built on a machine without the Android SDK; the desktop
 > (`npm run dist`) and Linux CI are unaffected by this project.
 
+### Without a local Android SDK
+
+`.github/workflows/android.yml` builds the debug APK on GitHub's runner (which
+has the SDK) and uploads it as the **CloverMail-debug-apk** artifact. Run it from
+the **Actions → Android → Run workflow** button, or push to `main` /
+`feat/android`, then download `app-debug.apk` from the run.
+
 ## Not done yet (Phase 4 in `PLAN-mobile.md`)
 
 - System notifications on the phone and background sync (Capacitor
