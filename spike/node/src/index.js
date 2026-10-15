@@ -63,7 +63,9 @@ function testWasmSqlite() {
     const { Database } = require('node-sqlite3-wasm')
     const file = path.join(app.datadir(), 'spike.db')
     const db = new Database(file)
-    db.exec('CREATE VIRTUAL TABLE IF NOT EXISTS t USING fts5(body)')
+    // Fresh table every run so the match count is unambiguous.
+    db.exec('DROP TABLE IF EXISTS t')
+    db.exec('CREATE VIRTUAL TABLE t USING fts5(body)')
     const insert = db.prepare('INSERT INTO t(body) VALUES (?)')
     const ins = timed(() => {
       db.exec('BEGIN')
@@ -71,11 +73,13 @@ function testWasmSqlite() {
       db.exec('COMMIT')
     })
     const search = timed(() => db.all("SELECT rowid FROM t WHERE t MATCH 'number AND 500'"))
+    const count = timed(() => db.get('SELECT COUNT(*) AS n FROM t').n)
     const sqliteVersion = db.get('SELECT sqlite_version() AS v').v
     db.close()
     return {
       loaded: true,
-      fts5: search.value.length === 1,
+      fts5Matches: search.value.length,
+      rows: count.value,
       insert1000Ms: ins.ms,
       searchMs: search.ms,
       dbBytes: fs.statSync(file).size,
