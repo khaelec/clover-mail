@@ -6,6 +6,7 @@ export interface CustomApp {
   windowMode: 'inline' | 'window'
   isPinned: boolean
   sortOrder: number
+  runInBackground: boolean
 }
 
 export interface CreateAppInput {

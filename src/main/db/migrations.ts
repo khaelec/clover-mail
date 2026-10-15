@@ -394,5 +394,12 @@ export const migrations: Migration[] = [
       ALTER TABLE folders ADD COLUMN last_uid_next INTEGER;
       ALTER TABLE folders ADD COLUMN reconcile_suspect INTEGER NOT NULL DEFAULT 0;
     `
+  },
+  {
+    // Per-app "run in background" (on by default). Adds a column only.
+    id: '0019_app_background',
+    sql: `
+      ALTER TABLE custom_web_apps ADD COLUMN run_in_background INTEGER NOT NULL DEFAULT 1;
+    `
   }
 ]

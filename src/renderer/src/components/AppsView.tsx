@@ -28,6 +28,7 @@ export function AppsView(): ReactNode {
   const load = useApps((s) => s.load)
   const add = useApps((s) => s.add)
   const remove = useApps((s) => s.remove)
+  const update = useApps((s) => s.update)
   const select = useApps((s) => s.select)
   const setHost = useApps((s) => s.setHost)
   const [url, setUrl] = useState('')
@@ -82,9 +83,10 @@ export function AppsView(): ReactNode {
           </div>
           <p className="mt-0.5 text-[11px] text-muted">Add your PWA or any web app.</p>
           <p className="mt-2 rounded-lg bg-canvas/50 px-2.5 py-2 text-[11px] leading-relaxed text-muted">
-            Added apps keep running in the background so they can notify you of new messages (e.g.
-            Messenger, WhatsApp). That uses extra memory. Remove an app to stop it. Sign-ins are
-            stored per app and stay after restart.
+            Apps with <span className="font-medium text-ink/80">Run in background</span> load at
+            startup so they can notify you of new messages (e.g. Messenger, WhatsApp) even before
+            you open them. Each one uses extra memory (roughly 150–300&nbsp;MB); turn it off to load
+            an app only when you open it. Sign-ins are stored per app and stay after restart.
           </p>
         </div>
 
@@ -127,6 +129,28 @@ export function AppsView(): ReactNode {
                     <span className="block truncate">{app.name}</span>
                     <span className="block truncate text-[10px] text-muted">{hostOf(app.url)}</span>
                   </span>
+                </button>
+                <button
+                  type="button"
+                  title={
+                    app.runInBackground
+                      ? 'Runs in the background for notifications — click to load only when opened'
+                      : 'Loads only when opened — click to run in the background'
+                  }
+                  aria-label="Run in background"
+                  aria-pressed={app.runInBackground}
+                  onClick={() => void update(app.id, { runInBackground: !app.runInBackground })}
+                  className={
+                    'relative h-4 w-7 shrink-0 rounded-full transition-colors ' +
+                    (app.runInBackground ? 'bg-accent' : 'bg-line')
+                  }
+                >
+                  <span
+                    className={
+                      'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ' +
+                      (app.runInBackground ? 'left-3.5' : 'left-0.5')
+                    }
+                  />
                 </button>
                 <button
                   type="button"

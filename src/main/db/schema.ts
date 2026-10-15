@@ -287,7 +287,9 @@ export const customWebApps = sqliteTable('custom_web_apps', {
   windowMode: text('window_mode').notNull().default('inline'),
   isPinned: integer('is_pinned', { mode: 'boolean' }).notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
-  createdAt: integer('created_at').notNull()
+  createdAt: integer('created_at').notNull(),
+  // Load the app at startup so it can post notifications even before it's opened.
+  runInBackground: integer('run_in_background', { mode: 'boolean' }).notNull().default(true)
 })
 
 export const calendars = sqliteTable('calendars', {

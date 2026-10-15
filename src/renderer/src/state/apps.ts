@@ -18,6 +18,7 @@ interface AppsState {
   load: () => Promise<void>
   add: (input: CreateAppInput) => Promise<CustomApp>
   remove: (id: string) => Promise<void>
+  update: (id: string, patch: Partial<CustomApp>) => Promise<void>
   select: (id: string | null) => void
   setHost: (host: AppHostSlot | null) => void
   setAppUnread: (id: string, name: string, count: number) => void
@@ -62,6 +63,11 @@ export const useApps = create<AppsState>((set, get) => ({
     const appUnread = { ...get().appUnread }
     delete appUnread[id]
     set({ appUnread, appUnreadTotal: Object.values(appUnread).reduce((a, b) => a + b, 0) })
+  },
+
+  update: async (id, patch) => {
+    await window.clover.apps.update(id, patch)
+    await get().load()
   },
 
   select: (id) => set({ activeAppId: id }),

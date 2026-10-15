@@ -40,7 +40,8 @@ function toApp(row: typeof customWebApps.$inferSelect): CustomApp {
     iconDataUrl: iconDataUrl(row.iconRef),
     windowMode: (row.windowMode as 'inline' | 'window') ?? 'inline',
     isPinned: row.isPinned,
-    sortOrder: row.sortOrder
+    sortOrder: row.sortOrder,
+    runInBackground: row.runInBackground
   }
 }
 
@@ -216,6 +217,7 @@ export function updateApp(id: string, patch: Partial<CustomApp>): void {
   if (patch.windowMode !== undefined) set.windowMode = patch.windowMode
   if (patch.isPinned !== undefined) set.isPinned = patch.isPinned
   if (patch.sortOrder !== undefined) set.sortOrder = patch.sortOrder
+  if (patch.runInBackground !== undefined) set.runInBackground = patch.runInBackground
   if (Object.keys(set).length === 0) return
   getDb().update(customWebApps).set(set).where(eq(customWebApps.id, id)).run()
 }
