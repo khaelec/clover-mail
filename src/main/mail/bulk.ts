@@ -5,7 +5,7 @@ import { setFlags } from './messages'
 import { withImap } from './connection'
 import { protocolFor } from './accounts'
 import { removeFromIndex } from './search'
-import { markRecentlyRestored } from './recentUids'
+import { markRecentlyRestored, markRecentlyRemoved } from './recentUids'
 import type { BulkActionInput, BulkActionResult, MovedMessage } from '@shared/mail'
 
 function specialFolderId(accountId: string, use: string): string | undefined {
@@ -277,6 +277,7 @@ export async function emptyFolder(folderId: string): Promise<{ deleted: number }
         { uid: true }
       )
     })
+    markRecentlyRemoved(folder.accountId, folderId, rows.map((r) => r.uid))
   }
 
   for (const row of rows) removeFromIndex(row.id)
@@ -335,6 +336,7 @@ export async function deleteSpam(accountId: string): Promise<{ deleted: number }
         if (!folder) continue
         await client.mailboxOpen(folder.remotePath)
         await client.messageDelete(uids, { uid: true })
+        markRecentlyRemoved(accountId, folderId, uids)
       }
     })
   }

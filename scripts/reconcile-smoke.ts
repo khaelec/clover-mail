@@ -84,7 +84,7 @@ async function run(): Promise<void> {
     const a = makeAccount()
     const f = makeFolder(a)
     for (const uid of [1, 2, 3, 4, 5]) addMessage(a, f, uid)
-    const status = await reconcileMailbox(fake([1, 2, 4, 5]), a, f, folderRow(f), 4, 6)
+    const { status } = await reconcileMailbox(fake([1, 2, 4, 5]), a, f, folderRow(f), 4, 6)
     out.normalDeletion = status === 'ok' && !hasUid(f, 3) && hasUid(f, 4)
   }
 
@@ -93,7 +93,7 @@ async function run(): Promise<void> {
     const a = makeAccount()
     const f = makeFolder(a)
     for (const uid of [1, 2, 3]) addMessage(a, f, uid)
-    const status = await reconcileMailbox(fake([], 'throw'), a, f, folderRow(f), 2, 4)
+    const { status } = await reconcileMailbox(fake([], 'throw'), a, f, folderRow(f), 2, 4)
     out.searchThrows = status === 'failed' && rowCount(f) === 3
   }
 
@@ -102,7 +102,7 @@ async function run(): Promise<void> {
     const a = makeAccount()
     const f = makeFolder(a)
     for (const uid of [1, 2, 3]) addMessage(a, f, uid)
-    const status = await reconcileMailbox(fake([], 'false'), a, f, folderRow(f), 2, 4)
+    const { status } = await reconcileMailbox(fake([], 'false'), a, f, folderRow(f), 2, 4)
     out.searchFalse = status === 'failed' && rowCount(f) === 3
   }
 
@@ -112,9 +112,9 @@ async function run(): Promise<void> {
     const f = makeFolder(a)
     for (let uid = 1; uid <= 40; uid += 1) addMessage(a, f, uid)
     const serverUids = Array.from({ length: 10 }, (_, i) => i + 1)
-    const first = await reconcileMailbox(fake(serverUids), a, f, folderRow(f), 10, 41)
+    const { status: first } = await reconcileMailbox(fake(serverUids), a, f, folderRow(f), 10, 41)
     const suspectSet = folderRow(f).reconcileSuspect === true && rowCount(f) === 40
-    const second = await reconcileMailbox(fake(serverUids), a, f, folderRow(f), 10, 41)
+    const { status: second } = await reconcileMailbox(fake(serverUids), a, f, folderRow(f), 10, 41)
     out.massDeletionGuard =
       first === 'suspect' && suspectSet && second === 'ok' && rowCount(f) === 10
   }
@@ -127,7 +127,7 @@ async function run(): Promise<void> {
     addMessage(a, f, -2)
     addMessage(a, f, 1)
     addMessage(a, f, 2)
-    const status = await reconcileMailbox(fake([1, 2]), a, f, folderRow(f), 2, 3)
+    const { status } = await reconcileMailbox(fake([1, 2]), a, f, folderRow(f), 2, 3)
     out.placeholdersUntouched = status === 'ok' && hasUid(f, -1) && hasUid(f, -2)
   }
 
@@ -138,7 +138,7 @@ async function run(): Promise<void> {
     addMessage(a, f, 1)
     db.update(folders).set({ lastMessages: 5, lastUidNext: 6 }).where(eq(folders.id, f)).run()
     const client = fake([1])
-    const status = await reconcileMailbox(client, a, f, folderRow(f), 5, 6)
+    const { status } = await reconcileMailbox(client, a, f, folderRow(f), 5, 6)
     out.skipWhenUnchanged = status === 'skipped' && client.calls === 0
   }
 
@@ -148,9 +148,9 @@ async function run(): Promise<void> {
     const a = makeAccount()
     const f = makeFolder(a)
     for (const uid of [1, 2, 3]) addMessage(a, f, uid)
-    const first = await reconcileMailbox(fake([], 'throw'), a, f, folderRow(f), 2, 4)
+    const { status: first } = await reconcileMailbox(fake([], 'throw'), a, f, folderRow(f), 2, 4)
     const client = fake([])
-    const second = await reconcileMailbox(client, a, f, folderRow(f), 2, 4)
+    const { status: second } = await reconcileMailbox(client, a, f, folderRow(f), 2, 4)
     out.failedThenRetries = first === 'failed' && second === 'suspect' && client.calls === 1
   }
 
@@ -159,10 +159,19 @@ async function run(): Promise<void> {
     const a = makeAccount()
     const f = makeFolder(a)
     for (let uid = 1; uid <= 15; uid += 1) addMessage(a, f, uid)
-    const first = await reconcileMailbox(fake([]), a, f, folderRow(f), 0, 16)
+    const { status: first } = await reconcileMailbox(fake([]), a, f, folderRow(f), 0, 16)
     const intact = rowCount(f) === 15 && folderRow(f).reconcileSuspect === true
-    const second = await reconcileMailbox(fake([]), a, f, folderRow(f), 0, 16)
+    const { status: second } = await reconcileMailbox(fake([]), a, f, folderRow(f), 0, 16)
     out.smallFolderAllMissing = first === 'suspect' && intact && second === 'ok' && rowCount(f) === 0
+  }
+
+  // I) a server UID the cache is missing is reported as a gap to refill.
+  {
+    const a = makeAccount()
+    const f = makeFolder(a)
+    for (const uid of [1, 2, 4]) addMessage(a, f, uid) // missing 3
+    const { status, gaps } = await reconcileMailbox(fake([1, 2, 3, 4]), a, f, folderRow(f), 4, 5)
+    out.gapsReported = status === 'ok' && gaps.length === 1 && gaps[0] === 3
   }
 
   closeDatabase()
