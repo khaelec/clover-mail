@@ -15,12 +15,11 @@ const appDir = resolve(root, 'src/mobile/app')
 rmSync(dist, { recursive: true, force: true })
 mkdirSync(nodeDir, { recursive: true })
 
-if (!existsSync(resolve(appDir, 'node_modules'))) {
-  console.log('installing the engine Node project deps…')
-  // cwd (not --prefix) so the space in the repo path is not a shell argument.
-  const install = spawnSync('npm', ['install'], { cwd: appDir, stdio: 'inherit', shell: true })
-  if (install.status !== 0) process.exit(install.status ?? 1)
-}
+// Always install (idempotent) so added/removed deps are picked up.
+console.log('installing the engine Node project deps…')
+// cwd (not --prefix) so the space in the repo path is not a shell argument.
+const install = spawnSync('npm', ['install'], { cwd: appDir, stdio: 'inherit', shell: true })
+if (install.status !== 0) process.exit(install.status ?? 1)
 cpSync(appDir, nodeDir, { recursive: true })
 
 const bundle = spawnSync(process.execPath, [resolve(root, 'src/mobile/engine/build.mjs')], {
