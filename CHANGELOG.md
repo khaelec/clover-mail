@@ -27,13 +27,6 @@ version only reaches users when its release exists on GitHub.
   minus you); the Cc field shows automatically and account aliases count as you,
   so it can't end up replying to just yourself. *(0.4.71, 0.4.72)*
 
-### Android client
-- New Capacitor Android client. The desktop serves the mail engine over the LAN
-  (Settings → Privacy → Mobile access) and the phone talks to it: a connect
-  screen, a compact phone layout (nav/folder drawers, list↔reader swap), phone
-  notifications, and the access token in the Android Keystore. Built by CI and
-  attached to each release. *(0.4.73)*
-
 ## 0.4.38 – 0.4.66
 
 ### Reader & privacy
