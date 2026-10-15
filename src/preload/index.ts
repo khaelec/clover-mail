@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 import { IpcChannels } from '@shared/channels'
 import type { CloverApi } from '@shared/ipc'
 
@@ -241,11 +240,8 @@ const api: CloverApi = {
 }
 
 if (process.contextIsolated) {
-  contextBridge.exposeInMainWorld('electron', electronAPI)
   contextBridge.exposeInMainWorld('clover', api)
 } else {
-  // @ts-expect-error fallback when context isolation is disabled
-  window.electron = electronAPI
   // @ts-expect-error fallback when context isolation is disabled
   window.clover = api
 }

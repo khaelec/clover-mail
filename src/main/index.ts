@@ -136,7 +136,7 @@ function createWindow(): void {
     ...(is.dev ? { icon: join(__dirname, '../../build/icon.ico') } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
       webviewTag: true,
