@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   CloverMark,
+  IconArchive,
   IconBell,
   IconClose,
   IconGrid,
@@ -9,10 +10,12 @@ import {
   IconMaximize,
   IconMinimize,
   IconRefresh,
+  IconReply,
   IconRestore
 } from './icons'
 import { useNotifications, type AppNotification } from '../state/notifications'
 import { useApps } from '../state/apps'
+import { useMail } from '../state/mail'
 import { sendToApp } from '../lib/appWebviews'
 
 function WindowButton({
@@ -66,10 +69,13 @@ export function TitleBar(): ReactNode {
   const [maximized, setMaximized] = useState(false)
   const [open, setOpen] = useState(false)
   const [panel, setPanel] = useState<{ top: number; right: number } | null>(null)
+  const [dnd, setDnd] = useState(false)
   const bellRef = useRef<HTMLButtonElement>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const items = useNotifications((s) => s.items)
   const markRead = useNotifications((s) => s.markRead)
+  const markAllRead = useNotifications((s) => s.markAllRead)
+  const removeItem = useNotifications((s) => s.remove)
   const clear = useNotifications((s) => s.clear)
   const apps = useApps((s) => s.apps)
   const unread = items.filter((i) => !i.read).length
@@ -77,6 +83,10 @@ export function TitleBar(): ReactNode {
   useEffect(() => {
     void window.clover.window.isMaximized().then(setMaximized)
     return window.clover.window.onMaximizedChanged(setMaximized)
+  }, [])
+
+  useEffect(() => {
+    void window.clover.settings.get('notifications.dnd').then((v) => setDnd(v === true))
   }, [])
 
   function closePanel(): void {
@@ -104,6 +114,12 @@ export function TitleBar(): ReactNode {
     window.addEventListener('resize', closePanel)
     return () => window.removeEventListener('resize', closePanel)
   }, [open])
+
+  function toggleDnd(): void {
+    const next = !dnd
+    setDnd(next)
+    void window.clover.settings.set('notifications.dnd', next)
+  }
 
   function appIcon(appId?: string): string | null {
     if (!appId) return null
@@ -133,6 +149,28 @@ export function TitleBar(): ReactNode {
       window.dispatchEvent(new CustomEvent('clover:open-app', { detail: { appId: n.appId } }))
       if (n.appNotifId) sendToApp(n.appId, 'clover-trigger-notification', n.appNotifId)
     }
+  }
+
+  function replyItem(n: AppNotification): void {
+    markRead(n.id)
+    setOpen(false)
+    if (n.messageId) {
+      window.dispatchEvent(
+        new CustomEvent('clover:open-message', {
+          detail: { accountId: n.accountId, messageId: n.messageId, reply: true }
+        })
+      )
+    }
+  }
+
+  function archiveItem(n: AppNotification): void {
+    if (n.messageId) void useMail.getState().bulkIds([n.messageId], 'archive')
+    removeItem(n.id)
+  }
+
+  function readItem(n: AppNotification): void {
+    if (n.messageId) void useMail.getState().bulkIds([n.messageId], 'markRead')
+    markRead(n.id)
   }
 
   const shown = items.filter((i) =>
@@ -172,74 +210,149 @@ export function TitleBar(): ReactNode {
                   className="fixed z-[100] w-80 overflow-hidden rounded-xl border border-line bg-surface text-ink shadow-2xl"
                   style={{ top: panel.top, right: panel.right }}
                 >
-                <div className="flex items-center justify-between border-b border-line px-3 py-2">
-                  <span className="text-[12px] font-semibold">Notifications</span>
-                  {items.length > 0 && (
+                  <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+                    <span className="text-[12px] font-semibold">Notifications</span>
                     <button
                       type="button"
-                      onClick={clear}
-                      className="text-[11px] text-muted hover:text-ink"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 border-b border-line px-3 py-1.5">
-                  {(['all', 'mail', 'app'] as Filter[]).map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setFilter(f)}
-                      aria-pressed={filter === f}
+                      onClick={toggleDnd}
+                      aria-pressed={dnd}
+                      title={dnd ? 'Do Not Disturb is on — no OS popups' : 'Do Not Disturb'}
                       className={
-                        'rounded-md px-2 py-0.5 text-[11px] ' +
-                        (filter === f ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:text-ink')
+                        'rounded-md px-1.5 py-0.5 text-[10px] ' +
+                        (dnd ? 'bg-accent/15 font-medium text-accent' : 'text-muted hover:text-ink')
                       }
                     >
-                      {f === 'all' ? 'All' : f === 'mail' ? 'Mail' : 'Apps'}
+                      DND
                     </button>
-                  ))}
-                </div>
-                <div className="max-h-80 overflow-y-auto">
-                  {shown.length === 0 ? (
-                    <div className="px-3 py-6 text-center text-[12px] text-muted">
-                      No notifications yet.
-                    </div>
-                  ) : (
-                    shown.map((n) => {
-                      const clickable = n.kind === 'mail' ? !!n.messageId : n.kind === 'app'
-                      return (
+                    <div className="ml-auto flex items-center gap-2">
+                      {unread > 0 && (
                         <button
-                          key={n.id}
                           type="button"
-                          onClick={() => openItem(n)}
-                          className={
-                            'block w-full border-b border-line/60 px-3 py-2 text-left transition-colors ' +
-                            (clickable ? 'hover:bg-black/5 dark:hover:bg-white/10' : 'cursor-default') +
-                            (!n.read ? ' bg-accent/[0.06]' : '')
-                          }
+                          onClick={markAllRead}
+                          className="text-[11px] text-muted hover:text-ink"
                         >
-                          <div className="flex items-center gap-2">
-                            {!n.read && (
-                              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                            )}
-                            <ItemIcon n={n} icon={appIcon(n.appId)} />
-                            <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">
-                              {itemTitle(n)}
-                            </span>
-                            <span className="shrink-0 text-[10px] text-muted">{timeAgo(n.at)}</span>
-                          </div>
-                          {n.body && (
-                            <div className="mt-0.5 line-clamp-2 pl-[18px] text-[11.5px] text-muted">
-                              {n.body}
-                            </div>
-                          )}
+                          Mark all read
                         </button>
-                      )
-                    })
-                  )}
+                      )}
+                      {items.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={clear}
+                          className="text-[11px] text-muted hover:text-ink"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 border-b border-line px-3 py-1.5">
+                    {(['all', 'mail', 'app'] as Filter[]).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setFilter(f)}
+                        aria-pressed={filter === f}
+                        className={
+                          'rounded-md px-2 py-0.5 text-[11px] ' +
+                          (filter === f
+                            ? 'bg-accent/12 font-medium text-accent'
+                            : 'text-muted hover:text-ink')
+                        }
+                      >
+                        {f === 'all' ? 'All' : f === 'mail' ? 'Mail' : 'Apps'}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {shown.length === 0 ? (
+                      <div className="px-4 py-8 text-center">
+                        <div className="text-[12.5px] font-medium text-ink">You&apos;re all caught up</div>
+                        <div className="mt-1 text-[11.5px] text-muted">
+                          New mail, app messages and reminders show up here.
+                        </div>
+                      </div>
+                    ) : (
+                      shown.map((n) => {
+                        const clickable = n.kind === 'mail' ? !!n.messageId : n.kind === 'app'
+                        return (
+                          <div
+                            key={n.id}
+                            className={
+                              'group relative border-b border-line/60 ' + (!n.read ? 'bg-accent/[0.06]' : '')
+                            }
+                          >
+                            <button
+                              type="button"
+                              onClick={() => openItem(n)}
+                              className={
+                                'block w-full px-3 py-2 text-left transition-colors ' +
+                                (clickable ? 'hover:bg-black/5 dark:hover:bg-white/10' : 'cursor-default')
+                              }
+                            >
+                              <div className="flex items-center gap-2">
+                                {!n.read && (
+                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                                )}
+                                <ItemIcon n={n} icon={appIcon(n.appId)} />
+                                <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">
+                                  {itemTitle(n)}
+                                </span>
+                                <span className="shrink-0 text-[10px] text-muted">{timeAgo(n.at)}</span>
+                              </div>
+                              {n.body && (
+                                <div className="mt-0.5 line-clamp-2 pl-[18px] text-[11.5px] text-muted">
+                                  {n.body}
+                                </div>
+                              )}
+                            </button>
+                            <div className="absolute right-1 top-1 flex items-center gap-0.5 rounded-md bg-surface/90 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                              {n.kind === 'mail' && n.messageId && (
+                                <>
+                                  <button
+                                    type="button"
+                                    title="Archive"
+                                    aria-label="Archive"
+                                    onClick={() => archiveItem(n)}
+                                    className="grid h-6 w-6 place-items-center rounded text-muted hover:text-ink"
+                                  >
+                                    <IconArchive className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Mark read"
+                                    aria-label="Mark read"
+                                    onClick={() => readItem(n)}
+                                    className="grid h-6 w-6 place-items-center rounded text-muted hover:text-ink"
+                                  >
+                                    <IconMail className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Reply"
+                                    aria-label="Reply"
+                                    onClick={() => replyItem(n)}
+                                    className="grid h-6 w-6 place-items-center rounded text-muted hover:text-ink"
+                                  >
+                                    <IconReply className="h-3.5 w-3.5" />
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                title="Dismiss"
+                                aria-label="Dismiss"
+                                onClick={() => removeItem(n.id)}
+                                className="grid h-6 w-6 place-items-center rounded text-muted hover:text-ink"
+                              >
+                                <IconClose className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
                 </div>
-              </div>
               </>,
               document.body
             )}

@@ -101,7 +101,9 @@ export function App(): ReactNode {
   // Opening a notification jumps to Mail and focuses the message it refers to.
   useEffect(() => {
     const handler = (event: Event): void => {
-      const detail = (event as CustomEvent<{ accountId?: string; messageId?: string }>).detail
+      const detail = (
+        event as CustomEvent<{ accountId?: string; messageId?: string; reply?: boolean }>
+      ).detail
       if (!detail?.messageId) return
       setSection('mail')
       void (async () => {
@@ -110,6 +112,8 @@ export function App(): ReactNode {
           await mail.selectAccount(detail.accountId)
         }
         await mail.selectMessage(detail.messageId as string)
+        // The bell's Reply action opens the message and then starts a reply.
+        if (detail.reply) window.dispatchEvent(new Event('clover:reply-now'))
       })()
     }
     window.addEventListener('clover:open-message', handler)

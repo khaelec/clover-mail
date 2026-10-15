@@ -14,6 +14,7 @@ interface NotificationsState {
   markAppRead: (appId: string) => void
   /** Drop notifications for mail deleted on the server, and clear ones now read. */
   reconcileMail: () => Promise<void>
+  remove: (id: string) => void
   clear: () => void
 }
 
@@ -125,6 +126,8 @@ export const useNotifications = create<NotificationsState>((set, get) => {
       }
       if (changed) commit(next)
     },
+
+    remove: (id) => commit(get().items.filter((i) => i.id !== id)),
 
     clear: () => commit([])
   }

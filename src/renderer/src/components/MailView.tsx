@@ -522,6 +522,14 @@ export function MailView(): ReactNode {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // The bell's Reply action selects a message and then fires this.
+  useEffect(() => {
+    const handler = (): void => openReply()
+    window.addEventListener('clover:reply-now', handler)
+    return () => window.removeEventListener('clover:reply-now', handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const activeAccount = useMemo(
     () => accounts.find((a) => a.id === activeAccountId) ?? null,
     [accounts, activeAccountId]
