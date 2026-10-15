@@ -16,6 +16,7 @@ on:
       - 'capacitor.config.ts'
       - 'vite.mobile.config.ts'
       - 'package.json'
+      - 'scripts/android-e2e.sh'
       - '.github/workflows/android.yml'
   workflow_dispatch:
 
@@ -87,26 +88,6 @@ jobs:
         with:
           api-level: 34
           arch: x86_64
-          script: |
-            adb wait-for-device
-            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            adb logcat -c
-            adb shell am start -n com.clovermail.app/.MainActivity
-            sleep 120
-            adb logcat -d > /tmp/logcat.txt
-            RESULT=$(grep -o 'CLOVER_E2E {.*}' /tmp/logcat.txt | tail -1)
-            echo "E2E RESULT: $RESULT"
-            if echo "$RESULT" | grep -q '"ok":true'; then
-              echo "E2E OK"
-            else
-              echo "Not in logcat; trying the result file…"
-              FILE=$(adb shell run-as com.clovermail.app cat files/e2e-result.json 2>/dev/null)
-              echo "E2E FILE: $FILE"
-              if echo "$FILE" | grep -q '"ok":true'; then
-                echo "E2E OK"
-              else
-                echo "E2E failed"
-                grep -iE "clover|nodejs|capacitor|fatal|exception" /tmp/logcat.txt | tail -200
-                exit 1
-              fi
-            fi
+          # The runner executes the script line by line, so use a real script
+          # file (multi-line if/for would break otherwise).
+          script: bash scripts/android-e2e.sh
