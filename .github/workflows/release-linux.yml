@@ -17,6 +17,9 @@ permissions:
 
 jobs:
   linux:
+    # Only real version tags (vX.Y.Z). Pre-releases (e.g. the android-dev APK
+    # host) must not trigger a desktop build.
+    if: ${{ startsWith(github.event.release.tag_name || github.event.inputs.tag || '', 'v') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
