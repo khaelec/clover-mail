@@ -1,0 +1,6 @@
+[
+	{
+		"pkg": "@capawesome/capacitor-nodejs",
+		"classpath": "io.capawesome.capacitorjs.plugins.nodejs.NodejsPlugin"
+	}
+]
