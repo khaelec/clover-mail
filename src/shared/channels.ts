@@ -16,6 +16,8 @@ export const IpcChannels = {
   appReadLicenses: 'app:read-licenses',
   appReadLogs: 'app:read-logs',
   appMobileInfo: 'app:mobile-info',
+  notificationsList: 'notifications:list',
+  notificationsSave: 'notifications:save',
   mail: {
     listAccounts: 'mail:list-accounts',
     createAccount: 'mail:create-account',
@@ -28,6 +30,7 @@ export const IpcChannels = {
     listMessages: 'mail:list-messages',
     listThreads: 'mail:list-threads',
     hasOlderMessages: 'mail:has-older-messages',
+    notificationStatus: 'mail:notification-status',
     listJunk: 'mail:list-junk',
     spamCount: 'mail:spam-count',
     listImportant: 'mail:list-important',

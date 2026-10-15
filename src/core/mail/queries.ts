@@ -177,6 +177,23 @@ export function listThreads(folderId: string, limit = 1500): ThreadSummary[] {
   return buildThreads(rows).filter((t) => t.messages.some((m) => m.folderId === folderId))
 }
 
+/**
+ * For each id, whether the message still exists locally and whether it's read.
+ * Lets the bell drop notifications for mail deleted on the server and clear the
+ * ones that are now read (e.g. read on another device).
+ */
+export function messageStatuses(
+  ids: string[]
+): Record<string, { exists: boolean; isRead: boolean }> {
+  const db = getDb()
+  const out: Record<string, { exists: boolean; isRead: boolean }> = {}
+  for (const id of ids) {
+    const row = db.select({ isRead: messages.isRead }).from(messages).where(eq(messages.id, id)).get()
+    out[id] = { exists: Boolean(row), isRead: row?.isRead ?? false }
+  }
+  return out
+}
+
 /** Whether the folder has any messages older than the current list window. */
 export function hasOlderMessages(folderId: string, limit: number): boolean {
   const db = getDb()

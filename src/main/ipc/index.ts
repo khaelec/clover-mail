@@ -15,6 +15,8 @@ import { registerBackupIpc } from './backup'
 import { registerDictationIpc } from './dictation'
 import { setTrayUnread } from '@main/tray'
 import { readRecentLogs } from '@core/log'
+import { listNotifications, saveNotifications } from '@core/notifications'
+import type { StoredNotification } from '@shared/notifications'
 
 export function registerIpc(
   getWindow: () => BrowserWindow | null,
@@ -109,6 +111,11 @@ export function registerIpc(
     enabled: getSetting('mobile.enabled') === true,
     url: (getSetting<string>('mobile.url') as string) ?? ''
   }))
+
+  ipcMain.handle(IpcChannels.notificationsList, () => listNotifications())
+  ipcMain.handle(IpcChannels.notificationsSave, (_e, items: StoredNotification[]) =>
+    saveNotifications(items)
+  )
 
   registerMailIpc(getWindow)
   registerAppsIpc()

@@ -154,6 +154,22 @@ export const attachments = sqliteTable(
   (table) => [index('ix_attachments_message').on(table.messageId)]
 )
 
+export const notifications = sqliteTable('notifications', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull().default(''),
+  at: integer('at').notNull(),
+  read: integer('read', { mode: 'boolean' }).notNull().default(false),
+  accountId: text('account_id'),
+  messageId: text('message_id'),
+  threadId: text('thread_id'),
+  appId: text('app_id'),
+  appName: text('app_name'),
+  appNotifId: text('app_notif_id'),
+  count: integer('count').notNull().default(1)
+})
+
 export const spamSenders = sqliteTable(
   'spam_senders',
   {
@@ -376,6 +392,7 @@ export const schema = {
   messages,
   messageBodies,
   attachments,
+  notifications,
   spamSenders,
   spamTokens,
   rules,

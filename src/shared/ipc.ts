@@ -54,6 +54,9 @@ export interface MailApi {
   listMessages: (folderId: string, limit?: number, offset?: number) => Promise<MessageSummary[]>
   listThreads: (folderId: string, limit?: number) => Promise<import('./mail').ThreadSummary[]>
   hasOlderMessages: (folderId: string, limit: number) => Promise<boolean>
+  notificationStatus: (
+    ids: string[]
+  ) => Promise<Record<string, { exists: boolean; isRead: boolean }>>
   listJunk: (accountId: string) => Promise<MessageSummary[]>
   spamCount: (accountId: string) => Promise<number>
   listImportant: (accountId: string) => Promise<MessageSummary[]>
@@ -238,6 +241,10 @@ export interface CloverApi {
   readLogs: (limit?: number) => Promise<string>
   /** Mobile transport status: whether the server is enabled and its LAN URL. */
   mobileInfo: () => Promise<{ enabled: boolean; url: string }>
+  notifications: {
+    list: () => Promise<import('./notifications').StoredNotification[]>
+    save: (items: import('./notifications').StoredNotification[]) => Promise<void>
+  }
   apps: AppsApi
   calendar: CalendarApi
   ai: AiApi

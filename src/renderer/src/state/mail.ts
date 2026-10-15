@@ -288,6 +288,7 @@ export const useMail = create<MailState>((set, get) => {
           set({ syncing: false, status: null })
           lastSyncError = null
           setAccountSync(event.accountId, { status: 'synced', at: Date.now() })
+          void useNotifications.getState().reconcileMail()
           void reloadFolders()
           void reloadFolder()
         } else if (event.type === 'mail:new') {
@@ -306,12 +307,14 @@ export const useMail = create<MailState>((set, get) => {
             if (get().status === 'New mail received') set({ status: null })
           }, 4000)
         } else if (event.type === 'mail:refresh') {
+          void useNotifications.getState().reconcileMail()
           void reloadFolders()
           void reloadFolder()
           void get().loadOutbox()
         }
       })
 
+      void useNotifications.getState().load()
       await get().refreshAccounts()
       await get().loadLabels()
       void get().loadSavedSearches()

@@ -25,6 +25,10 @@ export function buildCloverApi(host: CloverHost): CloverApi {
     readLicenses: () => invoke(IpcChannels.appReadLicenses),
     readLogs: (limit) => invoke(IpcChannels.appReadLogs, limit),
     mobileInfo: () => invoke(IpcChannels.appMobileInfo),
+    notifications: {
+      list: () => invoke(IpcChannels.notificationsList),
+      save: (items) => invoke(IpcChannels.notificationsSave, items)
+    },
     onNavigate: (cb) => on(IpcChannels.appNavigate, cb),
     apps: {
       list: () => invoke(IpcChannels.apps.list),
@@ -113,6 +117,7 @@ export function buildCloverApi(host: CloverHost): CloverApi {
       listThreads: (folderId, limit) => invoke(IpcChannels.mail.listThreads, folderId, limit),
       hasOlderMessages: (folderId, limit) =>
         invoke(IpcChannels.mail.hasOlderMessages, folderId, limit),
+      notificationStatus: (ids) => invoke(IpcChannels.mail.notificationStatus, ids),
       listJunk: (accountId) => invoke(IpcChannels.mail.listJunk, accountId),
       spamCount: (accountId) => invoke(IpcChannels.mail.spamCount, accountId),
       listImportant: (accountId) => invoke(IpcChannels.mail.listImportant, accountId),

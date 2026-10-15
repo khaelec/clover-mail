@@ -410,5 +410,27 @@ export const migrations: Migration[] = [
       ALTER TABLE custom_web_apps ADD COLUMN notify_os_popup INTEGER NOT NULL DEFAULT 1;
       ALTER TABLE custom_web_apps ADD COLUMN notify_hide_preview INTEGER NOT NULL DEFAULT 0;
     `
+  },
+  {
+    // Persist the notification bell across restarts.
+    id: '0021_notifications',
+    sql: `
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY NOT NULL,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL DEFAULT '',
+        at INTEGER NOT NULL,
+        read INTEGER NOT NULL DEFAULT 0,
+        account_id TEXT,
+        message_id TEXT,
+        thread_id TEXT,
+        app_id TEXT,
+        app_name TEXT,
+        app_notif_id TEXT,
+        count INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS ix_notifications_at ON notifications(at);
+    `
   }
 ]
