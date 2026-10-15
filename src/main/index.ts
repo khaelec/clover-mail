@@ -28,6 +28,7 @@ import { clearDueSnoozes } from '@main/mail/snooze'
 import { processOutbox } from '@main/mail/outbox'
 import { syncAccount } from '@main/mail/sync'
 import { resetAccountConnection } from '@main/mail/connection'
+import { cleanOrphanAttachments } from '@main/mail/attachmentsCleanup'
 import { listAccounts } from '@main/mail/accounts'
 import { createMailEmit } from '@main/mail/events'
 import { registerElectronPlatform } from '@main/platformElectron'
@@ -399,6 +400,16 @@ app.whenReady().then(async () => {
 
   // Deliver anything left in the outbox from a previous session.
   setTimeout(() => void processOutbox(), 5_000)
+
+  // Remove attachment files whose message is gone (scoped to the attachments
+  // folder only; set CLOVER_ATTACH_CLEAN_DRYRUN=1 to log without deleting).
+  setTimeout(() => {
+    try {
+      cleanOrphanAttachments(app.getPath('userData'))
+    } catch {
+      // best effort
+    }
+  }, 10_000)
 })
 
 app.on('window-all-closed', () => {
