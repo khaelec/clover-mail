@@ -16,6 +16,8 @@ adb logcat -c
 adb shell am start -n com.clovermail.app/.MainActivity
 sleep 90
 
+adb exec-out screencap -p > /tmp/screen.png || true
+
 adb logcat -d > /tmp/logcat.txt
 
 RESULT=$(grep -o 'CLOVER_E2E {.*}' /tmp/logcat.txt | tail -1 || true)
