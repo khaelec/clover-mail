@@ -5,6 +5,7 @@ import { setFlags } from './messages'
 import { withImap } from './connection'
 import { protocolFor } from './accounts'
 import { removeFromIndex } from './search'
+import { markRecentlyRestored } from './recentUids'
 import type { BulkActionInput, BulkActionResult, MovedMessage } from '@shared/mail'
 
 function specialFolderId(accountId: string, use: string): string | undefined {
@@ -205,7 +206,7 @@ export async function undoMoves(
     // One mailbox open + one MOVE back for the whole group.
     const movedUids: number[] = []
     let missing = 0
-    await withImap(first.accountId, async (client) => {
+    const response = await withImap(first.accountId, async (client) => {
       await client.mailboxOpen(to.remotePath)
       for (const move of group) {
         if (move.uid !== null) {
@@ -224,8 +225,14 @@ export async function undoMoves(
           missing += 1
         }
       }
-      if (movedUids.length > 0) await client.messageMove(movedUids, from.remotePath, { uid: true })
+      if (movedUids.length === 0) return null
+      return client.messageMove(movedUids, from.remotePath, { uid: true })
     })
+    // The restored messages get new UIDs in the origin folder; remember them so
+    // the next sync doesn't announce the user's own undo as new mail.
+    if (response && response.uidMap) {
+      markRecentlyRestored(first.accountId, first.fromFolderId, [...response.uidMap.values()])
+    }
 
     // The move back leaves the local copy in the destination behind (sync only
     // ever adds new UIDs, it never notices removed ones), so drop it or the

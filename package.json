@@ -27,11 +27,12 @@
     "licenses": "node scripts/generate-licenses.cjs",
     "test:ipc": "node scripts/check-ipc.cjs",
     "test:reconcile": "tsx scripts/reconcile-smoke.ts",
+    "test:announce": "tsx scripts/announce-smoke.ts",
     "test:imap-timeout": "tsx scripts/imap-timeout-smoke.ts",
     "bench:build": "node scripts/bench-build.cjs",
     "bench:seed": "electron scripts/bench-seed.cjs",
     "bench:list": "electron scripts/bench-list.cjs",
-    "test:smoke": "electron-vite build && electron scripts/electron-integration.cjs && electron scripts/pop3-integration.cjs && electron scripts/api-smoke.cjs && npm run test:reconcile && npm run test:imap-timeout",
+    "test:smoke": "electron-vite build && electron scripts/electron-integration.cjs && electron scripts/pop3-integration.cjs && electron scripts/api-smoke.cjs && npm run test:reconcile && npm run test:announce && npm run test:imap-timeout",
     "dist": "electron-vite build && electron-builder --win",
     "dist:dir": "electron-vite build && electron-builder --win --dir",
     "dist:personal": "electron-vite build && electron-builder --win --config electron-builder.personal.yml --publish never"

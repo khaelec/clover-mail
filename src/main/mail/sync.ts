@@ -1,6 +1,6 @@
 import type { FetchMessageObject, ImapFlow } from 'imapflow'
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, ne } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { folders, messages } from '../db/schema'
 import { getAccountById, protocolFor } from './accounts'
@@ -9,7 +9,7 @@ import { withImap } from './connection'
 import { fetchPop3 } from './pop3'
 import { indexMessage } from './search'
 import { reconcileMailbox, type ReconcileStatus } from './reconcile'
-import { isThreadMuted } from './threadSettings'
+import { announceNewInboxMessages } from './announce'
 import { logError, logLine } from '../log'
 import { clearSentPlaceholder } from './storeMessage'
 import { applyAssessment } from './spam'
@@ -268,6 +268,7 @@ async function syncOneMailbox(
     }
 
     let count = 0
+    const insertedUids: number[] = []
     try {
       for await (const msg of client.fetch(
         range,
@@ -282,38 +283,20 @@ async function syncOneMailbox(
         options
       )) {
         upsertMessage(accountId, folderId, msg)
+        insertedUids.push(msg.uid)
         count += 1
       }
     } catch (error) {
       throw new Error(`fetch: ${errText(error)}`)
     }
 
-    // Announce new inbox mail found by any sync (not just IDLE). Incremental
-    // fetches only, so a first/backfill sync doesn't flood the bell.
-    if (!reset && folderRow.uidNext !== null && count > 0 && folderRow.specialUse === 'inbox') {
-      const newest = db
-        .select()
-        .from(messages)
-        .where(
-          and(
-            eq(messages.accountId, accountId),
-            eq(messages.folderId, folderId),
-            ne(messages.isSpam, true)
-          )
-        )
-        .orderBy(desc(messages.dateUtc))
-        .limit(1)
-        .get()
-      if (newest && !isThreadMuted(newest.threadId)) {
-        emit({
-          type: 'mail:new',
-          accountId,
-          messageId: newest.id,
-          threadId: newest.threadId ?? undefined,
-          title: newest.fromName || newest.fromEmail || 'New mail',
-          body: newest.subject ?? ''
-        })
-      }
+    // Announce the messages *this sync* inserted into the Inbox (not just IDLE,
+    // and not "whatever is at the top"). Incremental fetches only, so a
+    // first/backfill sync doesn't flood the bell. announceNewInboxMessages skips
+    // read/spam/muted mail and messages Undo just restored.
+    if (!reset && folderRow.uidNext !== null && folderRow.specialUse === 'inbox') {
+      const event = announceNewInboxMessages(accountId, folderId, insertedUids)
+      if (event) emit(event)
     }
 
     // Remove messages deleted on the server by another client. Skipped on a

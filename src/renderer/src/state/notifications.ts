@@ -27,6 +27,9 @@ let counter = 0
 export const useNotifications = create<NotificationsState>((set, get) => ({
   items: [],
   add: (n) => {
+    // One bell item per message: overlapping syncs (or IDLE racing the periodic
+    // sync) can emit mail:new for the same message more than once.
+    if (n.messageId && get().items.some((i) => i.messageId === n.messageId)) return
     const item: AppNotification = {
       id: `${Date.now()}-${counter++}`,
       at: Date.now(),
