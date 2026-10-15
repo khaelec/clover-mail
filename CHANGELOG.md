@@ -4,6 +4,36 @@ Notable changes, newest first. Releases are batched (roughly daily or per
 feature; hotfixes immediately) and the in-app updater reads GitHub Releases, so a
 version only reaches users when its release exists on GitHub.
 
+## 0.4.67 – 0.4.73
+
+### Notification bell
+- The bell panel is drawn above the whole window (it could be clipped by the
+  title bar). *(0.4.67)*
+- The unread count now stays accurate — after each sync, items are cleared when
+  their message is read elsewhere and dropped when it was deleted on the server —
+  and the bell survives restarts (the last 50 items are stored). *(0.4.68)*
+- Each item is actionable (mail: Archive / Mark read / Reply, with Undo) with a
+  per-item dismiss; the header has Mark all read, Clear and a Do Not Disturb
+  toggle; and there's a proper empty state. *(0.4.69)*
+- More sources feed the bell: calendar reminders, outbox send failures and
+  snoozed mail returning (pushed from the main process), plus sync errors and
+  update notices — each opens the right screen. *(0.4.70)*
+
+### Conversations & reply
+- A message a server files in several folders (Gmail's Inbox + All Mail +
+  Important) now shows once, with correct counts; Trash/Junk copies stay out of
+  Inbox conversations. *(0.4.71)*
+- Reply all now covers the whole conversation (From/To/Cc across every message,
+  minus you); the Cc field shows automatically and account aliases count as you,
+  so it can't end up replying to just yourself. *(0.4.71, 0.4.72)*
+
+### Android client
+- New Capacitor Android client. The desktop serves the mail engine over the LAN
+  (Settings → Privacy → Mobile access) and the phone talks to it: a connect
+  screen, a compact phone layout (nav/folder drawers, list↔reader swap), phone
+  notifications, and the access token in the Android Keystore. Built by CI and
+  attached to each release. *(0.4.73)*
+
 ## 0.4.38 – 0.4.66
 
 ### Reader & privacy
