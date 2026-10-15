@@ -391,7 +391,8 @@ export function MailView(): ReactNode {
     e.stopPropagation()
     setThreadMenu({
       x: Math.min(e.clientX, window.innerWidth - 220),
-      y: Math.min(e.clientY, window.innerHeight - 200),
+      // Room for the folder list when "Move to folder" is opened.
+      y: Math.min(e.clientY, window.innerHeight - 320),
       thread
     })
   }, [])

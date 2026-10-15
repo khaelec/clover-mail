@@ -13,6 +13,7 @@ export interface ThreadMenuState {
   x: number
   y: number
   thread: ThreadSummary
+  mode?: 'main' | 'move'
 }
 export interface FolderMenuState {
   x: number
@@ -107,6 +108,7 @@ export function MailContextMenus({
   const emptyFolder = useMail((s) => s.emptyFolder)
   const labels = useMail((s) => s.labels)
   const folders = useMail((s) => s.folders)
+  const activeFolderId = useMail((s) => s.activeFolderId)
   const selectedIds = useMail((s) => s.selectedIds)
 
   const menuTargets =
@@ -119,6 +121,26 @@ export function MailContextMenus({
   function menuRun(action: BulkActionType, targetFolderId?: string): void {
     void bulkIds(menuTargets, action, targetFolderId)
     setMenu(null)
+  }
+
+  // A conversation can include copies in other folders (your replies in Sent,
+  // Gmail's All Mail). Move only the copies in the folder being viewed, so e.g.
+  // a Gmail reply doesn't lose its Sent label. In combined views (Unified,
+  // Important) there's no single folder, so move everything except your own
+  // sent mail and drafts.
+  function threadMoveIds(thread: ThreadSummary): string[] {
+    const inView = thread.messages.filter((m) => m.folderId === activeFolderId)
+    if (inView.length > 0) return inView.map((m) => m.id)
+    const skip = new Set(
+      folders.filter((f) => f.specialUse === 'sent' || f.specialUse === 'drafts').map((f) => f.id)
+    )
+    return thread.messages.filter((m) => !skip.has(m.folderId)).map((m) => m.id)
+  }
+
+  // Folders a conversation can be moved to: same account, not the current one.
+  function threadMoveTargets(thread: ThreadSummary): FolderSummary[] {
+    const accountId = thread.messages[0]?.accountId
+    return folders.filter((f) => f.accountId === accountId && f.id !== activeFolderId)
   }
 
   function menuDelete(): void {
@@ -270,62 +292,90 @@ export function MailContextMenus({
             }}
           />
           <div
-            className="fixed z-50 w-48 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-2xl"
+            className="fixed z-50 w-52 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-2xl"
             style={{ left: threadMenu.x, top: threadMenu.y }}
           >
-            <MenuItem
-              onClick={() => {
-                void muteThread(threadMenu.thread.threadId, !threadMenu.thread.muted)
-                setThreadMenu(null)
-              }}
-            >
-              {threadMenu.thread.muted ? 'Unmute thread' : 'Mute thread'}
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                void pinThread(threadMenu.thread.threadId, !threadMenu.thread.pinned)
-                setThreadMenu(null)
-              }}
-            >
-              {threadMenu.thread.pinned ? 'Unpin thread' : 'Pin thread'}
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                void bulkIds(
-                  threadMenu.thread.messages.map((x) => x.id),
-                  'markRead'
-                )
-                setThreadMenu(null)
-              }}
-            >
-              Mark thread read
-            </MenuItem>
-            <MenuDivider />
-            <MenuItem
-              onClick={() => {
-                void bulkIds(
-                  threadMenu.thread.messages.map((x) => x.id),
-                  'archive'
-                )
-                setThreadMenu(null)
-              }}
-            >
-              Archive thread
-            </MenuItem>
-            <MenuItem
-              danger
-              onClick={() => {
-                if (window.confirm('Move this whole conversation to Trash?')) {
-                  void bulkIds(
-                    threadMenu.thread.messages.map((x) => x.id),
-                    'trash'
-                  )
-                }
-                setThreadMenu(null)
-              }}
-            >
-              Delete thread
-            </MenuItem>
+            {threadMenu.mode === 'move' ? (
+              <>
+                <MenuItem onClick={() => setThreadMenu({ ...threadMenu, mode: 'main' })}>‹ Back</MenuItem>
+                <MenuDivider />
+                <div className="max-h-64 overflow-y-auto">
+                  {threadMoveTargets(threadMenu.thread).length === 0 && (
+                    <div className="px-3 py-1.5 text-[12px] text-muted">No other folders</div>
+                  )}
+                  {threadMoveTargets(threadMenu.thread).map((folder) => (
+                    <MenuItem
+                      key={folder.id}
+                      onClick={() => {
+                        void bulkIds(threadMoveIds(threadMenu.thread), 'move', folder.id)
+                        setThreadMenu(null)
+                      }}
+                    >
+                      {folder.name}
+                    </MenuItem>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <MenuItem
+                  onClick={() => {
+                    void muteThread(threadMenu.thread.threadId, !threadMenu.thread.muted)
+                    setThreadMenu(null)
+                  }}
+                >
+                  {threadMenu.thread.muted ? 'Unmute thread' : 'Mute thread'}
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    void pinThread(threadMenu.thread.threadId, !threadMenu.thread.pinned)
+                    setThreadMenu(null)
+                  }}
+                >
+                  {threadMenu.thread.pinned ? 'Unpin thread' : 'Pin thread'}
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    void bulkIds(
+                      threadMenu.thread.messages.map((x) => x.id),
+                      'markRead'
+                    )
+                    setThreadMenu(null)
+                  }}
+                >
+                  Mark thread read
+                </MenuItem>
+                <MenuDivider />
+                <MenuItem
+                  onClick={() => {
+                    void bulkIds(
+                      threadMenu.thread.messages.map((x) => x.id),
+                      'archive'
+                    )
+                    setThreadMenu(null)
+                  }}
+                >
+                  Archive thread
+                </MenuItem>
+                <MenuItem onClick={() => setThreadMenu({ ...threadMenu, mode: 'move' })}>
+                  Move to folder ›
+                </MenuItem>
+                <MenuItem
+                  danger
+                  onClick={() => {
+                    if (window.confirm('Move this whole conversation to Trash?')) {
+                      void bulkIds(
+                        threadMenu.thread.messages.map((x) => x.id),
+                        'trash'
+                      )
+                    }
+                    setThreadMenu(null)
+                  }}
+                >
+                  Delete thread
+                </MenuItem>
+              </>
+            )}
           </div>
         </>
       )}
