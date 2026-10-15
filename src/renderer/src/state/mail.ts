@@ -754,6 +754,8 @@ export const useMail = create<MailState>((set, get) => {
       const account = await window.clover.mail.createAccount(input)
       await get().refreshAccounts()
       await get().selectAccount(account.id)
+      // Kick off a first sync; the engine emits sync events the UI reacts to.
+      void window.clover.mail.syncAccount(account.id).catch(() => undefined)
       return account
     },
 

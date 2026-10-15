@@ -7,6 +7,9 @@ import { androidPlatform } from './platform'
 import { setMailPoster } from './events'
 import { registerAndroidHandlers } from './register'
 import { runE2eIfConfigured } from './e2e'
+import { createMailEmit } from '@main/mail/events'
+import { listAccounts } from '@core/mail/accounts'
+import { syncAccount } from '@core/mail/sync'
 
 interface BridgeChannel {
   on(event: string, cb: (msg: unknown) => void): void
@@ -56,6 +59,18 @@ export function startEngine(bridge: Bridge): void {
 
   bridge.channel.post('ready')
   console.log('CLOVER_ENGINE_READY')
+
+  // The desktop drives syncs from its main process; on the phone the engine owns
+  // that. Sync at start-up and every few minutes so mail arrives without the UI
+  // asking. Events go out over the channel, so the UI refreshes itself.
+  const emit = createMailEmit(() => null)
+  const syncAll = (): void => {
+    for (const account of listAccounts()) {
+      void syncAccount(account.id, emit).catch(() => undefined)
+    }
+  }
+  setTimeout(syncAll, 3_000)
+  setInterval(syncAll, 3 * 60_000)
 
   // CI emulator only: run the on-device end-to-end check if configured.
   void runE2eIfConfigured(dataDir)
