@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import {
   CloverMark,
   IconBell,
@@ -64,6 +65,8 @@ function ItemIcon({ n, icon }: { n: AppNotification; icon: string | null }): Rea
 export function TitleBar(): ReactNode {
   const [maximized, setMaximized] = useState(false)
   const [open, setOpen] = useState(false)
+  const [panel, setPanel] = useState<{ top: number; right: number } | null>(null)
+  const bellRef = useRef<HTMLButtonElement>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const items = useNotifications((s) => s.items)
   const markRead = useNotifications((s) => s.markRead)
@@ -76,9 +79,31 @@ export function TitleBar(): ReactNode {
     return window.clover.window.onMaximizedChanged(setMaximized)
   }, [])
 
-  function toggle(): void {
-    setOpen((v) => !v)
+  function closePanel(): void {
+    setOpen(false)
+    setPanel(null)
   }
+
+  function toggle(): void {
+    if (open) {
+      closePanel()
+      return
+    }
+    // The panel is rendered in a portal (below), so position it under the bell.
+    const rect = bellRef.current?.getBoundingClientRect()
+    setPanel({
+      top: (rect?.bottom ?? 44) + 6,
+      right: Math.max(8, window.innerWidth - (rect?.right ?? window.innerWidth))
+    })
+    setOpen(true)
+  }
+
+  // Close on resize so the fixed panel never floats away from the bell.
+  useEffect(() => {
+    if (!open) return
+    window.addEventListener('resize', closePanel)
+    return () => window.removeEventListener('resize', closePanel)
+  }, [open])
 
   function appIcon(appId?: string): string | null {
     if (!appId) return null
@@ -124,6 +149,7 @@ export function TitleBar(): ReactNode {
       <div className="ml-auto flex items-center gap-0.5">
         <div className="app-no-drag relative">
           <button
+            ref={bellRef}
             type="button"
             aria-label="Notifications"
             title="Notifications"
@@ -137,10 +163,15 @@ export function TitleBar(): ReactNode {
               </span>
             )}
           </button>
-          {open && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-              <div className="absolute right-0 top-9 z-50 w-80 overflow-hidden rounded-xl border border-line bg-surface text-ink shadow-2xl">
+          {open &&
+            panel &&
+            createPortal(
+              <>
+                <div className="fixed inset-0 z-[90]" onClick={closePanel} />
+                <div
+                  className="fixed z-[100] w-80 overflow-hidden rounded-xl border border-line bg-surface text-ink shadow-2xl"
+                  style={{ top: panel.top, right: panel.right }}
+                >
                 <div className="flex items-center justify-between border-b border-line px-3 py-2">
                   <span className="text-[12px] font-semibold">Notifications</span>
                   {items.length > 0 && (
@@ -209,8 +240,9 @@ export function TitleBar(): ReactNode {
                   )}
                 </div>
               </div>
-            </>
-          )}
+              </>,
+              document.body
+            )}
         </div>
 
         <WindowButton label="Minimize" onClick={() => window.clover.window.minimize()}>
