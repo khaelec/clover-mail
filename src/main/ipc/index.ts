@@ -105,6 +105,11 @@ export function registerIpc(
 
   ipcMain.handle(IpcChannels.appReadLogs, (_e, limit?: number) => readRecentLogs(limit ?? 200))
 
+  ipcMain.handle(IpcChannels.appMobileInfo, () => ({
+    enabled: getSetting('mobile.enabled') === true,
+    url: (getSetting<string>('mobile.url') as string) ?? ''
+  }))
+
   registerMailIpc(getWindow)
   registerAppsIpc()
   registerCalendarIpc()

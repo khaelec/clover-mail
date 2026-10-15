@@ -19,7 +19,7 @@ import { initDatabase, closeDatabase } from '@core/db'
 import { registerIpc } from '@main/ipc'
 import { setStorageRoot } from '@core/mail/storage'
 import { initMediaAllow, isMediaPathAllowed } from '@main/mediaAllow'
-import { initLogging, logError } from '@core/log'
+import { initLogging, logError, logLine } from '@core/log'
 import { setAppsRoot } from '@main/apps'
 import { stopAllIdle } from '@core/mail/idle'
 import { initUpdater } from '@main/updater'
@@ -34,11 +34,47 @@ import { createMailEmit } from '@main/mail/events'
 import { registerElectronPlatform } from '@main/platformElectron'
 import { dueReminders, markReminded } from '@main/calendar/reminders'
 import { syncAllCaldav } from '@main/calendar/caldav'
+import { randomUUID } from 'node:crypto'
+import { networkInterfaces } from 'node:os'
+import { getSetting, setSetting } from '@core/settings'
+import { startTransport, type TransportServer } from '@core/transport/server'
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
 let syncAllAccounts = (): void => undefined
 let lastFocusSync = 0
+let transport: TransportServer | null = null
+
+function lanUrl(port: number, token: string): string {
+  for (const list of Object.values(networkInterfaces())) {
+    for (const net of list ?? []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return `http://${net.address}:${port}/?token=${encodeURIComponent(token)}`
+      }
+    }
+  }
+  return `http://127.0.0.1:${port}/?token=${encodeURIComponent(token)}`
+}
+
+// Serve the mail engine to the mobile client (Settings → Privacy → Mobile
+// access). The phone opens the URL over the LAN; the token gates the API.
+async function startMobileIfEnabled(): Promise<void> {
+  if (getSetting('mobile.enabled') !== true) return
+  let token = getSetting<string>('mobile.token')
+  if (!token) {
+    token = randomUUID()
+    setSetting('mobile.token', token)
+  }
+  const port = Number(getSetting('mobile.port')) || 8787
+  const url = lanUrl(port, token)
+  try {
+    transport = await startTransport({ port, token, serveDir: join(__dirname, '../renderer') })
+    setSetting('mobile.url', url)
+    logLine('mobile', `serving on ${url}`)
+  } catch (error) {
+    logError('mobile', error)
+  }
+}
 
 // Launching the app again (e.g. from the desktop icon) should focus the running
 // window instead of starting a second instance that fights over the database.
@@ -327,6 +363,7 @@ app.whenReady().then(async () => {
     }
   )
   createWindow()
+  void startMobileIfEnabled()
   void initUpdater()
   createTray(
     () => mainWindow,
@@ -425,5 +462,6 @@ app.on('before-quit', () => {
 
 app.on('will-quit', () => {
   stopAllIdle()
+  void transport?.close()
   closeDatabase()
 })
