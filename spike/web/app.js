@@ -30,7 +30,7 @@ Nodejs.addListener('message', (event) => {
       hardwareConcurrency: navigator.hardwareConcurrency,
       deviceMemoryGB: navigator.deviceMemory ?? null
     }
-    const payload = { uiToReportMs: elapsed, nodeReadyMs, device, ...event.args[0] }
+    const payload = { uiBuild: 'phase0-patched-imapflow', uiToReportMs: elapsed, nodeReadyMs, device, ...event.args[0] }
     $('report').value = JSON.stringify(payload, null, 2)
     setStatus('Done — copy the report.')
   } else if (event.eventName === 'booted') {

@@ -177,6 +177,7 @@ async function testSmtp(cfg) {
 
 channel.on('run', async (cfg) => {
   const report = {
+    build: 'phase0-patched-imapflow',
     node: process.version,
     platform: process.platform,
     arch: process.arch,
