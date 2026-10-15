@@ -5,7 +5,7 @@ import { accountOauth } from '@core/db/schema'
 import { getAccountById, getAccountPassword } from './accounts'
 import { buildImapClient } from './imap'
 import { getSecret } from '@core/settings/secrets'
-import { refreshGoogle, refreshMicrosoft } from '../oauth'
+import { refreshGoogle, refreshMicrosoft } from '@core/oauth/config'
 
 export interface ResolvedAuth {
   user: string

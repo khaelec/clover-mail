@@ -13,7 +13,7 @@ import { registerUpdateIpc } from './update'
 import { registerBackupIpc } from './backup'
 import { registerDictationIpc } from './dictation'
 import { setTrayUnread } from '@main/tray'
-import { readRecentLogs } from '@main/log'
+import { readRecentLogs } from '@core/log'
 
 export function registerIpc(
   getWindow: () => BrowserWindow | null,

@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { eq } from 'drizzle-orm'
 import { closeDatabase, getDb, initDatabase } from '../src/core/db'
 import { accounts, folders, messages } from '../src/core/db/schema'
-import { reconcileMailbox, type ReconcileClient } from '../src/main/mail/reconcile'
+import { reconcileMailbox, type ReconcileClient } from '../src/core/mail/reconcile'
 
 const dir = mkdtempSync(join(tmpdir(), 'clover-reconcile-'))
 initDatabase(dir)

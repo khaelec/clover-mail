@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { getDb } from '@core/db'
 import { folders, messages } from '@core/db/schema'
 import { removeFromIndex } from './search'
-import { logLine } from '../log'
+import { logLine } from '@core/log'
 
 /** The only thing reconciliation needs from an IMAP client. */
 export interface ReconcileClient {

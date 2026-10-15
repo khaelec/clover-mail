@@ -7,9 +7,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeDatabase, getDb, initDatabase } from '../src/core/db'
 import { accounts, folders, messages } from '../src/core/db/schema'
-import { announceNewInboxMessages } from '../src/main/mail/announce'
+import { announceNewInboxMessages } from '../src/core/mail/announce'
 import { markRecentlyRestored } from '../src/core/mail/recentUids'
-import { setThreadMuted } from '../src/main/mail/threadSettings'
+import { setThreadMuted } from '../src/core/mail/threadSettings'
 import { useNotifications } from '../src/renderer/src/state/notifications'
 
 const dir = mkdtempSync(join(tmpdir(), 'clover-announce-'))

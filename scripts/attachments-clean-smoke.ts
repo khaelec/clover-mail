@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { closeDatabase, getDb, initDatabase } from '../src/core/db'
 import { accounts, attachments, folders, messages } from '../src/core/db/schema'
-import { cleanOrphanAttachments } from '../src/main/mail/attachmentsCleanup'
+import { cleanOrphanAttachments } from '../src/core/mail/attachmentsCleanup'
 
 const out: Record<string, boolean> = {}
 

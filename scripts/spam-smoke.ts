@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeDatabase, getDb, initDatabase } from '../src/core/db'
 import { accounts, folders, messages } from '../src/core/db/schema'
-import { applyAssessment, markSpam } from '../src/main/mail/spam'
+import { applyAssessment, markSpam } from '../src/core/mail/spam'
 
 const dir = mkdtempSync(join(tmpdir(), 'clover-spam-'))
 initDatabase(dir)

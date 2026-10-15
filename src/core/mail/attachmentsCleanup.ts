@@ -2,7 +2,7 @@ import { mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { getDb } from '@core/db'
 import { attachments } from '@core/db/schema'
-import { logLine } from '../log'
+import { logLine } from '@core/log'
 
 // How long orphaned files stay recoverable in the quarantine folder.
 const QUARANTINE_TTL_MS = 30 * 24 * 60 * 60 * 1000
