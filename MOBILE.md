@@ -28,7 +28,8 @@ phone (Capacitor WebView)                desktop (Electron)
 
 - Node.js and `npm install` (adds `@capacitor/core`, `@capacitor/android`,
   `@capacitor/cli`).
-- **Android Studio** (or just the Android SDK + JDK 17) to build the APK.
+- **Android Studio** (or just the Android SDK + **JDK 21** — Capacitor 8 compiles
+  for Java 21) to build the APK.
 - The desktop app running with Mobile access enabled, and both devices on the
   same network.
 
