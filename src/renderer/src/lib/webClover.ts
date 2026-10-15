@@ -9,6 +9,13 @@ import { getBase, getToken, setToken as saveToken } from './mobile'
  * comes from `?token=` (saved to storage) so the phone only needs a link; in the
  * native shell the desktop address comes from the connect screen instead.
  */
+let reconnectStream: (() => void) | null = null
+
+/** Re-open the event stream (e.g. after the phone app returns to the foreground). */
+export function reconnectEvents(): void {
+  reconnectStream?.()
+}
+
 export async function installWebClover(): Promise<void> {
   const w = window as unknown as { clover?: unknown }
   if (w.clover) return
@@ -26,9 +33,11 @@ export async function installWebClover(): Promise<void> {
   }
 
   if (token) {
+    let source: EventSource | null = null
     const connect = (): void => {
-      const es = new EventSource(`${base}/events?token=${encodeURIComponent(token)}`)
-      es.onmessage = (event) => {
+      source?.close()
+      source = new EventSource(`${base}/events?token=${encodeURIComponent(token)}`)
+      source.onmessage = (event) => {
         try {
           const { channel, payload } = JSON.parse(event.data) as {
             channel: string
@@ -39,11 +48,12 @@ export async function installWebClover(): Promise<void> {
           // ignore malformed frames
         }
       }
-      es.onerror = () => {
-        es.close()
+      source.onerror = () => {
+        source?.close()
         setTimeout(connect, 2000)
       }
     }
+    reconnectStream = connect
     connect()
   }
 

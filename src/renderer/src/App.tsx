@@ -187,7 +187,7 @@ export function App(): ReactNode {
           navOpen && (
             <div className="fixed inset-0 z-50 flex">
               <div className="bg-surface shadow-2xl">
-                <Sidebar active={section} onSelect={setSection} />
+                <Sidebar active={section} onSelect={setSection} compact />
               </div>
               <div className="flex-1 bg-black/40" onClick={() => setNavOpen(false)} />
             </div>

@@ -6,6 +6,7 @@ import { initTheme } from './theme/theme'
 import { installWebClover } from './lib/webClover'
 import { getBase, isNative } from './lib/mobile'
 import { initNativeNotifications } from './lib/nativeNotify'
+import { initNativeLifecycle } from './lib/nativeLifecycle'
 import './styles/index.css'
 
 void initTheme()
@@ -13,6 +14,9 @@ void initTheme()
 const root = createRoot(document.getElementById('root') as HTMLElement)
 
 async function boot(): Promise<void> {
+  // Catch up (and re-open the event stream) when the app returns to the front.
+  await initNativeLifecycle()
+
   // A tap on a phone notification opens the message / section it refers to.
   await initNativeNotifications((extra) => {
     if (extra.messageId) {
