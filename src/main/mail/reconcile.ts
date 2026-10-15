@@ -8,6 +8,13 @@ export interface ReconcileClient {
   search(query: { uid: string }, options: { uid: true }): Promise<number[] | false | undefined>
 }
 
+/**
+ * What the check actually did. The caller must only record the folder's
+ * lastMessages/lastUidNext for 'ok' and 'skipped' — otherwise a transient
+ * failure would make the next sync think nothing changed and skip forever.
+ */
+export type ReconcileStatus = 'ok' | 'skipped' | 'failed' | 'suspect' | 'dryrun'
+
 /** Dev-only: log what reconciliation would remove without deleting anything. */
 export const RECONCILE_DRYRUN = process.env.CLOVER_RECONCILE_DRYRUN === '1'
 
@@ -17,9 +24,9 @@ export const RECONCILE_DRYRUN = process.env.CLOVER_RECONCILE_DRYRUN === '1'
  *
  * Safety: a failed or non-array search deletes nothing (a server briefly
  * returning an empty result must not wipe the cache); a suspicious mass deletion
- * is only acted on once the next sync confirms it; and negative UIDs (local
- * sent-copy placeholders) are never touched. Only rows in this account+folder
- * are considered.
+ * — including *every* cached row vanishing in a small folder — is only acted on
+ * once the next sync confirms it; and negative UIDs (local sent-copy
+ * placeholders) are never touched. Only rows in this account+folder are considered.
  */
 export async function reconcileMailbox(
   client: ReconcileClient,
@@ -28,7 +35,7 @@ export async function reconcileMailbox(
   folderRow: typeof folders.$inferSelect,
   messagesCount: number,
   uidNext: number
-): Promise<number> {
+): Promise<ReconcileStatus> {
   const db = getDb()
 
   // Nothing can have been deleted if the count and uidNext are unchanged.
@@ -37,7 +44,7 @@ export async function reconcileMailbox(
     folderRow.lastMessages === messagesCount &&
     folderRow.lastUidNext === uidNext
   ) {
-    return 0
+    return 'skipped'
   }
 
   const local = db
@@ -47,18 +54,24 @@ export async function reconcileMailbox(
     .all()
   // Only real server UIDs; negative UIDs are local sent-copy placeholders.
   const cached = local.filter((row) => row.uid > 0)
-  if (cached.length === 0) return 0
+  if (cached.length === 0) return 'skipped'
 
-  const min = Math.min(...cached.map((row) => row.uid))
-  const max = Math.max(...cached.map((row) => row.uid))
+  // Loops, not spread: a large folder would blow the argument limit.
+  let min = Infinity
+  let max = -Infinity
+  for (const row of cached) {
+    if (row.uid < min) min = row.uid
+    if (row.uid > max) max = row.uid
+  }
+
   let serverUids: number[]
   try {
     // Ask only about the cached UID range, not the whole mailbox.
     const found = await client.search({ uid: `${min}:${max}` }, { uid: true })
-    if (!Array.isArray(found)) return 0
+    if (!Array.isArray(found)) return 'failed'
     serverUids = found
   } catch {
-    return 0
+    return 'failed'
   }
 
   const serverSet = new Set(serverUids)
@@ -67,15 +80,18 @@ export async function reconcileMailbox(
     if (folderRow.reconcileSuspect) {
       db.update(folders).set({ reconcileSuspect: false }).where(eq(folders.id, folderId)).run()
     }
-    return 0
+    return 'ok'
   }
 
-  // Mass-deletion guard: confirm across two syncs before wiping the cache.
-  if (missing.length > 20 && missing.length > cached.length / 2) {
-    if (!folderRow.reconcileSuspect) {
-      db.update(folders).set({ reconcileSuspect: true }).where(eq(folders.id, folderId)).run()
-      return 0
-    }
+  // Mass-deletion guard: >20 and >half, or *everything* in a small folder. A
+  // server that briefly returns an empty result must not wipe the cache; confirm
+  // across two syncs before acting.
+  const suspicious =
+    (missing.length > 20 && missing.length > cached.length / 2) ||
+    (missing.length === cached.length && cached.length > 1)
+  if (suspicious && !folderRow.reconcileSuspect) {
+    db.update(folders).set({ reconcileSuspect: true }).where(eq(folders.id, folderId)).run()
+    return 'suspect'
   }
 
   if (RECONCILE_DRYRUN) {
@@ -84,7 +100,7 @@ export async function reconcileMailbox(
         .map((row) => row.uid)
         .join(',')}`
     )
-    return 0
+    return 'dryrun'
   }
 
   const removedIds = missing.map((row) => row.id)
@@ -93,5 +109,5 @@ export async function reconcileMailbox(
   })
   for (const id of removedIds) removeFromIndex(id)
   db.update(folders).set({ reconcileSuspect: false }).where(eq(folders.id, folderId)).run()
-  return removedIds.length
+  return 'ok'
 }

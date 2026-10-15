@@ -52,7 +52,12 @@ function rowCount(folderId: string): number {
   return db.select().from(messages).where(eq(messages.folderId, folderId)).all().length
 }
 function hasUid(folderId: string, uid: number): boolean {
-  return db.select().from(messages).where(eq(messages.folderId, folderId)).all().some((m) => m.uid === uid)
+  return db
+    .select()
+    .from(messages)
+    .where(eq(messages.folderId, folderId))
+    .all()
+    .some((m) => m.uid === uid)
 }
 
 interface Fake extends ReconcileClient {
@@ -72,79 +77,100 @@ function fake(serverUids: number[], mode: 'ok' | 'throw' | 'false' = 'ok'): Fake
 }
 
 async function run(): Promise<void> {
-const out: Record<string, boolean> = {}
+  const out: Record<string, boolean> = {}
 
-// A) normal deletion: uids 1..5 cached, server has 1,2,4,5 -> remove uid 3.
-{
-  const a = makeAccount()
-  const f = makeFolder(a)
-  for (const uid of [1, 2, 3, 4, 5]) addMessage(a, f, uid)
-  const removed = await reconcileMailbox(fake([1, 2, 4, 5]), a, f, folderRow(f), 4, 6)
-  out.normalDeletion = removed === 1 && !hasUid(f, 3) && hasUid(f, 4)
-}
+  // A) normal deletion: uids 1..5 cached, server has 1,2,4,5 -> remove uid 3.
+  {
+    const a = makeAccount()
+    const f = makeFolder(a)
+    for (const uid of [1, 2, 3, 4, 5]) addMessage(a, f, uid)
+    const status = await reconcileMailbox(fake([1, 2, 4, 5]), a, f, folderRow(f), 4, 6)
+    out.normalDeletion = status === 'ok' && !hasUid(f, 3) && hasUid(f, 4)
+  }
 
-// B) search throws -> nothing deleted.
-{
-  const a = makeAccount()
-  const f = makeFolder(a)
-  for (const uid of [1, 2, 3]) addMessage(a, f, uid)
-  const removed = await reconcileMailbox(fake([], 'throw'), a, f, folderRow(f), 2, 4)
-  out.searchThrows = removed === 0 && rowCount(f) === 3
-}
+  // B) search throws -> nothing deleted, status 'failed'.
+  {
+    const a = makeAccount()
+    const f = makeFolder(a)
+    for (const uid of [1, 2, 3]) addMessage(a, f, uid)
+    const status = await reconcileMailbox(fake([], 'throw'), a, f, folderRow(f), 2, 4)
+    out.searchThrows = status === 'failed' && rowCount(f) === 3
+  }
 
-// C) search returns a non-array -> nothing deleted.
-{
-  const a = makeAccount()
-  const f = makeFolder(a)
-  for (const uid of [1, 2, 3]) addMessage(a, f, uid)
-  const removed = await reconcileMailbox(fake([], 'false'), a, f, folderRow(f), 2, 4)
-  out.searchFalse = removed === 0 && rowCount(f) === 3
-}
+  // C) search returns a non-array -> nothing deleted, status 'failed'.
+  {
+    const a = makeAccount()
+    const f = makeFolder(a)
+    for (const uid of [1, 2, 3]) addMessage(a, f, uid)
+    const status = await reconcileMailbox(fake([], 'false'), a, f, folderRow(f), 2, 4)
+    out.searchFalse = status === 'failed' && rowCount(f) === 3
+  }
 
-// D) mass-deletion guard: 40 cached, server has 10 -> suspect first, then delete.
-{
-  const a = makeAccount()
-  const f = makeFolder(a)
-  for (let uid = 1; uid <= 40; uid += 1) addMessage(a, f, uid)
-  const serverUids = Array.from({ length: 10 }, (_, i) => i + 1)
-  const first = await reconcileMailbox(fake(serverUids), a, f, folderRow(f), 10, 41)
-  const suspectSet = folderRow(f).reconcileSuspect === true && rowCount(f) === 40
-  const second = await reconcileMailbox(fake(serverUids), a, f, folderRow(f), 10, 41)
-  out.massDeletionGuard = first === 0 && suspectSet && second === 30 && rowCount(f) === 10
-}
+  // D) mass-deletion guard: 40 cached, server has 10 -> suspect, then delete.
+  {
+    const a = makeAccount()
+    const f = makeFolder(a)
+    for (let uid = 1; uid <= 40; uid += 1) addMessage(a, f, uid)
+    const serverUids = Array.from({ length: 10 }, (_, i) => i + 1)
+    const first = await reconcileMailbox(fake(serverUids), a, f, folderRow(f), 10, 41)
+    const suspectSet = folderRow(f).reconcileSuspect === true && rowCount(f) === 40
+    const second = await reconcileMailbox(fake(serverUids), a, f, folderRow(f), 10, 41)
+    out.massDeletionGuard =
+      first === 'suspect' && suspectSet && second === 'ok' && rowCount(f) === 10
+  }
 
-// E) negative-UID placeholders are never touched.
-{
-  const a = makeAccount()
-  const f = makeFolder(a)
-  addMessage(a, f, -1)
-  addMessage(a, f, -2)
-  addMessage(a, f, 1)
-  addMessage(a, f, 2)
-  const removed = await reconcileMailbox(fake([1, 2]), a, f, folderRow(f), 2, 3)
-  out.placeholdersUntouched = removed === 0 && hasUid(f, -1) && hasUid(f, -2)
-}
+  // E) negative-UID placeholders are never touched.
+  {
+    const a = makeAccount()
+    const f = makeFolder(a)
+    addMessage(a, f, -1)
+    addMessage(a, f, -2)
+    addMessage(a, f, 1)
+    addMessage(a, f, 2)
+    const status = await reconcileMailbox(fake([1, 2]), a, f, folderRow(f), 2, 3)
+    out.placeholdersUntouched = status === 'ok' && hasUid(f, -1) && hasUid(f, -2)
+  }
 
-// F) skip check: unchanged counts -> no search at all.
-{
-  const a = makeAccount()
-  const f = makeFolder(a)
-  addMessage(a, f, 1)
-  db.update(folders)
-    .set({ lastMessages: 5, lastUidNext: 6 })
-    .where(eq(folders.id, f))
-    .run()
-  const client = fake([1])
-  const removed = await reconcileMailbox(client, a, f, folderRow(f), 5, 6)
-  out.skipWhenUnchanged = removed === 0 && client.calls === 0
-}
+  // F) skip check: unchanged counts -> no search at all.
+  {
+    const a = makeAccount()
+    const f = makeFolder(a)
+    addMessage(a, f, 1)
+    db.update(folders).set({ lastMessages: 5, lastUidNext: 6 }).where(eq(folders.id, f)).run()
+    const client = fake([1])
+    const status = await reconcileMailbox(client, a, f, folderRow(f), 5, 6)
+    out.skipWhenUnchanged = status === 'skipped' && client.calls === 0
+  }
 
-closeDatabase()
+  // G) a failed check must not stop the next sync from checking: throw first,
+  // then an all-missing small folder is still detected (status 'suspect').
+  {
+    const a = makeAccount()
+    const f = makeFolder(a)
+    for (const uid of [1, 2, 3]) addMessage(a, f, uid)
+    const first = await reconcileMailbox(fake([], 'throw'), a, f, folderRow(f), 2, 4)
+    const client = fake([])
+    const second = await reconcileMailbox(client, a, f, folderRow(f), 2, 4)
+    out.failedThenRetries = first === 'failed' && second === 'suspect' && client.calls === 1
+  }
 
-console.log(JSON.stringify(out, null, 2))
-const ok = Object.values(out).every(Boolean)
-console.log(ok ? 'RECONCILE_SMOKE_OK' : 'RECONCILE_SMOKE_FAIL')
-process.exit(ok ? 0 : 1)
+  // H) small folder with *every* cached row missing still needs confirmation.
+  {
+    const a = makeAccount()
+    const f = makeFolder(a)
+    for (let uid = 1; uid <= 15; uid += 1) addMessage(a, f, uid)
+    const first = await reconcileMailbox(fake([]), a, f, folderRow(f), 0, 16)
+    const intact = rowCount(f) === 15 && folderRow(f).reconcileSuspect === true
+    const second = await reconcileMailbox(fake([]), a, f, folderRow(f), 0, 16)
+    out.smallFolderAllMissing = first === 'suspect' && intact && second === 'ok' && rowCount(f) === 0
+  }
+
+  closeDatabase()
+
+  console.log(JSON.stringify(out, null, 2))
+  const ok = Object.values(out).every(Boolean)
+  console.log(ok ? 'RECONCILE_SMOKE_OK' : 'RECONCILE_SMOKE_FAIL')
+  process.exit(ok ? 0 : 1)
 }
 
 void run()
