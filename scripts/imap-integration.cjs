@@ -128,10 +128,15 @@ app.whenReady().then(async () => {
         const api = window.clover.mail
         const m = await api.listMessages(${JSON.stringify(setup.inboxId)}, 100)
         const res = await api.bulkAction({ messageIds: [m[0].id], action: 'move', targetFolderId: ${JSON.stringify(setup.targetId)} })
+        // Sync the target so the moved message is cached there locally — that's
+        // the copy Undo must clean up.
+        await api.syncFolder(${JSON.stringify(setup.targetId)})
         const movedTo = await api.listMessages(${JSON.stringify(setup.targetId)}, 100)
         const undo = res.undo || []
         const u = await api.undoMoves(undo)
-        await api.syncAccount(${JSON.stringify(setup.accountId)})
+        // Sync only the origin; if the target ghost were not deleted it would
+        // still be listed.
+        await api.syncFolder(${JSON.stringify(setup.inboxId)})
         const back = await api.listMessages(${JSON.stringify(setup.inboxId)}, 100)
         const ghost = await api.listMessages(${JSON.stringify(setup.targetId)}, 100)
         return JSON.stringify({ moved: res.moved, movedCount: movedTo.length, restored: u.restored, backCount: back.length, ghostCount: ghost.length })
