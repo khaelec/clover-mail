@@ -236,6 +236,8 @@ export interface CloverApi {
   openLicenses: () => Promise<{ opened: boolean; path: string }>
   readLicenses: () => Promise<string | null>
   readLogs: (limit?: number) => Promise<string>
+  /** Mobile transport status: whether the server is enabled and its LAN URL. */
+  mobileInfo: () => Promise<{ enabled: boolean; url: string }>
   apps: AppsApi
   calendar: CalendarApi
   ai: AiApi

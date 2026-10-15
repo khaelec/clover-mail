@@ -24,6 +24,7 @@ export function buildCloverApi(host: CloverHost): CloverApi {
     openLicenses: () => invoke(IpcChannels.appOpenLicenses),
     readLicenses: () => invoke(IpcChannels.appReadLicenses),
     readLogs: (limit) => invoke(IpcChannels.appReadLogs, limit),
+    mobileInfo: () => invoke(IpcChannels.appMobileInfo),
     onNavigate: (cb) => on(IpcChannels.appNavigate, cb),
     apps: {
       list: () => invoke(IpcChannels.apps.list),
