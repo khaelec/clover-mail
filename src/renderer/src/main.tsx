@@ -9,18 +9,29 @@ void initTheme()
 
 const root = createRoot(document.getElementById('root') as HTMLElement)
 
-// On the phone, show the engine status on screen (a screenshot in CI reads it;
-// logcat is silent from both nodejs-mobile and the WebView console).
+// On the phone, show the engine status on screen. Kept to a single truncated
+// line with a dismiss button so a long error can't cover the UI (the Update
+// button, etc.). logcat is silent from nodejs-mobile and the WebView console.
 function showStatus(text: string): void {
   let el = document.getElementById('clover-status')
   if (!el) {
     el = document.createElement('div')
     el.id = 'clover-status'
     el.style.cssText =
-      'position:fixed;bottom:0;left:0;right:0;z-index:2147483647;background:#000;color:#3f6;font:12px monospace;padding:6px;white-space:pre-wrap'
+      'position:fixed;left:0;right:0;bottom:0;z-index:2147483647;display:flex;align-items:center;gap:6px;background:#000;color:#3f6;font:12px monospace;padding:5px 6px'
+    const span = document.createElement('span')
+    span.style.cssText = 'flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
+    const close = document.createElement('button')
+    close.textContent = '×'
+    close.setAttribute('aria-label', 'Dismiss')
+    close.style.cssText =
+      'flex:0 0 auto;background:transparent;border:0;color:#3f6;font-size:16px;line-height:1;padding:0 4px'
+    close.onclick = () => el?.remove()
+    el.append(span, close)
     document.body.appendChild(el)
   }
-  el.textContent = text
+  const line = el.querySelector('span')
+  if (line) line.textContent = text.split('\n')[0]
 }
 
 async function boot(): Promise<void> {
