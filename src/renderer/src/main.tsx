@@ -4,6 +4,7 @@ import { App } from './App'
 import { LoadingScreen } from './components/LoadingScreen'
 import { initTheme } from './theme/theme'
 import { isNative } from './lib/mobile'
+import { initStayConnected } from './lib/background'
 import './styles/index.css'
 
 void initTheme()
