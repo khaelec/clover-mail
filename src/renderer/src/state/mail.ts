@@ -174,7 +174,7 @@ export const useMail = create<MailState>((set, get) => {
     set({ accountSync: { ...get().accountSync, [accountId]: info } })
   }
 
-  async function reloadFolder(): Promise<void> {
+  async function reloadFolderInner(): Promise<void> {
     const folderId = get().activeFolderId
     if (!folderId) return
     const labelId = folderId.startsWith('label:') ? folderId.slice('label:'.length) : null
@@ -212,6 +212,18 @@ export const useMail = create<MailState>((set, get) => {
       const messages = await window.clover.mail.listMessages(folderId, limit)
       const hasOlder = await window.clover.mail.hasOlderMessages(folderId, get().listLimit ?? 150)
       set({ messages: stableMessages(messages), threads: [], hasOlder, loadingMessages: false })
+    }
+  }
+
+  // Surface a list failure instead of leaving the pane silently empty.
+  async function reloadFolder(): Promise<void> {
+    try {
+      await reloadFolderInner()
+    } catch (error) {
+      set({
+        loadingMessages: false,
+        status: `List error: ${error instanceof Error ? error.message : String(error)}`
+      })
     }
   }
 
