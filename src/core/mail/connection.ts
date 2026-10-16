@@ -13,24 +13,52 @@ const pool = new Map<string, Entry>()
  * Reusing the login removes the per-message connect/auth round-trips that made
  * opening messages slow. Operations on one account are serialized.
  */
-export function withImap<T>(accountId: string, fn: (client: ImapFlow) => Promise<T>): Promise<T> {
+export function withImap<T>(
+  accountId: string,
+  fn: (client: ImapFlow) => Promise<T>,
+  options: { retryOnDrop?: boolean } = {}
+): Promise<T> {
   const entry = pool.get(accountId) ?? { client: null, chain: Promise.resolve() }
   pool.set(accountId, entry)
 
-  const run = entry.chain.then(async () => {
+  const attempt = async (): Promise<T> => {
     if (!entry.client || !entry.client.usable) {
-      entry.client = await buildAccountClient(accountId)
-      await entry.client.connect()
-    }
-    try {
-      return await fn(entry.client)
-    } catch (error) {
+      const client = await buildAccountClient(accountId)
       try {
-        entry.client.close()
+        await client.connect()
+      } catch (error) {
+        try {
+          client.close()
+        } catch {
+          // ignore
+        }
+        throw error
+      }
+      entry.client = client
+    }
+    const client = entry.client
+    try {
+      return await fn(client)
+    } catch (error) {
+      const dropped = !client.usable
+      try {
+        client.close()
       } catch {
         // ignore
       }
-      entry.client = null
+      if (entry.client === client) entry.client = null
+      throw Object.assign(error instanceof Error ? error : new Error(String(error)), { dropped })
+    }
+  }
+
+  const run = entry.chain.then(async () => {
+    try {
+      return await attempt()
+    } catch (error) {
+      // A pooled connection that went stale while the app sat idle fails the
+      // first command. For read-only work, reconnect and try once more instead
+      // of surfacing the error (e.g. a message that won't open).
+      if (options.retryOnDrop && (error as { dropped?: boolean }).dropped) return attempt()
       throw error
     }
   })

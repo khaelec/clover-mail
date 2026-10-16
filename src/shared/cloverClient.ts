@@ -30,6 +30,7 @@ export function buildCloverApi(host: CloverHost): CloverApi {
       onNotify: (cb) => on(IpcChannels.appNotify, cb)
     },
     onNavigate: (cb) => on(IpcChannels.appNavigate, cb),
+    onOpenMessage: (cb) => on(IpcChannels.appOpenMessage, cb),
     apps: {
       list: () => invoke(IpcChannels.apps.list),
       create: (input) => invoke(IpcChannels.apps.create, input),
@@ -157,6 +158,8 @@ export function buildCloverApi(host: CloverHost): CloverApi {
       deleteRule: (ruleId) => invoke(IpcChannels.mail.deleteRule, ruleId),
       applyRules: (accountId) => invoke(IpcChannels.mail.applyRules, accountId),
       getMessage: (messageId) => invoke(IpcChannels.mail.getMessage, messageId),
+      locateMessage: (messageId, threadId) =>
+        invoke(IpcChannels.mail.locateMessage, messageId, threadId),
       getConversation: (messageId) => invoke(IpcChannels.mail.getConversation, messageId),
       setFlags: (messageId, flags) => invoke(IpcChannels.mail.setFlags, messageId, flags),
       moveMessage: (messageId, targetFolderId) =>

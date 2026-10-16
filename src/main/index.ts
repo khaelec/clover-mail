@@ -22,7 +22,7 @@ import { initMediaAllow, isMediaPathAllowed } from '@main/mediaAllow'
 import { initLogging, logError } from '@core/log'
 import { installResilientDns } from '@core/net/dns'
 import { setAppsRoot } from '@main/apps'
-import { stopAllIdle } from '@core/mail/idle'
+import { restartAllIdle, stopAllIdle } from '@core/mail/idle'
 import { initUpdater } from '@main/updater'
 import { createTray } from '@main/tray'
 import { clearDueSnoozes } from '@core/mail/snooze'
@@ -31,7 +31,7 @@ import { syncAccount } from '@core/mail/sync'
 import { resetAccountConnection } from '@core/mail/connection'
 import { cleanOrphanAttachments } from '@core/mail/attachmentsCleanup'
 import { listAccounts } from '@core/mail/accounts'
-import { createMailEmit } from '@main/mail/events'
+import { createMailEmit, revealWindow } from '@main/mail/events'
 import { registerElectronPlatform } from '@main/platformElectron'
 import { dueReminders, markReminded } from '@main/calendar/reminders'
 import { syncAllCaldav } from '@main/calendar/caldav'
@@ -52,9 +52,7 @@ if (!isPrimaryInstance) {
       createWindow()
       return
     }
-    if (win.isMinimized()) win.restore()
-    if (!win.isVisible()) win.show()
-    win.focus()
+    revealWindow(win)
   })
 }
 
@@ -316,11 +314,23 @@ app.whenReady().then(async () => {
   initMediaAllow(app.getPath('userData'))
   initLogging(app.getPath('userData'))
 
-  // A sleeping laptop leaves IMAP sockets dead; drop the pooled connections so
-  // the next action reconnects instead of hanging until the socket times out.
-  powerMonitor.on('resume', () => {
+  // A sleeping laptop leaves IMAP sockets dead. Drop the pooled connections so
+  // the next action reconnects instead of hanging until the socket times out,
+  // bring IDLE back now rather than after its timeout, and catch up on mail once
+  // the network has had a moment to come back.
+  let wakeTimer: ReturnType<typeof setTimeout> | null = null
+  const onWake = (): void => {
     for (const account of listAccounts()) resetAccountConnection(account.id)
-  })
+    if (wakeTimer) clearTimeout(wakeTimer)
+    wakeTimer = setTimeout(() => {
+      wakeTimer = null
+      restartAllIdle()
+      lastFocusSync = Date.now()
+      syncAllAccounts()
+    }, 8_000)
+  }
+  powerMonitor.on('resume', onWake)
+  powerMonitor.on('unlock-screen', onWake)
   setAppsRoot(app.getPath('userData'))
   registerIpc(
     () => mainWindow,
@@ -428,7 +438,7 @@ app.whenReady().then(async () => {
         if (!Notification.isSupported()) continue
         const notification = new Notification({ title: reminder.summary, body })
         notification.on('click', () => {
-          mainWindow?.show()
+          revealWindow(mainWindow)
           mainWindow?.webContents.send(IpcChannels.appNavigate, 'calendar')
         })
         notification.show()

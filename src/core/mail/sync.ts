@@ -356,6 +356,31 @@ async function syncOneMailbox(
   }
 }
 
+/** Connect a fresh client for a full sync, closing it if the login fails. */
+async function openSyncClient(accountId: string): Promise<ImapFlow> {
+  const client = await buildAccountClient(accountId)
+  try {
+    await client.connect()
+  } catch (error) {
+    try {
+      client.close()
+    } catch {
+      // ignore
+    }
+    throw new Error(`connect: ${errText(error)}`)
+  }
+  return client
+}
+
+async function reopenSyncClient(accountId: string, old: ImapFlow): Promise<ImapFlow> {
+  try {
+    old.close()
+  } catch {
+    // already closed
+  }
+  return openSyncClient(accountId)
+}
+
 // Syncs currently running, keyed by account. Focus events, the interval timer and
 // manual triggers can all fire at once; without this guard each would open its own
 // IMAP connection (risking server connection limits and racing inserts) and POP3
@@ -403,12 +428,7 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
   if (!account) throw new Error('Account not found')
 
   emit({ type: 'sync:start', accountId })
-  const client = await buildAccountClient(accountId)
-  try {
-    await client.connect()
-  } catch (error) {
-    throw new Error(`connect: ${errText(error)}`)
-  }
+  let client = await openSyncClient(accountId)
 
   const db = getDb()
   let folderIds: string[] = []
@@ -433,7 +453,20 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
         folderName: folderRow.name
       })
       try {
-        const count = await syncOneMailbox(client, accountId, folderId, folderRow.remotePath, emit)
+        // A connection that dropped while syncing an earlier folder (server
+        // timeout, network blip, laptop sleep) would fail every remaining folder
+        // with "Connection not available". Reconnect first, and retry a folder
+        // once if the connection died while syncing it.
+        if (!client.usable) client = await reopenSyncClient(accountId, client)
+        let count: number
+        try {
+          count = await syncOneMailbox(client, accountId, folderId, folderRow.remotePath, emit)
+        } catch (error) {
+          if (client.usable) throw error
+          logLine(`sync:${accountId}`, `${folderRow.name}: connection lost (${errText(error)}), reconnecting`)
+          client = await reopenSyncClient(accountId, client)
+          count = await syncOneMailbox(client, accountId, folderId, folderRow.remotePath, emit)
+        }
         fetched += count
         emit({
           type: 'sync:progress',
@@ -467,16 +500,18 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
     // Rule failures must not fail the sync itself.
   }
 
-  if (targetFolderIds.length > 0) {
-    const resyncClient = await buildAccountClient(accountId)
-    await resyncClient.connect()
+  // Best-effort; the next sync will reconcile. A failed reconnect here must not
+  // fail a sync whose folders already succeeded.
+  const resyncClient =
+    targetFolderIds.length > 0 ? await openSyncClient(accountId).catch(() => null) : null
+  if (resyncClient) {
     try {
       for (const id of targetFolderIds) {
         const target = getDb().select().from(folders).where(eq(folders.id, id)).get()
         if (target) await syncOneMailbox(resyncClient, accountId, id, target.remotePath, emit)
       }
     } catch {
-      // Best-effort; the next sync will reconcile.
+      // ignore
     } finally {
       await resyncClient.logout().catch(() => undefined)
     }

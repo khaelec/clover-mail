@@ -1,5 +1,6 @@
 import { app, Menu, nativeImage, Tray, type BrowserWindow } from 'electron'
 import { TRAY_ICON_PNG_BASE64 } from './trayIcon'
+import { revealWindow } from './mail/events'
 
 let tray: Tray | null = null
 
@@ -16,11 +17,7 @@ export function createTray(getWindow: () => BrowserWindow | null, onQuit: () => 
     Menu.buildFromTemplate([
       {
         label: 'Open Clover Mail',
-        click: () => {
-          const win = getWindow()
-          win?.show()
-          win?.focus()
-        }
+        click: () => revealWindow(getWindow())
       },
       { type: 'separator' },
       { label: 'Quit', click: onQuit }
@@ -30,10 +27,7 @@ export function createTray(getWindow: () => BrowserWindow | null, onQuit: () => 
     const win = getWindow()
     if (!win) return
     if (win.isVisible() && !win.isMinimized()) win.hide()
-    else {
-      win.show()
-      win.focus()
-    }
+    else revealWindow(win)
   })
 }
 

@@ -148,7 +148,7 @@ export function TitleBar(): ReactNode {
     if (n.kind === 'mail' && n.messageId && n.accountId) {
       window.dispatchEvent(
         new CustomEvent('clover:open-message', {
-          detail: { accountId: n.accountId, messageId: n.messageId }
+          detail: { accountId: n.accountId, messageId: n.messageId, threadId: n.threadId }
         })
       )
     } else if (n.kind === 'app' && n.appId) {
@@ -167,7 +167,7 @@ export function TitleBar(): ReactNode {
     if (n.messageId) {
       window.dispatchEvent(
         new CustomEvent('clover:open-message', {
-          detail: { accountId: n.accountId, messageId: n.messageId, reply: true }
+          detail: { accountId: n.accountId, messageId: n.messageId, threadId: n.threadId, reply: true }
         })
       )
     }

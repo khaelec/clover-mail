@@ -14,6 +14,8 @@ import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
 import { IconCalendar, IconGrid, IconSparkles, IconWallpaper } from './components/icons'
 import { useMail } from './state/mail'
+import { useToasts } from './state/toasts'
+import { UNIFIED_FOLDER_ID } from '@shared/mail'
 import { useApps } from './state/apps'
 import { useWallpaper } from './state/wallpaper'
 import { useUpdate } from './state/update'
@@ -117,26 +119,54 @@ export function App(): ReactNode {
     return () => window.removeEventListener('clover:open-app', handler)
   }, [])
 
-  // Opening a notification jumps to Mail and focuses the message it refers to.
+  // Opening a notification jumps to Mail and focuses the message it refers to:
+  // its account and folder (so it's visible in the list), then the message.
   useEffect(() => {
     const handler = (event: Event): void => {
       const detail = (
-        event as CustomEvent<{ accountId?: string; messageId?: string; reply?: boolean }>
+        event as CustomEvent<{
+          accountId?: string
+          messageId?: string
+          threadId?: string
+          reply?: boolean
+        }>
       ).detail
       if (!detail?.messageId) return
       setSection('mail')
       void (async () => {
-        const mail = useMail.getState()
-        if (detail.accountId && mail.activeAccountId !== detail.accountId) {
-          await mail.selectAccount(detail.accountId)
+        try {
+          const found = await window.clover.mail.locateMessage(detail.messageId as string, detail.threadId)
+          if (!found) {
+            useToasts.getState().push({ message: 'That message is no longer available.', kind: 'error' })
+            return
+          }
+          const mail = useMail.getState()
+          const unified = mail.activeFolderId === UNIFIED_FOLDER_ID
+          if (!unified && mail.activeAccountId !== found.accountId) {
+            await mail.selectAccount(found.accountId)
+          }
+          const now = useMail.getState()
+          if (!unified && now.activeFolderId !== found.folderId) await now.selectFolder(found.folderId)
+          await useMail.getState().selectMessage(found.id)
+          // The bell's Reply action opens the message and then starts a reply.
+          if (detail.reply) window.dispatchEvent(new Event('clover:reply-now'))
+        } catch (error) {
+          useToasts.getState().push({
+            message: `Couldn't open the message: ${(error as Error).message}`,
+            kind: 'error'
+          })
         }
-        await mail.selectMessage(detail.messageId as string)
-        // The bell's Reply action opens the message and then starts a reply.
-        if (detail.reply) window.dispatchEvent(new Event('clover:reply-now'))
       })()
     }
     window.addEventListener('clover:open-message', handler)
-    return () => window.removeEventListener('clover:open-message', handler)
+    // A click on a native (Windows) new-mail notification arrives from main.
+    const offNative = window.clover.onOpenMessage((target) => {
+      window.dispatchEvent(new CustomEvent('clover:open-message', { detail: target }))
+    })
+    return () => {
+      window.removeEventListener('clover:open-message', handler)
+      offNative()
+    }
   }, [])
 
   useEffect(() => {

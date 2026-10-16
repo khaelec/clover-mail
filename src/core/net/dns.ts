@@ -17,33 +17,43 @@ export function installResilientDns(): void {
   const original = dns.lookup.bind(dns)
   const publicServers = ['8.8.8.8', '1.1.1.1', '9.9.9.9']
 
+  // Answers in the shape the caller asked for: net.connect (with Node's default
+  // autoSelectFamily) calls lookup with `{ all: true }` and expects an array of
+  // { address, family }; a bare string there breaks the connection.
   const fallback = (
     hostname: string,
-    callback: (err: Error | null, address?: string, family?: number) => void
+    all: boolean,
+    callback: (err: Error | null, address?: any, family?: number) => void
   ): void => {
+    const resolver = new dns.Resolver()
     try {
-      dns.setServers(publicServers)
+      resolver.setServers(publicServers)
     } catch {
       // ignore
     }
-    dns.resolve4(hostname, (err, addresses) => {
+    resolver.resolve4(hostname, (err, addresses) => {
       if (err || !addresses || addresses.length === 0) {
-        callback(new Error(`getaddrinfo ENOTFOUND ${hostname}`))
+        const error = Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), {
+          code: 'ENOTFOUND',
+          hostname
+        })
+        callback(error)
         return
       }
-      callback(null, addresses[0], 4)
+      if (all) callback(null, addresses.map((address) => ({ address, family: 4 })))
+      else callback(null, addresses[0], 4)
     })
   }
 
   dns.lookup = ((hostname: string, options: any, callback: any) => {
     const cb = typeof options === 'function' ? options : callback
     const opts = typeof options === 'function' ? {} : options
-    original(hostname, opts, (err: Error | null, address: string, family: number) => {
+    original(hostname, opts, (err: Error | null, address: any, family: number) => {
       if (!err) {
         cb(null, address, family)
         return
       }
-      fallback(hostname, cb)
+      fallback(hostname, Boolean(opts && typeof opts === 'object' && opts.all), cb)
     })
   }) as typeof dns.lookup
 }

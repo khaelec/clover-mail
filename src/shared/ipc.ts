@@ -91,6 +91,11 @@ export interface MailApi {
   deleteRule: (ruleId: string) => Promise<void>
   applyRules: (accountId: string) => Promise<ApplyRulesResult>
   getMessage: (messageId: string) => Promise<MessageDetail | null>
+  /** Where a message is now (a rule or move may have changed its id), or null if gone. */
+  locateMessage: (
+    messageId: string,
+    threadId?: string
+  ) => Promise<{ id: string; accountId: string; folderId: string } | null>
   getConversation: (messageId: string) => Promise<MessageDetail[]>
   setFlags: (messageId: string, flags: { seen?: boolean; flagged?: boolean; important?: boolean }) => Promise<void>
   moveMessage: (messageId: string, targetFolderId: string) => Promise<void>
@@ -238,6 +243,10 @@ export interface CloverApi {
   setUnread: (count: number) => void
   setTaskbarBadge: (dataUrl: string, text: string) => void
   onNavigate: (cb: (target: string) => void) => () => void
+  /** A native new-mail notification was clicked: open that message. */
+  onOpenMessage: (
+    cb: (target: { accountId: string; messageId: string; threadId?: string }) => void
+  ) => () => void
   openLicenses: () => Promise<{ opened: boolean; path: string }>
   readLicenses: () => Promise<string | null>
   readLogs: (limit?: number) => Promise<string>

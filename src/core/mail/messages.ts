@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { ImapFlow } from 'imapflow'
 import { platform } from '@core/platform'
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { getDb } from '@core/db'
 import { attachments, folders, messageBodies, messages } from '@core/db/schema'
 import { protocolFor } from './accounts'
@@ -131,7 +131,7 @@ async function fetchAndStoreBody(messageId: string): Promise<void> {
 
     indexMessage(messageId)
     applyAssessment(messageId)
-  })
+  }, { retryOnDrop: true })
 }
 
 export async function getMessageDetail(messageId: string): Promise<MessageDetail | null> {
@@ -402,4 +402,30 @@ export async function deleteMessage(messageId: string): Promise<void> {
   }
   db.delete(messages).where(eq(messages.id, messageId)).run()
   removeFromIndex(messageId)
+}
+
+/**
+ * Find a message a notification points at. Its id is `${folderId}:${uid}`, so a
+ * rule or move that ran after the notification gives it a new id; fall back to
+ * the newest message in the same conversation (outside Trash/Junk).
+ */
+export function locateMessage(
+  messageId: string,
+  threadId?: string
+): { id: string; accountId: string; folderId: string } | null {
+  const db = getDb()
+  const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
+  if (row) return { id: row.id, accountId: row.accountId, folderId: row.folderId }
+  if (!threadId) return null
+  const candidates = db
+    .select({ id: messages.id, accountId: messages.accountId, folderId: messages.folderId, specialUse: folders.specialUse })
+    .from(messages)
+    .innerJoin(folders, eq(folders.id, messages.folderId))
+    .where(eq(messages.threadId, threadId))
+    .orderBy(desc(messages.dateUtc))
+    .all()
+  const best =
+    candidates.find((c) => c.specialUse !== 'trash' && c.specialUse !== 'junk' && c.specialUse !== 'all') ??
+    candidates[0]
+  return best ? { id: best.id, accountId: best.accountId, folderId: best.folderId } : null
 }

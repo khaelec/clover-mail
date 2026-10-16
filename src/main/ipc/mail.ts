@@ -17,7 +17,7 @@ import { testImap } from '@core/mail/imap'
 import { testSmtp } from '@core/mail/smtp'
 import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@core/mail/sync'
 import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount, hasOlderMessages, messageStatuses, threadParticipants } from '@core/mail/queries'
-import { deleteMessage, downloadAttachment, getAttachmentPath, getConversation, getMessageDetail, moveMessage, openAttachment, readAttachmentText, setFlags } from '@core/mail/messages'
+import { deleteMessage, downloadAttachment, getAttachmentPath, getConversation, getMessageDetail, locateMessage, moveMessage, openAttachment, readAttachmentText, setFlags } from '@core/mail/messages'
 import { listOutbox, retryOutbox, cancelOutbox, sendNow } from '@core/mail/outbox'
 import { searchMessages, searchServer } from '@core/mail/search'
 import { addSnippet, deleteSnippet, listSnippets } from '@core/mail/snippets'
@@ -203,6 +203,9 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.applyRules, (_e, accountId: string) => applyRules(accountId))
   ipcMain.handle(IpcChannels.mail.getMessage, (_e, messageId: string) =>
     getMessageDetail(messageId)
+  )
+  ipcMain.handle(IpcChannels.mail.locateMessage, (_e, messageId: string, threadId?: string) =>
+    locateMessage(messageId, threadId)
   )
   ipcMain.handle(IpcChannels.mail.getConversation, (_e, messageId: string) =>
     getConversation(messageId)
