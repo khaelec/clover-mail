@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useApps } from '../state/apps'
-import { IconGrid, IconPlus, IconRefresh, IconTrash } from './icons'
+import { useCompact } from '../lib/compact'
+import { IconArrowLeft, IconGrid, IconPlus, IconRefresh, IconTrash } from './icons'
 
 function AppIcon({ iconDataUrl, name }: { iconDataUrl: string | null; name: string }): ReactNode {
   if (iconDataUrl) {
@@ -64,6 +65,7 @@ export function AppsView(): ReactNode {
   const update = useApps((s) => s.update)
   const select = useApps((s) => s.select)
   const setHost = useApps((s) => s.setHost)
+  const compact = useCompact()
   const [url, setUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
   const slotRef = useRef<HTMLDivElement>(null)
@@ -108,7 +110,15 @@ export function AppsView(): ReactNode {
 
   return (
     <div className="flex h-full min-h-0">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-line">
+      <aside
+        className={
+          compact
+            ? activeApp
+              ? 'hidden'
+              : 'flex w-full flex-col'
+            : 'flex w-60 shrink-0 flex-col border-r border-line'
+        }
+      >
         <div className="border-b border-line px-3.5 py-3">
           <div className="flex items-center gap-2 text-[13px] font-semibold text-ink">
             <IconGrid className="h-4 w-4 text-accent" />
@@ -221,7 +231,25 @@ export function AppsView(): ReactNode {
         )}
       </aside>
 
-      <section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-canvas">
+      <section
+        className={
+          'relative flex min-h-0 min-w-0 flex-1 flex-col bg-canvas ' +
+          (compact && !activeApp ? 'hidden' : '')
+        }
+      >
+        {compact && activeApp && (
+          <div className="flex shrink-0 items-center gap-2 border-b border-line px-2 py-1.5">
+            <button
+              type="button"
+              aria-label="Back"
+              onClick={() => select(null)}
+              className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:text-ink"
+            >
+              <IconArrowLeft className="h-4 w-4" />
+            </button>
+            <span className="truncate text-[14px] font-medium text-ink">{activeApp.name}</span>
+          </div>
+        )}
         {activeApp ? (
           <div ref={slotRef} data-clover-appslot className="relative min-h-0 min-w-0 flex-1" />
         ) : (
