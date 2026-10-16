@@ -1,10 +1,10 @@
 import type Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { join } from 'node:path'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, rmSync } from 'node:fs'
 import { migrations } from './migrations'
 import * as schema from './schema'
-import { openDriver } from './driver'
+import { openDriver, selectedDriver } from './driver'
 
 type CloverDatabase = BetterSQLite3Database<typeof schema>
 
@@ -48,13 +48,43 @@ export function initDatabase(dataDir: string): CloverDatabase {
   if (db) return db
 
   mkdirSync(dataDir, { recursive: true })
+  const path = databasePath(dataDir)
 
-  sqlite = openDriver(databasePath(dataDir))
-  sqlite.pragma('journal_mode = WAL')
-  sqlite.pragma('foreign_keys = ON')
-  sqlite.pragma('synchronous = NORMAL')
+  const open = (): Database.Database => {
+    const handle = openDriver(path)
+    try {
+      // WAL on desktop. The WASM driver's VFS leaves -wal/-shm files that lock
+      // the next open, so it uses the default journal mode.
+      if (selectedDriver() === 'better-sqlite3') handle.pragma('journal_mode = WAL')
+      handle.pragma('foreign_keys = ON')
+      handle.pragma('synchronous = NORMAL')
+    } catch {
+      // pragmas are best-effort
+    }
+    applyMigrations(handle)
+    return handle
+  }
 
-  applyMigrations(sqlite)
+  try {
+    sqlite = open()
+  } catch {
+    // Recover from a stale WAL lock left by an earlier build (the WAL files are
+    // SQLite's own journal, not user data). Retry once with a clean journal.
+    try {
+      sqlite?.close()
+    } catch {
+      // ignore
+    }
+    sqlite = null
+    for (const suffix of ['-wal', '-shm']) {
+      try {
+        rmSync(`${path}${suffix}`, { force: true })
+      } catch {
+        // ignore
+      }
+    }
+    sqlite = open()
+  }
 
   db = drizzle(sqlite, { schema })
   return db
