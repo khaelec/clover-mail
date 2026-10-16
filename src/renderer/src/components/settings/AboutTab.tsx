@@ -1,6 +1,8 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useSettings } from './context'
 import { Card } from './ui'
+import { isNative } from '../../lib/mobile'
+import { checkForUpdate, installUpdate as installNativeUpdate } from '../../lib/nativeUpdate'
 
 export function AboutTab(): ReactNode {
   const {
@@ -24,6 +26,34 @@ export function AboutTab(): ReactNode {
     setLicensesText,
     setLicensesOpen
   } = useSettings()
+
+  // Android uses its own updater (the Electron one isn't available there).
+  const [nativeUpdate, setNativeUpdate] = useState<{ version: string; url: string } | null>(null)
+  const [nativeNote, setNativeNote] = useState<string | null>(null)
+  const [nativeBusy, setNativeBusy] = useState(false)
+
+  async function checkNative(): Promise<void> {
+    setNativeBusy(true)
+    setNativeNote('Checking…')
+    const info = await checkForUpdate()
+    setNativeUpdate(info)
+    setNativeNote(info ? null : 'You are up to date.')
+    setNativeBusy(false)
+  }
+
+  async function runNative(): Promise<void> {
+    if (!nativeUpdate) return
+    setNativeBusy(true)
+    setNativeNote('Downloading…')
+    try {
+      await installNativeUpdate(nativeUpdate.url)
+      setNativeNote('Opening the installer…')
+    } catch (error) {
+      setNativeNote(error instanceof Error ? error.message : 'Update failed')
+      setNativeBusy(false)
+    }
+  }
+
   return (
     <>
       <Card title="Backup & restore">
@@ -136,32 +166,58 @@ export function AboutTab(): ReactNode {
           <dd className="text-ink">MIT (open source)</dd>
         </dl>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void checkUpdates()}
-            className="rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-ink"
-          >
-            Check for updates
-          </button>
-          {updateStatus === 'available' && (
-            <button
-              type="button"
-              onClick={() => void downloadUpdate()}
-              className="rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink"
-            >
-              Download {updateVersion ? `v${updateVersion}` : 'update'}
-            </button>
+          {isNative() ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void checkNative()}
+                disabled={nativeBusy}
+                className="rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-ink disabled:opacity-60"
+              >
+                Check for updates
+              </button>
+              {nativeUpdate && (
+                <button
+                  type="button"
+                  onClick={() => void runNative()}
+                  disabled={nativeBusy}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink disabled:opacity-60"
+                >
+                  Update to {nativeUpdate.version}
+                </button>
+              )}
+              {nativeNote && <span className="text-[12px] text-muted">{nativeNote}</span>}
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => void checkUpdates()}
+                className="rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted hover:text-ink"
+              >
+                Check for updates
+              </button>
+              {updateStatus === 'available' && (
+                <button
+                  type="button"
+                  onClick={() => void downloadUpdate()}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink"
+                >
+                  Download {updateVersion ? `v${updateVersion}` : 'update'}
+                </button>
+              )}
+              {updateStatus === 'ready' && (
+                <button
+                  type="button"
+                  onClick={() => installUpdate()}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink"
+                >
+                  Restart &amp; install
+                </button>
+              )}
+              {updateText && <span className="text-[12px] text-muted">{updateText}</span>}
+            </>
           )}
-          {updateStatus === 'ready' && (
-            <button
-              type="button"
-              onClick={() => installUpdate()}
-              className="rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink"
-            >
-              Restart &amp; install
-            </button>
-          )}
-          {updateText && <span className="text-[12px] text-muted">{updateText}</span>}
           <button
             type="button"
             onClick={() => {
