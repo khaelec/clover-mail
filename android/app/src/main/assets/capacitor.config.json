@@ -1,0 +1,11 @@
+{
+	"appId": "com.clovermail.app",
+	"appName": "Clover Mail",
+	"webDir": "dist-mobile",
+	"plugins": {
+		"Nodejs": {
+			"nodeDir": "nodejs",
+			"startMode": "manual"
+		}
+	}
+}

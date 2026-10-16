@@ -12,6 +12,20 @@ version only reaches users when its release exists on GitHub.
   the folder you're viewing (so on Gmail your replies keep their Sent label),
   and Undo works as for other moves.
 
+## 0.4.74 – 0.4.77
+
+### Attachments
+- Right-click an image attachment and choose **Copy image** to copy it straight
+  to the clipboard — no need to open it in an external app. *(0.4.77)*
+
+### Removed
+- The experimental "Mobile access" setting, which served Clover Mail over the
+  LAN for a phone to connect to. *(0.4.74)*
+
+### Internal
+- The mail engine now opens its database through a small driver layer (no
+  behaviour change). *(0.4.75)*
+
 ## 0.4.67 – 0.4.73
 
 ### Notification bell

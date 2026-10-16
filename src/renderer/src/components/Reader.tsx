@@ -314,6 +314,11 @@ export function Reader({
   const [menu, setMenu] = useState<{ x: number; y: number; mode: 'main' | 'move' | 'snooze' } | null>(
     null
   )
+  const [attMenu, setAttMenu] = useState<{
+    x: number
+    y: number
+    att: { id: string; filename: string | null; mimeType: string | null; available: boolean }
+  } | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
 
   function snoozeUntil(kind: 'later' | 'tomorrow' | 'week'): number {
@@ -370,6 +375,30 @@ export function Reader({
       setPreview({ id: att.id, name, kind: 'text', text: text ?? '(empty)' })
     } else {
       await window.clover.mail.openAttachment(att.id)
+    }
+  }
+
+  function isImageAttachment(att: { mimeType: string | null; filename: string | null }): boolean {
+    const mime = att.mimeType ?? ''
+    const ext = (att.filename ?? '').split('.').pop()?.toLowerCase() ?? ''
+    return (
+      mime.startsWith('image/') ||
+      ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'svg'].includes(ext)
+    )
+  }
+
+  // Copy an image attachment to the OS clipboard via the web clipboard API — no
+  // temp file, no external app. The attachment is served over clover-media:.
+  async function copyAttachmentImage(att: { id: string }): Promise<void> {
+    try {
+      const path = await window.clover.mail.getAttachmentPath(att.id)
+      if (!path) throw new Error('not cached')
+      const blob = await (await fetch(mediaUrl(path))).blob()
+      const type = blob.type || 'image/png'
+      await navigator.clipboard.write([new ClipboardItem({ [type]: blob })])
+      setCalendarNotice('Image copied to the clipboard.')
+    } catch {
+      setCalendarNotice('Could not copy this image.')
     }
   }
 
@@ -744,7 +773,14 @@ export function Reader({
                     (att.mimeType ?? '').includes('calendar') ||
                     (att.filename ?? '').toLowerCase().endsWith('.ics')
                   return (
-                    <span key={att.id} className="flex items-center gap-1.5">
+                    <span
+                      key={att.id}
+                      className="flex items-center gap-1.5"
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        setAttMenu({ x: e.clientX, y: e.clientY, att })
+                      }}
+                    >
                       <button
                         type="button"
                         onClick={() => void previewAttachment(att)}
@@ -803,6 +839,58 @@ export function Reader({
           <div className="px-6 py-2 text-[11px] text-accent">{calendarNotice}</div>
         )}
       </div>
+      {attMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setAttMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setAttMenu(null)
+            }}
+          />
+          <div
+            className="fixed z-50 w-44 overflow-hidden rounded-xl border border-line bg-surface py-1 text-ink shadow-2xl"
+            style={{
+              left: Math.min(attMenu.x, window.innerWidth - 190),
+              top: Math.min(attMenu.y, window.innerHeight - 130)
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                void previewAttachment(attMenu.att)
+                setAttMenu(null)
+              }}
+              className="block w-full px-3 py-1.5 text-left text-[12.5px] hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              Open
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void window.clover.mail.downloadAttachment(attMenu.att.id)
+                setAttMenu(null)
+              }}
+              className="block w-full px-3 py-1.5 text-left text-[12.5px] hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              Save as…
+            </button>
+            {isImageAttachment(attMenu.att) && (
+              <button
+                type="button"
+                onClick={() => {
+                  void copyAttachmentImage(attMenu.att)
+                  setAttMenu(null)
+                }}
+                className="block w-full px-3 py-1.5 text-left text-[12.5px] hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                Copy image
+              </button>
+            )}
+          </div>
+        </>
+      )}
       {menu && detail && (
         <>
           <div

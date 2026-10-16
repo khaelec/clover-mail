@@ -1,0 +1,16 @@
+{
+  "name": "clover-mail-engine",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.js",
+  "description": "The Clover Mail engine, bundled for the Android app's nodejs-mobile runtime.",
+  "dependencies": {
+    "better-sqlite3": "file:./stubs/better-sqlite3",
+    "drizzle-orm": "^0.45.4",
+    "imapflow": "^2.4.0",
+    "mailparser": "^3.9.38",
+    "node-sqlite3-wasm": "^0.8.60",
+    "nodemailer": "^10.1.0",
+    "zod": "^4.6.6"
+  }
+}
