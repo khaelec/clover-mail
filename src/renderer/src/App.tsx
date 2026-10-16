@@ -9,6 +9,7 @@ import { WallpaperView } from './components/WallpaperView'
 import { WallpaperLayer } from './components/WallpaperLayer'
 import { AppHost } from './components/AppHost'
 import { UpdateBanner } from './components/UpdateBanner'
+import { NativeUpdateBanner } from './components/NativeUpdateBanner'
 import { Toaster } from './components/Toaster'
 import { SettingsView } from './components/SettingsView'
 import { PlaceholderView } from './components/PlaceholderView'
@@ -202,6 +203,7 @@ export function App(): ReactNode {
         </main>
       </div>
       <UpdateBanner />
+      <NativeUpdateBanner />
       <Toaster />
       <AppHost />
     </div>

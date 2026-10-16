@@ -1,10 +1,9 @@
 name: Android
 
-# Builds the Android app (the Capacitor WebView + the nodejs-mobile engine) and
-# uploads a debug APK artifact. The emulator end-to-end check lives in
-# scripts/android-e2e.sh; the GitHub-hosted AVD is too resource-starved for
-# nodejs-mobile (the WebView renderer crashes), so on-device verification is done
-# on a real phone for now.
+# Builds the standalone Android app (Capacitor WebView + nodejs-mobile engine),
+# then publishes it to the `android-dev` pre-release together with a tiny
+# `latest-android.json` the app polls to offer an in-app update. Signing uses the
+# committed dev keystore, so installs go over the old app and keep user data.
 on:
   push:
     branches: [feat/android, main]
@@ -20,6 +19,9 @@ on:
       - 'scripts/android-e2e.sh'
       - '.github/workflows/android.yml'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   apk:
@@ -50,12 +52,23 @@ jobs:
 
       - name: Build debug APK
         run: |
+          VERSION=$(node -p "require('./package.json').version")
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug -PcloverVersion="$VERSION" --no-daemon
 
-      - name: Report APK size
-        run: ls -la android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish the dev release (APK + update manifest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          cat > latest-android.json <<EOF
+          {"versionName":"$VERSION","url":"https://github.com/khaelec/clover-mail/releases/download/android-dev/app-debug.apk"}
+          EOF
+          gh release upload android-dev \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            latest-android.json --clobber
+          ls -la android/app/build/outputs/apk/debug/app-debug.apk
 
       - uses: actions/upload-artifact@v4
         with:

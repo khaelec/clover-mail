@@ -48,8 +48,10 @@
   },
   "dependencies": {
     "@capawesome/capacitor-nodejs": "^0.1.1",
+    "@capacitor-community/file-opener": "^8.0.1",
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.5",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
