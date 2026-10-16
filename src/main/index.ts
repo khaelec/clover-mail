@@ -20,6 +20,7 @@ import { registerIpc } from '@main/ipc'
 import { setStorageRoot } from '@core/mail/storage'
 import { initMediaAllow, isMediaPathAllowed } from '@main/mediaAllow'
 import { initLogging, logError } from '@core/log'
+import { installResilientDns } from '@core/net/dns'
 import { setAppsRoot } from '@main/apps'
 import { stopAllIdle } from '@core/mail/idle'
 import { initUpdater } from '@main/updater'
@@ -307,6 +308,8 @@ app.whenReady().then(async () => {
 
   registerMediaProtocol()
 
+  // A flaky resolver (ENOTFOUND) shouldn't fail syncs; retry via public DNS.
+  installResilientDns()
   seedDatabaseIfFirstRun(app.getPath('userData'))
   initDatabase(app.getPath('userData'))
   setStorageRoot(app.getPath('userData'))
