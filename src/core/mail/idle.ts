@@ -47,9 +47,13 @@ async function connect(handle: Handle, emit: Emit): Promise<void> {
     handle.client = client
     await client.connect()
     await client.mailboxOpen('INBOX')
-    client.on('exists', () => {
-      void onNewMail(handle, emit)
-    })
+    // New mail, but also read/star changes and deletions made on another
+    // device: all re-sync the inbox so this window matches within seconds.
+    for (const event of ['exists', 'flags', 'expunge']) {
+      client.on(event, () => {
+        void onNewMail(handle, emit)
+      })
+    }
     if (!current()) return
     handle.failures = 0
     // Catch up on anything that arrived while IDLE was down.

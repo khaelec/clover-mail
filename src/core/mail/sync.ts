@@ -1,6 +1,6 @@
-import type { FetchMessageObject, ImapFlow } from 'imapflow'
+import type { FetchMessageObject, ImapFlow, MailboxObject } from 'imapflow'
 import { randomUUID } from 'node:crypto'
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq, gt, ne, or } from 'drizzle-orm'
 import { getDb } from '@core/db'
 import { folders, messages } from '@core/db/schema'
 import { getAccountById, protocolFor } from './accounts'
@@ -234,8 +234,9 @@ async function syncOneMailbox(
   const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
   if (!folderRow) return 0
 
+  let opened: MailboxObject
   try {
-    await client.mailboxOpen(remotePath, { readOnly: true })
+    opened = await client.mailboxOpen(remotePath, { readOnly: true })
   } catch (error) {
     throw new Error(`open: ${errText(error)}`)
   }
@@ -301,6 +302,19 @@ async function syncOneMailbox(
       if (event) emit(event)
     }
 
+    // Pull read/flag changes made elsewhere (phone, webmail) for cached mail.
+    let modseq = folderRow.highestModseq
+    if (!reset) {
+      try {
+        modseq = await refreshFlags(client, opened, accountId, folderId, folderRow.highestModseq)
+      } catch (error) {
+        if (!client.usable) throw error
+        logLine(`sync:${accountId}`, `flags refresh failed in ${folderRow.remotePath}: ${errText(error)}`)
+      }
+    } else {
+      modseq = opened.highestModseq ? opened.highestModseq.toString() : null
+    }
+
     // Remove messages deleted on the server by another client. Skipped on a
     // UIDVALIDITY reset (the folder was just wiped and re-fetched).
     let reconcile: ReconcileStatus = 'skipped'
@@ -339,13 +353,14 @@ async function syncOneMailbox(
           unreadCount: unseen,
           totalCount: messagesCount,
           lastMessages: messagesCount,
-          lastUidNext: uidNext
+          lastUidNext: uidNext,
+          highestModseq: modseq
         })
         .where(eq(folders.id, folderId))
         .run()
     } else {
       db.update(folders)
-        .set({ uidValidity, uidNext, unreadCount: unseen, totalCount: messagesCount })
+        .set({ uidValidity, uidNext, unreadCount: unseen, totalCount: messagesCount, highestModseq: modseq })
         .where(eq(folders.id, folderId))
         .run()
     }
@@ -379,6 +394,87 @@ async function reopenSyncClient(accountId: string, old: ImapFlow): Promise<ImapF
     // already closed
   }
   return openSyncClient(accountId)
+}
+
+// Without CONDSTORE, re-check flags on this many of the newest cached messages.
+const FLAG_WINDOW = 300
+
+/**
+ * Apply server-side flag changes (read, starred, answered) to cached messages.
+ * With CONDSTORE only messages changed since the stored mod-sequence come back;
+ * otherwise the newest FLAG_WINDOW messages are re-checked. Returns the
+ * mod-sequence to store for next time.
+ */
+async function refreshFlags(
+  client: ImapFlow,
+  mailbox: MailboxObject,
+  accountId: string,
+  folderId: string,
+  storedModseq: string | null
+): Promise<string | null> {
+  const current = mailbox.highestModseq
+  const condstore = client.enabled.has('CONDSTORE') && !mailbox.noModseq && typeof current === 'bigint'
+  let since: bigint | null = null
+  if (condstore && storedModseq) {
+    try {
+      since = BigInt(storedModseq)
+    } catch {
+      since = null
+    }
+    if (since !== null && current <= since) return current.toString()
+  }
+
+  const db = getDb()
+  let range: string
+  if (since !== null) {
+    range = '1:*'
+  } else {
+    const floor = db
+      .select({ uid: messages.uid })
+      .from(messages)
+      .where(and(eq(messages.folderId, folderId), gt(messages.uid, 0)))
+      .orderBy(desc(messages.uid))
+      .limit(1)
+      .offset(FLAG_WINDOW - 1)
+      .get()
+    const lowest = db
+      .select({ uid: messages.uid })
+      .from(messages)
+      .where(and(eq(messages.folderId, folderId), gt(messages.uid, 0)))
+      .orderBy(messages.uid)
+      .limit(1)
+      .get()
+    if (!lowest) return condstore ? current.toString() : null
+    range = `${floor?.uid ?? lowest.uid}:*`
+  }
+
+  let changed = 0
+  const options = since !== null ? { uid: true, changedSince: since } : { uid: true }
+  for await (const msg of client.fetch(range, { uid: true, flags: true }, options)) {
+    const flags = msg.flags ?? new Set<string>()
+    const next = {
+      isRead: flags.has('\\Seen'),
+      isFlagged: flags.has('\\Flagged'),
+      isAnswered: flags.has('\\Answered')
+    }
+    const result = db
+      .update(messages)
+      .set(next)
+      .where(
+        and(
+          eq(messages.id, `${folderId}:${msg.uid}`),
+          or(
+            ne(messages.isRead, next.isRead),
+            ne(messages.isFlagged, next.isFlagged),
+            ne(messages.isAnswered, next.isAnswered)
+          )
+        )
+      )
+      .run()
+    changed += result.changes
+  }
+  if (changed > 0) logLine(`sync:${accountId}`, `flags changed on ${changed} in ${mailbox.path}`)
+  return condstore ? current.toString() : null
 }
 
 // Syncs currently running, keyed by account. Focus events, the interval timer and

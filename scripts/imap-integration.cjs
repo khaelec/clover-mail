@@ -122,6 +122,33 @@ app.whenReady().then(async () => {
       })()`)
     ).count
 
+    // Read/star a message from another client (a phone), sync: the change must
+    // show up here. Then un-read it there: that must come back too (this second
+    // pass goes through the CONDSTORE changed-since path on Dovecot).
+    const flagsSync = async () =>
+      JSON.parse(
+        await win.webContents.executeJavaScript(`(async () => {
+          const api = window.clover.mail
+          await api.syncAccount(${JSON.stringify(setup.accountId)})
+          const m = await api.listMessages(${JSON.stringify(setup.inboxId)}, 100)
+          return JSON.stringify(m.map((x) => ({ uid: x.uid, read: x.isRead, flagged: x.isFlagged })))
+        })()`)
+      )
+    const other = raw()
+    await other.connect()
+    await other.mailboxOpen('INBOX')
+    const remaining = await other.search({ all: true }, { uid: true })
+    const target = remaining[remaining.length - 1]
+    await other.messageFlagsAdd([target], ['\\Seen', '\\Flagged'], { uid: true })
+    const afterRead = (await flagsSync()).find((x) => x.uid === target)
+    await other.messageFlagsRemove([target], ['\\Seen'], { uid: true })
+    const afterUnread = (await flagsSync()).find((x) => x.uid === target)
+    await other.logout()
+    out.flagsFromOtherClient = {
+      readThere: !!afterRead && afterRead.read === true && afterRead.flagged === true,
+      unreadThere: !!afterUnread && afterUnread.read === false && afterUnread.flagged === true
+    }
+
     // Move one to the new folder, then undo: it should come back with no ghost.
     out.moveUndo = JSON.parse(
       await win.webContents.executeJavaScript(`(async () => {
@@ -152,6 +179,8 @@ app.whenReady().then(async () => {
     out.seeded === true &&
     out.createdFolder === true &&
     out.afterServerDelete === 2 &&
+    out.flagsFromOtherClient.readThere === true &&
+    out.flagsFromOtherClient.unreadThere === true &&
     out.moveUndo &&
     out.moveUndo.moved === 1 &&
     out.moveUndo.movedCount === 1 &&

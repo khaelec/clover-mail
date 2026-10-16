@@ -463,5 +463,13 @@ export const migrations: Migration[] = [
       );
       CREATE UNIQUE INDEX IF NOT EXISTS ux_contacts_email ON contacts(email);
     `
+  },
+  {
+    // CONDSTORE mod-sequence per folder, so read/flag changes made on other
+    // devices can be fetched incrementally. Adds a column only.
+    id: '0024_folder_modseq',
+    sql: `
+      ALTER TABLE folders ADD COLUMN highest_modseq TEXT;
+    `
   }
 ]

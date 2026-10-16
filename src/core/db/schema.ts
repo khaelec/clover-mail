@@ -83,7 +83,9 @@ export const folders = sqliteTable(
     // suspicious mass deletion needs confirming on the next sync.
     lastMessages: integer('last_messages'),
     lastUidNext: integer('last_uid_next'),
-    reconcileSuspect: integer('reconcile_suspect', { mode: 'boolean' }).notNull().default(false)
+    reconcileSuspect: integer('reconcile_suspect', { mode: 'boolean' }).notNull().default(false),
+    /** CONDSTORE HIGHESTMODSEQ after the last flag refresh (a bigint, as text). */
+    highestModseq: text('highest_modseq')
   },
   (table) => [uniqueIndex('ux_folders_account_path').on(table.accountId, table.remotePath)]
 )
