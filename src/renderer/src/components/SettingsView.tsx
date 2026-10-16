@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { LinkDialog } from './LinkDialog'
+import { useCompact } from '../lib/compact'
 import { SettingsContext } from './settings/context'
 import { useSettingsState } from './settings/useSettingsState'
 import { TABS, type TabId } from './settings/ui'
@@ -12,6 +13,7 @@ import { AboutTab } from './settings/AboutTab'
 
 export function SettingsView(): ReactNode {
   const [tab, setTab] = useState<TabId>('appearance')
+  const compact = useCompact()
   const settings = useSettingsState(tab)
 
   // Lets other views (e.g. an account's sync-error dot) open a specific tab.
@@ -26,16 +28,27 @@ export function SettingsView(): ReactNode {
 
   return (
     <SettingsContext.Provider value={settings}>
-      <div className="flex h-full">
-        <nav className="w-48 shrink-0 space-y-0.5 overflow-y-auto border-r border-line bg-surface/60 p-3 backdrop-blur-xl">
-          <h1 className="px-2.5 pb-2 text-[15px] font-semibold tracking-tight text-ink">Settings</h1>
+      <div className={compact ? 'flex h-full flex-col' : 'flex h-full'}>
+        <nav
+          className={
+            compact
+              ? 'flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-surface/60 p-2 backdrop-blur-xl'
+              : 'w-48 shrink-0 space-y-0.5 overflow-y-auto border-r border-line bg-surface/60 p-3 backdrop-blur-xl'
+          }
+        >
+          {!compact && (
+            <h1 className="px-2.5 pb-2 text-[15px] font-semibold tracking-tight text-ink">Settings</h1>
+          )}
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
               className={
-                'block w-full rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors ' +
+                (compact
+                  ? 'shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-[12.5px] '
+                  : 'block w-full rounded-lg px-2.5 py-2 text-left text-[13px] ') +
+                'transition-colors ' +
                 (tab === t.id
                   ? 'bg-accent/12 font-medium text-accent'
                   : 'text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10')
@@ -46,7 +59,7 @@ export function SettingsView(): ReactNode {
           ))}
         </nav>
         <div className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-2xl space-y-4 px-8 py-8">
+          <div className={compact ? 'space-y-4 px-4 py-4' : 'mx-auto max-w-2xl space-y-4 px-8 py-8'}>
             {tab === 'appearance' && <AppearanceTab />}
             {tab === 'privacy' && <PrivacyTab />}
             {tab === 'mail' && <MailTab />}

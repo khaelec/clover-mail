@@ -26,14 +26,16 @@ function isNewer(candidate: string, current: string): boolean {
   return false
 }
 
-export async function checkForUpdate(currentVersion: string): Promise<UpdateInfo | null> {
+export async function checkForUpdate(): Promise<UpdateInfo | null> {
   if (!Capacitor.isNativePlatform()) return null
   try {
     const res = await fetch(MANIFEST, { cache: 'no-store' })
     if (!res.ok) return null
     const info = (await res.json()) as { versionName?: string; url?: string }
     if (!info.versionName || !info.url) return null
-    return isNewer(info.versionName, currentVersion)
+    // Compare against the baked version, not app:info, so updating works even
+    // if the engine isn't responding.
+    return isNewer(info.versionName, __APP_VERSION__)
       ? { version: info.versionName, url: info.url }
       : null
   } catch {

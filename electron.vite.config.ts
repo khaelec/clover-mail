@@ -65,7 +65,10 @@ export default defineConfig({
     build: { minify: 'esbuild', sourcemap: false },
     // Bench instrumentation is compiled in only when CLOVER_BENCH=1, so a normal
     // build dead-code-eliminates it (see src/renderer/src/bench.tsx).
-    define: { __CLOVER_BENCH__: JSON.stringify(process.env.CLOVER_BENCH === '1') },
+    define: {
+      __CLOVER_BENCH__: JSON.stringify(process.env.CLOVER_BENCH === '1'),
+      __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0')
+    },
     plugins: [react(), tailwindcss(), devCspPlugin()]
   }
 })

@@ -13,14 +13,7 @@ export function NativeUpdateBanner(): ReactNode {
 
   useEffect(() => {
     if (!isNative()) return
-    void (async () => {
-      try {
-        const info = await window.clover.appInfo()
-        setUpdate(await checkForUpdate(info?.version ?? '0.0.0'))
-      } catch {
-        // ignore — no update check if the engine isn't up
-      }
-    })()
+    void checkForUpdate().then(setUpdate)
   }, [])
 
   if (!isNative() || !update) return null

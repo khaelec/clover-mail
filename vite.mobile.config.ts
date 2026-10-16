@@ -1,7 +1,10 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+
+const version = JSON.parse(readFileSync(resolve('package.json'), 'utf8')).version as string
 
 /**
  * WebView UI for the Android app: the existing React renderer, built as a static
@@ -27,6 +30,8 @@ export default defineConfig({
       '@shared': resolve('src/shared')
     }
   },
-  define: { __CLOVER_BENCH__: JSON.stringify(false) },
+  // The app version is baked in so the updater works even when the engine is
+  // down (it must not depend on app:info).
+  define: { __CLOVER_BENCH__: JSON.stringify(false), __APP_VERSION__: JSON.stringify(version) },
   plugins: [react(), tailwindcss()]
 })
