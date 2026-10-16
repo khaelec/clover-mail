@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { closeDatabase, initDatabase } from '@core/db'
+import { initDatabase } from '@core/db'
 import { setStorageRoot } from '@core/mail/storage'
 import { setPlatform } from '@core/platform'
 import { dispatch } from '@core/transport/registry'
@@ -59,27 +59,6 @@ export function startEngine(bridge: Bridge): void {
 
   bridge.channel.post('ready')
   console.log('CLOVER_ENGINE_READY')
-
-  // Release the database when the app is backgrounded and reopen on return, so
-  // a paused/old engine never holds the file lock across a relaunch.
-  const appBridge = bridge.app as unknown as {
-    on?: (event: string, cb: (arg?: { release?: () => void }) => void) => void
-  }
-  appBridge.on?.('pause', (lock) => {
-    try {
-      closeDatabase()
-    } catch {
-      // ignore
-    }
-    lock?.release?.()
-  })
-  appBridge.on?.('resume', () => {
-    try {
-      initDatabase(dataDir)
-    } catch {
-      // ignore
-    }
-  })
 
   // The desktop drives syncs from its main process; on the phone the engine owns
   // that. Sync at start-up and every few minutes so mail arrives without the UI
