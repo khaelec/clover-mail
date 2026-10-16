@@ -53,6 +53,8 @@ export function initDatabase(dataDir: string): CloverDatabase {
   const open = (): Database.Database => {
     const handle = openDriver(path)
     try {
+      // Wait for a transient lock instead of failing immediately.
+      handle.pragma('busy_timeout = 5000')
       // WAL on desktop. The WASM driver's VFS leaves -wal/-shm files that lock
       // the next open, so it uses the default journal mode.
       if (selectedDriver() === 'better-sqlite3') handle.pragma('journal_mode = WAL')
@@ -67,7 +69,7 @@ export function initDatabase(dataDir: string): CloverDatabase {
 
   try {
     sqlite = open()
-  } catch {
+  } catch (firstError) {
     // Recover from a stale WAL lock left by an earlier build (the WAL files are
     // SQLite's own journal, not user data). Retry once with a clean journal.
     try {
@@ -76,14 +78,22 @@ export function initDatabase(dataDir: string): CloverDatabase {
       // ignore
     }
     sqlite = null
-    for (const suffix of ['-wal', '-shm', '-journal']) {
+    // node-sqlite3-wasm locks by creating `${db}.lock` (a directory) and removes
+    // it on close; a crash leaves it behind and every later open says "database
+    // is locked". Clear the stale lock (and any journal) and retry.
+    for (const suffix of ['-wal', '-shm', '-journal', '.lock']) {
       try {
-        rmSync(`${path}${suffix}`, { force: true })
+        rmSync(`${path}${suffix}`, { recursive: true, force: true })
       } catch {
         // ignore
       }
     }
-    sqlite = open()
+    try {
+      sqlite = open()
+    } catch (secondError) {
+      const detail = secondError instanceof Error ? secondError.message : String(secondError)
+      throw new Error(`Could not open the database at ${path}: ${detail} (first: ${firstError instanceof Error ? firstError.message : String(firstError)})`)
+    }
   }
 
   db = drizzle(sqlite, { schema })
