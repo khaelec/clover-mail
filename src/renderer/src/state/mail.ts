@@ -725,9 +725,14 @@ export const useMail = create<MailState>((set, get) => {
     },
 
     loadMessageBody: async (id) => {
-      const detail = await window.clover.mail.getMessage(id)
-      if (!detail) return
-      set({ conversation: get().conversation.map((m) => (m.id === id ? detail : m)) })
+      const loaded = await window.clover.mail.getMessage(id)
+      if (!loaded) return
+      // The reader renders the body from `detail`, so update it too — otherwise
+      // "Load message" on the open message looks like it does nothing.
+      set((state) => ({
+        conversation: state.conversation.map((m) => (m.id === id ? loaded : m)),
+        detail: state.detail?.id === id ? loaded : state.detail
+      }))
     },
 
     refreshDetail: async () => {
