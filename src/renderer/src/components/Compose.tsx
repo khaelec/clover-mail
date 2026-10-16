@@ -77,6 +77,7 @@ export function Compose({
   initialCc,
   initialSubject,
   initialBody,
+  initialDraftUid,
   initialQuote,
   inReplyTo,
   references,
@@ -89,6 +90,8 @@ export function Compose({
   initialCc?: string
   initialSubject?: string
   initialBody?: string
+  /** Editing an existing draft: its UID, so autosave/send update or remove it. */
+  initialDraftUid?: number
   initialQuote?: string
   inReplyTo?: string
   references?: string
@@ -156,7 +159,7 @@ export function Compose({
   const pendingRef = useRef<{ input: ComposeInput; seconds: number } | null>(null)
   pendingRef.current = pending
   const sentRef = useRef(false)
-  const draftUidRef = useRef<number | null>(null)
+  const draftUidRef = useRef<number | null>(initialDraftUid ?? null)
   const draftRef = useRef<() => DraftData>(() => ({ to: [], subject: '' }))
   draftRef.current = () => ({
     to: parseList(to),

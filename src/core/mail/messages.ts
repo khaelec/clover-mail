@@ -149,8 +149,16 @@ async function loadDetail(messageId: string, fetchBody: boolean): Promise<Messag
   if (!row) return null
 
   let body = db.select().from(messageBodies).where(eq(messageBodies.messageId, messageId)).get()
-  if (!body && fetchBody) {
-    await fetchAndStoreBody(messageId)
+  // A stored body with no text and no HTML means a previous fetch/parse produced
+  // nothing — treat it as missing so it's retried instead of being stuck on
+  // "Load message" forever. A failed fetch must not fail opening the message.
+  const hasContent = Boolean(body && (body.textPlain || body.htmlRaw))
+  if (!hasContent && fetchBody) {
+    try {
+      await fetchAndStoreBody(messageId)
+    } catch {
+      // Offline / server error — leave the body empty; the reader can retry.
+    }
     row = db.select().from(messages).where(eq(messages.id, messageId)).get()
     if (!row) return null
     body = db.select().from(messageBodies).where(eq(messageBodies.messageId, messageId)).get()

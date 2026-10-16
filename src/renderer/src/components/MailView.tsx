@@ -426,6 +426,8 @@ export function MailView(): ReactNode {
     attachments?: { name: string; path: string }[]
     inReplyTo?: string
     references?: string
+    /** UID of the draft being edited (so autosave/send update or delete it). */
+    draftUid?: number
   }>({ open: false })
   const [query, setQuery] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
@@ -558,7 +560,25 @@ export function MailView(): ReactNode {
   // Stable callbacks so memoized rows skip re-rendering when unrelated state
   // (selection, sync status, …) changes.
   const handleSelectMessage = useCallback((messageId: string): void => {
-    void useMail.getState().selectMessage(messageId)
+    const store = useMail.getState()
+    const folder = store.folders.find((f) => f.id === store.activeFolderId)
+    // A draft opens in the compose window (to edit and send), not the reader.
+    if ((folder?.specialUse ?? '') === 'drafts') {
+      void (async () => {
+        const detail = await window.clover.mail.getMessage(messageId).catch(() => null)
+        if (!detail) return
+        setComposeState({
+          open: true,
+          to: detail.to.join(', '),
+          cc: detail.cc.join(', '),
+          subject: detail.subject ?? '',
+          body: detail.textPlain ?? '',
+          draftUid: detail.uid
+        })
+      })()
+      return
+    }
+    void store.selectMessage(messageId)
   }, [])
   const handleToggleThread = useCallback((threadId: string): void => {
     useMail.getState().toggleThread(threadId)
@@ -966,6 +986,7 @@ export function MailView(): ReactNode {
           initialCc={composeState.cc}
           initialSubject={composeState.subject}
           initialBody={composeState.body}
+          initialDraftUid={composeState.draftUid}
           initialQuote={composeState.quote}
           initialAttachments={composeState.attachments}
           inReplyTo={composeState.inReplyTo}
