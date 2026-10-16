@@ -73,7 +73,21 @@ export function startEngine(bridge: Bridge): void {
     void (async () => {
       try {
         for (const account of listAccounts()) {
-          await syncAccount(account.id, emit).catch(() => undefined)
+          // A flaky network (DNS blip, timeout) shouldn't fail the whole sync.
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            try {
+              await syncAccount(account.id, emit)
+              break
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error)
+              const transient = /ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|network/i.test(message)
+              if (attempt < 2 && transient) {
+                await new Promise((resolve) => setTimeout(resolve, 5000))
+                continue
+              }
+              break
+            }
+          }
           await new Promise((resolve) => setImmediate(resolve))
         }
       } finally {
