@@ -10,6 +10,7 @@ import { runE2eIfConfigured } from './e2e'
 import { createMailEmit } from '@main/mail/events'
 import { listAccounts } from '@core/mail/accounts'
 import { syncAccount } from '@core/mail/sync'
+import { installResilientDns } from '@core/net/dns'
 
 interface BridgeChannel {
   on(event: string, cb: (msg: unknown) => void): void
@@ -31,6 +32,8 @@ export function startEngine(bridge: Bridge): void {
 
   // The phone engine runs on nodejs-mobile's Node → the WASM SQLite driver.
   process.env.CLOVER_DB_DRIVER = 'wasm'
+  // nodejs-mobile's resolver can fail after the app is backgrounded.
+  installResilientDns()
 
   const dataDir = bridge.app.datadir()
   console.log(`CLOVER_ENGINE_DATADIR ${dataDir}`)
