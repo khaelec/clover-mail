@@ -12,6 +12,7 @@ import { IconCalendar, IconClose, IconDownload, IconFlag, IconForward, IconImpor
 import type { MessageDetail } from '@shared/mail'
 import { composeFromMailto, openCompose } from '../state/compose'
 import { useToasts } from '../state/toasts'
+import { SenderName } from './SenderCard'
 
 const AI_ACTIONS: { label: string; prompt: string }[] = [
   {
@@ -533,11 +534,13 @@ export function Reader({
         })
       }}
     >
-      <header className="flex items-start gap-3 border-b border-line px-6 py-4">
+      {/* Wraps: in a narrow pane the actions drop to a second row instead of
+          squeezing the subject and sender down to nothing. */}
+      <header className="flex flex-wrap items-start gap-x-3 gap-y-2 border-b border-line px-6 py-4">
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent to-accent/60 text-[13px] font-semibold text-accent-ink">
           {initials(detail.fromName, detail.fromEmail)}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-[220px] flex-1 basis-0">
           <h2 className="truncate text-[15px] font-semibold text-ink">{detail.subject || '(no subject)'}</h2>
           <p className="mt-0.5 truncate text-[12px] text-muted">
             {messages.length > 1 ? (
@@ -547,13 +550,13 @@ export function Reader({
               </>
             ) : (
               <>
-                <span className="text-ink/80">{detail.fromName || detail.fromEmail}</span>
+                <SenderName name={detail.fromName} email={detail.fromEmail} className="text-ink/80" />
                 {detail.to.length > 0 && <> · to {detail.to.join(', ')}</>} · {formatDate(detail.dateUtc)}
               </>
             )}
           </p>
         </div>
-        <div className="ml-auto flex gap-1.5">
+        <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-1.5 whitespace-nowrap">
           <button
             type="button"
             title="Flag"
@@ -672,7 +675,7 @@ export function Reader({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] text-ink">
-                    <span className="font-semibold">{message.fromName || message.fromEmail}</span>
+                    <SenderName name={message.fromName} email={message.fromEmail} className="font-semibold" />
                     {message.to.length > 0 && (
                       <span className="text-muted"> · to {message.to.join(', ')}</span>
                     )}
