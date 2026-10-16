@@ -138,6 +138,15 @@ export function upsertFolders(accountId: string, list: MailboxRecord[]): string[
   return ids
 }
 
+/**
+ * Let the event loop run. The engine is single-threaded and stores messages with
+ * synchronous DB writes, so a large sync would otherwise block the message
+ * channel and make the phone UI time out mid-sync.
+ */
+function yieldToLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve))
+}
+
 function toAddressJson(list?: EnvelopeAddress[]): string | null {
   if (!list || list.length === 0) return null
   return JSON.stringify(list.map((a) => ({ name: a.name ?? null, address: a.address ?? null })))
@@ -287,6 +296,7 @@ async function syncOneMailbox(
         upsertMessage(accountId, folderId, msg)
         insertedUids.push(msg.uid)
         count += 1
+        if (count % 20 === 0) await yieldToLoop()
       }
     } catch (error) {
       throw new Error(`fetch: ${errText(error)}`)
@@ -320,6 +330,7 @@ async function syncOneMailbox(
         try {
           for await (const msg of client.fetch(wanted, FETCH_FIELDS, { uid: true })) {
             upsertMessage(accountId, folderId, msg)
+            await yieldToLoop()
           }
           logLine(`sync:${accountId}`, `refilled ${wanted.length} in ${folderRow.remotePath}`)
         } catch (error) {
