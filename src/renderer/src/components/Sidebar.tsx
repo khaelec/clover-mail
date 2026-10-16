@@ -61,14 +61,20 @@ function NavButton({
 
 export function Sidebar({
   active,
-  onSelect
+  onSelect,
+  compact = false
 }: {
   active: SectionId
   onSelect: (id: SectionId) => void
+  compact?: boolean
 }): ReactNode {
+  // All sections are available on the phone; only individual features that
+  // can't work there (e.g. the Wallpaper Engine provider) are gated.
+  const items = PRIMARY
+  void compact
   return (
     <nav className="flex w-[68px] shrink-0 flex-col items-center gap-1 border-r border-line bg-surface/60 py-3 backdrop-blur-xl">
-      {PRIMARY.map((item) => (
+      {items.map((item) => (
         <NavButton key={item.id} item={item} active={active === item.id} onSelect={onSelect} />
       ))}
       <div className="mt-auto flex flex-col items-center gap-2 pt-2">

@@ -76,7 +76,7 @@ export function initDatabase(dataDir: string): CloverDatabase {
       // ignore
     }
     sqlite = null
-    for (const suffix of ['-wal', '-shm']) {
+    for (const suffix of ['-wal', '-shm', '-journal']) {
       try {
         rmSync(`${path}${suffix}`, { force: true })
       } catch {
