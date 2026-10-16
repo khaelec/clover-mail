@@ -118,6 +118,9 @@ export const IpcChannels = {
     suggest: 'contacts:suggest',
     save: 'contacts:save',
     remove: 'contacts:remove',
+    listGroups: 'contacts:list-groups',
+    saveGroup: 'contacts:save-group',
+    removeGroup: 'contacts:remove-group',
     importFile: 'contacts:import-file',
     exportFile: 'contacts:export-file'
   },

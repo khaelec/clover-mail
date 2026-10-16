@@ -25,6 +25,14 @@ export interface ContactSuggestion {
   email: string
   name: string | null
   isSaved: boolean
+  /** Set for a contact group: picking it adds every member. */
+  group?: { id: string; members: string[] }
+}
+
+export interface ContactGroup {
+  id: string
+  name: string
+  members: Contact[]
 }
 
 export interface ContactImportResult {
@@ -39,6 +47,10 @@ export interface ContactsApi {
   suggest: (query: string, limit?: number) => Promise<ContactSuggestion[]>
   save: (input: ContactInput, id?: string) => Promise<Contact>
   remove: (id: string) => Promise<void>
+  listGroups: () => Promise<ContactGroup[]>
+  /** Create (no id) or update a group; members are contact ids. */
+  saveGroup: (name: string, memberIds: string[], id?: string) => Promise<ContactGroup>
+  removeGroup: (id: string) => Promise<void>
   importFile: () => Promise<ContactImportResult | null>
   exportFile: () => Promise<{ path: string; count: number } | null>
 }

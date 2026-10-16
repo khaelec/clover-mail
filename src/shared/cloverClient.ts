@@ -36,6 +36,9 @@ export function buildCloverApi(host: CloverHost): CloverApi {
       suggest: (query, limit) => invoke(IpcChannels.contacts.suggest, query, limit),
       save: (input, id) => invoke(IpcChannels.contacts.save, input, id),
       remove: (id) => invoke(IpcChannels.contacts.remove, id),
+      listGroups: () => invoke(IpcChannels.contacts.listGroups),
+      saveGroup: (name, memberIds, id) => invoke(IpcChannels.contacts.saveGroup, name, memberIds, id),
+      removeGroup: (id) => invoke(IpcChannels.contacts.removeGroup, id),
       importFile: () => invoke(IpcChannels.contacts.importFile),
       exportFile: () => invoke(IpcChannels.contacts.exportFile)
     },

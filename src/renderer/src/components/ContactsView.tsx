@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { formatAddress } from '@shared/addresses'
 import type { Contact, ContactInput } from '@shared/contacts'
 import { openCompose } from '../state/compose'
+import { GroupDetail, GroupList, useGroups } from './ContactGroups'
 import { useToasts } from '../state/toasts'
 import { IconDownload, IconMail, IconPlus, IconSearch, IconTrash } from './icons'
 
-type Scope = 'saved' | 'all'
+type Scope = 'saved' | 'all' | 'groups'
 
 const EMPTY: ContactInput = { email: '', name: '', company: '', phone: '', notes: '' }
 
@@ -69,7 +70,7 @@ export function ContactsView(): ReactNode {
 
   const reload = useCallback(async (): Promise<void> => {
     try {
-      setList(await window.clover.contacts.list(scope, query))
+      setList(scope === 'groups' ? [] : await window.clover.contacts.list(scope, query))
     } catch (error) {
       toast(`Couldn't load contacts: ${(error as Error).message}`, 'error')
     } finally {
@@ -91,21 +92,33 @@ export function ContactsView(): ReactNode {
   }
 
   function startEdit(c: Contact): void {
-    setForm({ email: c.email, name: c.name ?? '', company: c.company ?? '', phone: c.phone ?? '', notes: c.notes ?? '' })
+    setForm({
+      email: c.email,
+      name: c.name ?? '',
+      company: c.company ?? '',
+      phone: c.phone ?? '',
+      notes: c.notes ?? ''
+    })
     setEditing(c.id)
   }
 
   async function submit(): Promise<void> {
     setBusy(true)
     try {
-      const saved = await window.clover.contacts.save(form, editing && editing !== 'new' ? editing : undefined)
+      const saved = await window.clover.contacts.save(
+        form,
+        editing && editing !== 'new' ? editing : undefined
+      )
       setEditing(null)
       setSelectedId(saved.id)
       if (scope === 'saved' || !query) await reload()
       else setQuery('')
       toast(editing === 'new' ? 'Contact added' : 'Contact saved')
     } catch (error) {
-      toast((error as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), 'error')
+      toast(
+        (error as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''),
+        'error'
+      )
     } finally {
       setBusy(false)
     }
@@ -159,10 +172,10 @@ export function ContactsView(): ReactNode {
             <h1 className="text-[15px] font-semibold tracking-tight text-ink">People</h1>
             <button
               type="button"
-              onClick={startNew}
+              onClick={scope === 'groups' ? () => useGroups.getState().startNew() : startNew}
               className="ml-auto flex items-center gap-1 rounded-lg bg-accent px-2.5 py-1.5 text-[12px] font-semibold text-accent-ink"
             >
-              <IconPlus className="h-3.5 w-3.5" /> New contact
+              <IconPlus className="h-3.5 w-3.5" /> {scope === 'groups' ? 'New group' : 'New contact'}
             </button>
           </div>
           <div className="flex items-center gap-2 rounded-lg border border-line bg-canvas/60 px-2.5 py-1.5">
@@ -178,7 +191,8 @@ export function ContactsView(): ReactNode {
             {(
               [
                 ['saved', 'Contacts'],
-                ['all', 'Everyone you email']
+                ['groups', 'Groups'],
+                ['all', 'Everyone']
               ] as [Scope, string][]
             ).map(([id, label]) => (
               <button
@@ -195,62 +209,72 @@ export function ContactsView(): ReactNode {
             ))}
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto py-1">
-          {!loading && list.length === 0 && (
-            <p className="px-4 py-6 text-center text-[12.5px] leading-relaxed text-muted">
-              {query
-                ? 'No one matches that search.'
-                : scope === 'saved'
-                  ? 'No saved contacts yet. Add one, import a .vcf/.csv file, or pick people from "Everyone you email".'
-                  : 'People you email will show up here.'}
-            </p>
-          )}
-          {list.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => {
-                setSelectedId(c.id)
-                setEditing(null)
-              }}
-              className={
-                'flex w-full items-center gap-2.5 px-3 py-2 text-left ' +
-                (c.id === selectedId ? 'bg-accent/12' : 'hover:bg-black/5 dark:hover:bg-white/5')
-              }
-            >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent/20 text-[11px] font-semibold text-accent">
-                {initials(c)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium text-ink">{c.name || c.email}</span>
-                <span className="block truncate text-[11.5px] text-muted">
-                  {c.name ? c.email : c.company || ' '}
-                </span>
-              </span>
-              {scope === 'all' && c.isSaved && <span className="text-[10.5px] text-muted">Contact</span>}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2 border-t border-line p-3">
-          <button
-            type="button"
-            onClick={() => void importFile()}
-            className="flex-1 rounded-lg border border-line px-2.5 py-1.5 text-[12px] text-muted hover:text-ink"
-          >
-            Import…
-          </button>
-          <button
-            type="button"
-            onClick={() => void exportFile()}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-[12px] text-muted hover:text-ink"
-          >
-            <IconDownload className="h-3.5 w-3.5" /> Export
-          </button>
-        </div>
+        {scope === 'groups' ? (
+          <GroupList query={query} />
+        ) : (
+          <>
+            <div className="min-h-0 flex-1 overflow-y-auto py-1">
+              {!loading && list.length === 0 && (
+                <p className="px-4 py-6 text-center text-[12.5px] leading-relaxed text-muted">
+                  {query
+                    ? 'No one matches that search.'
+                    : scope === 'saved'
+                    ? 'No saved contacts yet. Add one, import a .vcf/.csv file, or pick people from "Everyone".'
+                    : 'People you email will show up here.'}
+                </p>
+              )}
+              {list.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(c.id)
+                    setEditing(null)
+                  }}
+                  className={
+                    'flex w-full items-center gap-2.5 px-3 py-2 text-left ' +
+                    (c.id === selectedId ? 'bg-accent/12' : 'hover:bg-black/5 dark:hover:bg-white/5')
+                  }
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent/20 text-[11px] font-semibold text-accent">
+                    {initials(c)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium text-ink">
+                      {c.name || c.email}
+                    </span>
+                    <span className="block truncate text-[11.5px] text-muted">
+                      {c.name ? c.email : c.company || ' '}
+                    </span>
+                  </span>
+                  {scope === 'all' && c.isSaved && <span className="text-[10.5px] text-muted">Contact</span>}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 border-t border-line p-3">
+              <button
+                type="button"
+                onClick={() => void importFile()}
+                className="flex-1 rounded-lg border border-line px-2.5 py-1.5 text-[12px] text-muted hover:text-ink"
+              >
+                Import…
+              </button>
+              <button
+                type="button"
+                onClick={() => void exportFile()}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-[12px] text-muted hover:text-ink"
+              >
+                <IconDownload className="h-3.5 w-3.5" /> Export
+              </button>
+            </div>
+          </>
+        )}
       </aside>
 
       <section className="min-w-0 flex-1 overflow-y-auto">
-        {editing ? (
+        {scope === 'groups' ? (
+          <GroupDetail />
+        ) : editing ? (
           <form
             className="mx-auto max-w-lg space-y-3 px-8 py-8"
             onSubmit={(e) => {
@@ -258,12 +282,33 @@ export function ContactsView(): ReactNode {
               void submit()
             }}
           >
-            <h2 className="pb-1 text-[16px] font-semibold text-ink">{editing === 'new' ? 'New contact' : 'Edit contact'}</h2>
-            <Field label="Name" value={form.name ?? ''} onChange={(name) => setForm({ ...form, name })} autoFocus />
-            <Field label="Email" type="email" value={form.email} onChange={(email) => setForm({ ...form, email })} />
-            <Field label="Company" value={form.company ?? ''} onChange={(company) => setForm({ ...form, company })} />
+            <h2 className="pb-1 text-[16px] font-semibold text-ink">
+              {editing === 'new' ? 'New contact' : 'Edit contact'}
+            </h2>
+            <Field
+              label="Name"
+              value={form.name ?? ''}
+              onChange={(name) => setForm({ ...form, name })}
+              autoFocus
+            />
+            <Field
+              label="Email"
+              type="email"
+              value={form.email}
+              onChange={(email) => setForm({ ...form, email })}
+            />
+            <Field
+              label="Company"
+              value={form.company ?? ''}
+              onChange={(company) => setForm({ ...form, company })}
+            />
             <Field label="Phone" value={form.phone ?? ''} onChange={(phone) => setForm({ ...form, phone })} />
-            <Field label="Notes" value={form.notes ?? ''} onChange={(notes) => setForm({ ...form, notes })} multiline />
+            <Field
+              label="Notes"
+              value={form.notes ?? ''}
+              onChange={(notes) => setForm({ ...form, notes })}
+              multiline
+            />
             <div className="flex gap-2 pt-2">
               <button
                 type="submit"
@@ -288,7 +333,9 @@ export function ContactsView(): ReactNode {
                 {initials(selected)}
               </span>
               <div className="min-w-0">
-                <h2 className="truncate text-[18px] font-semibold text-ink">{selected.name || selected.email}</h2>
+                <h2 className="truncate text-[18px] font-semibold text-ink">
+                  {selected.name || selected.email}
+                </h2>
                 {selected.company && <p className="truncate text-[13px] text-muted">{selected.company}</p>}
               </div>
             </div>
@@ -347,8 +394,12 @@ export function ContactsView(): ReactNode {
                   <dt className="text-[12px] text-muted">History</dt>
                   <dd className="mt-0.5 text-ink">
                     {[
-                      selected.sendCount > 0 && `You've emailed them ${selected.sendCount} time${selected.sendCount === 1 ? '' : 's'}`,
-                      selected.recvCount > 0 && `${selected.recvCount} message${selected.recvCount === 1 ? '' : 's'} from them`
+                      selected.sendCount > 0 &&
+                        `You've emailed them ${selected.sendCount} time${
+                          selected.sendCount === 1 ? '' : 's'
+                        }`,
+                      selected.recvCount > 0 &&
+                        `${selected.recvCount} message${selected.recvCount === 1 ? '' : 's'} from them`
                     ]
                       .filter(Boolean)
                       .join(' · ')}

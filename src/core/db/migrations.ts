@@ -471,5 +471,22 @@ export const migrations: Migration[] = [
     sql: `
       ALTER TABLE folders ADD COLUMN highest_modseq TEXT;
     `
+  },
+  {
+    // Contact groups (distribution lists). New tables only.
+    id: '0025_contact_groups',
+    sql: `
+      CREATE TABLE IF NOT EXISTS contact_groups (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS contact_group_members (
+        group_id TEXT NOT NULL REFERENCES contact_groups(id) ON DELETE CASCADE,
+        contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+        PRIMARY KEY (group_id, contact_id)
+      );
+    `
   }
 ]

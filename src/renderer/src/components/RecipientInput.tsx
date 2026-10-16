@@ -115,7 +115,14 @@ export function RecipientInput({
   }
 
   function pick(s: ContactSuggestion): void {
-    emit([...entries, formatAddress(s.name, s.email)], '')
+    if (s.group) {
+      // A group adds each member (skipping anyone already in the field).
+      const present = new Set(entries.map((e) => parseAddress(e)?.email.toLowerCase()))
+      const added = s.group.members.filter((m) => !present.has(parseAddress(m)?.email.toLowerCase()))
+      emit([...entries, ...added], '')
+    } else {
+      emit([...entries, formatAddress(s.name, s.email)], '')
+    }
     closeList()
     requestAnimationFrame(() => inputRef.current?.focus())
   }
@@ -256,9 +263,15 @@ export function RecipientInput({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[12.5px] font-medium">{s.name || s.email}</span>
-                {s.name && <span className="block truncate text-[11.5px] text-muted">{s.email}</span>}
+                {s.group ? (
+                  <span className="block truncate text-[11.5px] text-muted">
+                    Group · {s.group.members.length} {s.group.members.length === 1 ? 'person' : 'people'}
+                  </span>
+                ) : (
+                  s.name && <span className="block truncate text-[11.5px] text-muted">{s.email}</span>
+                )}
               </span>
-              {s.isSaved && <span className="shrink-0 text-[10.5px] text-muted">Contact</span>}
+              {s.isSaved && !s.group && <span className="shrink-0 text-[10.5px] text-muted">Contact</span>}
             </button>
           ))}
         </div>

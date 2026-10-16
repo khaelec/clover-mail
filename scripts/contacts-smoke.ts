@@ -10,6 +10,9 @@ import { accounts, folders, messages } from '../src/core/db/schema'
 import {
   importContacts,
   listContacts,
+  listGroups,
+  removeGroup,
+  saveGroup,
   parseContactsCsv,
   parseVcards,
   recordRecipients,
@@ -112,6 +115,33 @@ const result = importContacts([...cards, ...rows, { email: 'bob@example.test', n
 out.importCounts = result.imported === 3 && result.updated === 1 && result.skipped === 1
 out.importKeepsDetails = listContacts('saved', 'bob')[0]?.name === 'Bob Builder'
 out.vcardRoundTrip = parseVcards(toVcards(listContacts('saved'))).length === 4
+
+// Groups: picking "Team" suggests the whole group; removed members drop out.
+const book = listContacts('saved')
+const bob = book.find((c) => c.email === 'bob@example.test')
+const carol = book.find((c) => c.email === 'carol@x.test')
+const team = saveGroup('  Sales   Team ', [bob?.id ?? '', carol?.id ?? '', 'missing-id'])
+out.groupSaved = team.name === 'Sales Team' && team.members.length === 2
+let dup = false
+try {
+  saveGroup('sales team', [])
+} catch {
+  dup = true
+}
+out.groupNameUnique = dup
+const teamHit = suggestContacts('team')[0]
+out.groupSuggested =
+  teamHit?.group?.id === team.id &&
+  teamHit.group.members.length === 2 &&
+  teamHit.group.members.includes('Bob Builder <bob@example.test>')
+out.groupSuggestedByFirstWord = suggestContacts('sal')[0]?.group?.id === team.id
+saveGroup('Sales Team', [bob?.id ?? ''], team.id)
+out.groupEdited = listGroups().find((g) => g.id === team.id)?.members.length === 1
+if (bob) removeContact(bob.id)
+out.removedMemberHidden = listGroups().find((g) => g.id === team.id)?.members.length === 0
+out.emptyGroupNotSuggested = !suggestContacts('sales').some((s) => s.group)
+removeGroup(team.id)
+out.groupRemoved = listGroups().length === 0
 
 // Recipient parsing (the old parser split "Ann Lee <ann@x>" into three).
 const split = splitAddresses('Ann Lee <ann@x.test>, "Smith, Bob" <bob@y.test>; c@z.test d@z.test')

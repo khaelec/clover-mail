@@ -5,9 +5,10 @@ import { getDb, getRawDb } from '@core/db'
 import { contacts } from '@core/db/schema'
 import { getSetting, setSetting } from '@core/settings'
 import { platform } from '@core/platform'
-import { isValidEmail, parseAddress, splitAddresses } from '@shared/addresses'
+import { formatAddress, isValidEmail, parseAddress, splitAddresses } from '@shared/addresses'
 import type {
   Contact,
+  ContactGroup,
   ContactImportResult,
   ContactInput,
   ContactSuggestion
@@ -231,7 +232,102 @@ export function suggestContacts(query: string, limit = 8): ContactSuggestion[] {
     name: string | null
     is_saved: number
   }[]
-  return rows.map((r) => ({ email: r.email, name: r.name, isSaved: r.is_saved === 1 }))
+  const people = rows.map((r) => ({ email: r.email, name: r.name, isSaved: r.is_saved === 1 }))
+  // Groups whose name matches come first: picking one adds all its members.
+  const groups = listGroups()
+    .filter((g) => g.members.length > 0)
+    .filter((g) => {
+      const name = g.name.toLowerCase()
+      return name.startsWith(q) || name.includes(` ${q}`)
+    })
+    .map((g) => ({
+      email: `group:${g.id}`,
+      name: g.name,
+      isSaved: true,
+      group: { id: g.id, members: g.members.map((m) => formatAddress(m.name, m.email)) }
+    }))
+  return [...groups, ...people].slice(0, Math.max(1, Math.min(limit, 25)))
+}
+
+// ---- Groups ----------------------------------------------------------------
+
+export function listGroups(): ContactGroup[] {
+  const raw = getRawDb()
+  const groups = raw
+    .prepare('SELECT id, name FROM contact_groups ORDER BY lower(name)')
+    .all() as { id: string; name: string }[]
+  const members = raw
+    .prepare(
+      `SELECT m.group_id, c.id, c.email, c.name, c.company, c.phone, c.notes, c.is_saved,
+              c.send_count, c.recv_count, c.last_used
+       FROM contact_group_members m JOIN contacts c ON c.id = m.contact_id
+       WHERE c.is_hidden = 0
+       ORDER BY lower(COALESCE(c.name, c.email))`
+    )
+    .all() as {
+    group_id: string
+    id: string
+    email: string
+    name: string | null
+    company: string | null
+    phone: string | null
+    notes: string | null
+    is_saved: number
+    send_count: number
+    recv_count: number
+    last_used: number | null
+  }[]
+  return groups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    members: members
+      .filter((m) => m.group_id === g.id)
+      .map((m) => ({
+        id: m.id,
+        email: m.email,
+        name: m.name,
+        company: m.company,
+        phone: m.phone,
+        notes: m.notes,
+        isSaved: m.is_saved === 1,
+        sendCount: m.send_count,
+        recvCount: m.recv_count,
+        lastUsed: m.last_used
+      }))
+  }))
+}
+
+export function saveGroup(name: string, memberIds: string[], id?: string): ContactGroup {
+  const clean = name.replace(/\s+/g, ' ').trim()
+  if (!clean) throw new Error('Give the group a name.')
+  const raw = getRawDb()
+  const now = Date.now()
+  const groupId = id ?? randomUUID()
+  const clash = raw
+    .prepare('SELECT id FROM contact_groups WHERE lower(name) = lower(?) AND id != ?')
+    .get(clean, groupId)
+  if (clash) throw new Error(`There's already a group called ${clean}.`)
+  raw.transaction(() => {
+    if (id) {
+      const updated = raw.prepare('UPDATE contact_groups SET name = ?, updated_at = ? WHERE id = ?').run(clean, now, id)
+      if (updated.changes === 0) throw new Error('Group not found.')
+      raw.prepare('DELETE FROM contact_group_members WHERE group_id = ?').run(id)
+    } else {
+      raw
+        .prepare('INSERT INTO contact_groups (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(groupId, clean, now, now)
+    }
+    const add = raw.prepare(
+      `INSERT OR IGNORE INTO contact_group_members (group_id, contact_id)
+       SELECT ?, id FROM contacts WHERE id = ?`
+    )
+    for (const memberId of new Set(memberIds)) add.run(groupId, memberId)
+  })()
+  return listGroups().find((g) => g.id === groupId) as ContactGroup
+}
+
+export function removeGroup(id: string): void {
+  getRawDb().prepare('DELETE FROM contact_groups WHERE id = ?').run(id)
 }
 
 export function listContacts(scope: 'saved' | 'all', query = ''): Contact[] {

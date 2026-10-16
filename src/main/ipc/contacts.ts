@@ -4,6 +4,9 @@ import type { ContactInput } from '@shared/contacts'
 import {
   exportContacts,
   listContacts,
+  listGroups,
+  removeGroup,
+  saveGroup,
   pickAndImportContacts,
   removeContact,
   saveContact,
@@ -21,6 +24,11 @@ export function registerContactsIpc(): void {
     saveContact(input, id)
   )
   ipcMain.handle(IpcChannels.contacts.remove, (_e, id: string) => removeContact(id))
+  ipcMain.handle(IpcChannels.contacts.listGroups, () => listGroups())
+  ipcMain.handle(IpcChannels.contacts.saveGroup, (_e, name: string, memberIds: string[], id?: string) =>
+    saveGroup(name, memberIds, id)
+  )
+  ipcMain.handle(IpcChannels.contacts.removeGroup, (_e, id: string) => removeGroup(id))
   ipcMain.handle(IpcChannels.contacts.importFile, () => pickAndImportContacts())
   ipcMain.handle(IpcChannels.contacts.exportFile, () => exportContacts())
 }
