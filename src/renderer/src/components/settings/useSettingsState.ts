@@ -6,6 +6,7 @@ import type { AiSettings, AiStatus, McpSettings } from '@shared/ai'
 import { useTheme } from '../../theme/theme'
 import { useUpdate } from '../../state/update'
 import { useApps } from '../../state/apps'
+import { buildIssueUrl, openReport } from '../../lib/report'
 import type { TabId } from './ui'
 
 /** Mask email addresses (j***@gmail.com) so pasted diagnostics don't leak them. */
@@ -44,21 +45,10 @@ export function useSettingsState(tab: TabId) {
   }
 
   function openBugReport(): void {
-    const body = [
-      '### What happened',
-      '',
-      '',
-      '### Steps to reproduce',
-      '1. ',
-      '',
-      '### Expected behaviour',
-      '',
-      '',
-      '### Environment',
-      diagnosticsText()
-    ].join('\n')
-    const url = `https://github.com/khaelec/clover-mail/issues/new?body=${encodeURIComponent(body)}`
-    window.open(url)
+    void (async () => {
+      // Includes the recent log (redacted) so it lands on GitHub ready to read.
+      openReport(await buildIssueUrl())
+    })()
   }
 
   function copyDiagnostics(): void {

@@ -5,6 +5,7 @@ import { LoadingScreen } from './components/LoadingScreen'
 import { initTheme } from './theme/theme'
 import { isNative } from './lib/mobile'
 import { initStayConnected } from './lib/background'
+import { buildIssueUrl, openReport } from './lib/report'
 import './styles/index.css'
 
 void initTheme()
@@ -23,13 +24,22 @@ function showStatus(text: string): void {
       'position:fixed;left:0;right:0;bottom:0;z-index:2147483647;display:flex;align-items:center;gap:6px;background:#000;color:#3f6;font:12px monospace;padding:5px 6px'
     const span = document.createElement('span')
     span.style.cssText = 'flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
+    // "Report" sends the log to a pre-filled GitHub issue (readable without adb).
+    const report = document.createElement('button')
+    report.textContent = 'Report'
+    report.setAttribute('aria-label', 'Send error log')
+    report.style.cssText =
+      'flex:0 0 auto;background:transparent;border:0;color:#3f6;font-size:12px;line-height:1;padding:0 6px;text-decoration:underline'
+    report.onclick = () => {
+      void buildIssueUrl(span.textContent ?? '').then(openReport)
+    }
     const close = document.createElement('button')
     close.textContent = '×'
     close.setAttribute('aria-label', 'Dismiss')
     close.style.cssText =
       'flex:0 0 auto;background:transparent;border:0;color:#3f6;font-size:16px;line-height:1;padding:0 4px'
     close.onclick = () => el?.remove()
-    el.append(span, close)
+    el.append(span, report, close)
     document.body.appendChild(el)
   }
   const line = el.querySelector('span')
