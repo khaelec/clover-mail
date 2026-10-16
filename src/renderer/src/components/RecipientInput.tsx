@@ -1,26 +1,31 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { formatAddress, parseAddress, splitAddresses } from '@shared/addresses'
+import { formatAddress, isValidEmail, parseAddress, splitAddresses } from '@shared/addresses'
 import type { ContactSuggestion } from '@shared/contacts'
 
-/**
- * The entry being typed: from the separator before the caret to the next one.
- * Text typed straight after a completed `Name <email>` (no comma yet) counts as
- * a new entry.
- */
-function activeToken(value: string, caret: number): { start: number; end: number; text: string } {
-  let start = caret
-  while (start > 0 && value[start - 1] !== ',' && value[start - 1] !== ';' && value[start - 1] !== '>') {
-    start -= 1
-  }
-  let end = caret
-  while (end < value.length && value[end] !== ',' && value[end] !== ';') end += 1
-  return { start, end, text: value.slice(start, end).trim() }
+function join(entries: string[], draft: string): string {
+  return [...entries, draft].filter((e) => e.trim()).join(', ')
 }
 
 /**
- * A To/Cc/Bcc field with address-book autocomplete. The value stays a plain
- * comma-separated string; picking a suggestion replaces the entry being typed
- * with `Name <email>, `.
+ * Split the field's value into finished recipients (shown as chips) and the text
+ * still being typed. `draft` is what the input last produced: while the value
+ * still ends with it, it stays editable; anything else (a reply's prefilled
+ * address, a pasted list) is all chips.
+ */
+function decompose(value: string, draft: string): { entries: string[]; draft: string } {
+  const all = splitAddresses(value)
+  const pending = draft.trim()
+  if (pending && !/[,;]\s*$/.test(value) && all[all.length - 1] === pending) {
+    return { entries: all.slice(0, -1), draft }
+  }
+  return { entries: all, draft: '' }
+}
+
+/**
+ * A To/Cc/Bcc field with address-book autocomplete, Outlook style: finished
+ * recipients become chips (red if the address is invalid), Backspace removes
+ * the last one, and double-clicking a chip edits it. The value stays a plain
+ * comma-separated string, so drafts and sending are unchanged.
  */
 export function RecipientInput({
   value,
@@ -34,11 +39,15 @@ export function RecipientInput({
   autoFocus?: boolean
 }): ReactNode {
   const inputRef = useRef<HTMLInputElement>(null)
+  const draftRef = useRef('')
   const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([])
   const [highlight, setHighlight] = useState(0)
   const [open, setOpen] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestId = useRef(0)
+
+  const { entries, draft } = decompose(value, draftRef.current)
+  draftRef.current = draft
 
   useEffect(
     () => () => {
@@ -47,19 +56,26 @@ export function RecipientInput({
     []
   )
 
-  function lookup(next: string, caret: number): void {
+  function emit(nextEntries: string[], nextDraft: string): void {
+    draftRef.current = nextDraft
+    onChange(join(nextEntries, nextDraft))
+  }
+
+  function closeList(): void {
     if (timer.current) clearTimeout(timer.current)
-    const { start, end, text: token } = activeToken(next, caret)
-    // Don't offer people already in the field.
-    const present = new Set(
-      splitAddresses(next.slice(0, start) + next.slice(end))
-        .map((entry) => parseAddress(entry)?.email.toLowerCase())
-        .filter(Boolean)
-    )
+    requestId.current += 1
+    setOpen(false)
+  }
+
+  function lookup(text: string, current: string[]): void {
+    if (timer.current) clearTimeout(timer.current)
+    const token = text.trim().replace(/^["'<]+/, '')
     if (!token) {
-      setOpen(false)
+      closeList()
       return
     }
+    // Don't offer people already in the field.
+    const present = new Set(current.map((e) => parseAddress(e)?.email.toLowerCase()).filter(Boolean))
     timer.current = setTimeout(() => {
       const id = ++requestId.current
       void window.clover.contacts
@@ -77,60 +93,141 @@ export function RecipientInput({
     }, 120)
   }
 
+  function onType(text: string): void {
+    // A typed or pasted separator finishes everything before it.
+    if (/[,;]/.test(text)) {
+      const parts = splitAddresses(text)
+      const endsWithSep = /[,;]\s*$/.test(text)
+      const finished = endsWithSep ? parts : parts.slice(0, -1)
+      const rest = endsWithSep ? '' : (parts[parts.length - 1] ?? '')
+      const next = [...entries, ...finished]
+      emit(next, rest)
+      lookup(rest, next)
+      return
+    }
+    emit(entries, text)
+    lookup(text, entries)
+  }
+
+  function commitDraft(): void {
+    if (!draft.trim()) return
+    emit([...entries, ...splitAddresses(draft)], '')
+  }
+
   function pick(s: ContactSuggestion): void {
-    const input = inputRef.current
-    const caret = input?.selectionStart ?? value.length
-    const { start, end } = activeToken(value, caret)
-    const before = value.slice(0, start).replace(/\s*$/, '')
-    const after = value.slice(end).replace(/^[,;]\s*/, '')
-    const prefix = !before ? '' : /[,;]$/.test(before) ? `${before} ` : `${before}, `
-    const inserted = `${formatAddress(s.name, s.email)}, `
-    const next = `${prefix}${inserted}${after}`
-    onChange(next)
-    setOpen(false)
-    requestId.current += 1
-    const pos = prefix.length + inserted.length
+    emit([...entries, formatAddress(s.name, s.email)], '')
+    closeList()
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }
+
+  function removeAt(index: number): void {
+    emit(
+      entries.filter((_, i) => i !== index),
+      draft
+    )
+    inputRef.current?.focus()
+  }
+
+  function editAt(index: number): void {
+    const text = entries[index]
+    emit(
+      entries.filter((_, i) => i !== index),
+      text
+    )
     requestAnimationFrame(() => {
+      const input = inputRef.current
       input?.focus()
-      input?.setSelectionRange(pos, pos)
+      input?.setSelectionRange(text.length, text.length)
     })
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>): void {
-    if (!open || suggestions.length === 0) return
-    if (e.key === 'ArrowDown') {
+    if (open && suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setHighlight((h) => (h + 1) % suggestions.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setHighlight((h) => (h - 1 + suggestions.length) % suggestions.length)
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        pick(suggestions[highlight] ?? suggestions[0])
+        return
+      }
+      if (e.key === 'Escape') {
+        // Close the list, not the compose window.
+        e.preventDefault()
+        e.stopPropagation()
+        closeList()
+        return
+      }
+    }
+    if (e.key === 'Enter' && draft.trim()) {
       e.preventDefault()
-      setHighlight((h) => (h + 1) % suggestions.length)
-    } else if (e.key === 'ArrowUp') {
+      commitDraft()
+    } else if (e.key === 'Backspace' && !draft && entries.length > 0) {
       e.preventDefault()
-      setHighlight((h) => (h - 1 + suggestions.length) % suggestions.length)
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault()
-      pick(suggestions[highlight] ?? suggestions[0])
-    } else if (e.key === 'Escape') {
-      // Close the list, not the compose window.
-      e.preventDefault()
-      e.stopPropagation()
-      setOpen(false)
+      removeAt(entries.length - 1)
     }
   }
 
   return (
-    <div className="relative flex-1">
+    <div
+      className="relative flex min-w-0 flex-1 flex-wrap items-center gap-1"
+      onMouseDown={(e) => {
+        // Clicking the empty part of the field focuses the input.
+        if (e.target === e.currentTarget) {
+          e.preventDefault()
+          inputRef.current?.focus()
+        }
+      }}
+    >
+      {entries.map((entry, i) => {
+        const parsed = parseAddress(entry)
+        const valid = !!parsed && isValidEmail(parsed.email)
+        return (
+          <span
+            key={`${i}:${entry}`}
+            title={valid ? entry : `${entry} — not a valid address (double-click to fix)`}
+            onDoubleClick={() => editAt(i)}
+            className={
+              'flex max-w-[260px] items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1 text-[12px] ' +
+              (valid ? 'bg-accent/15 text-ink' : 'bg-red-500/15 text-red-500')
+            }
+          >
+            <span className="truncate">{parsed?.name || parsed?.email || entry}</span>
+            <button
+              type="button"
+              aria-label={`Remove ${parsed?.email ?? entry}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => removeAt(i)}
+              className="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[13px] leading-none text-muted hover:bg-black/10 hover:text-ink dark:hover:bg-white/15"
+            >
+              ×
+            </button>
+          </span>
+        )
+      })}
       <input
         ref={inputRef}
-        value={value}
+        value={draft}
         autoFocus={autoFocus}
-        placeholder={placeholder}
+        placeholder={entries.length === 0 ? placeholder : undefined}
         spellCheck={false}
         autoComplete="off"
-        onChange={(e) => {
-          onChange(e.target.value)
-          lookup(e.target.value, e.target.selectionStart ?? e.target.value.length)
-        }}
+        aria-label="Recipients"
+        onChange={(e) => onType(e.target.value)}
         onKeyDown={onKeyDown}
-        onBlur={() => setOpen(false)}
-        className="w-full bg-transparent text-[13px] text-ink outline-none"
+        onBlur={() => {
+          closeList()
+          // Like Outlook: leaving the field turns what was typed into a recipient.
+          commitDraft()
+        }}
+        className="min-w-[120px] flex-1 bg-transparent py-0.5 text-[13px] text-ink outline-none"
       />
       {open && suggestions.length > 0 && (
         <div
