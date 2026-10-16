@@ -215,10 +215,14 @@ export const useMail = create<MailState>((set, get) => {
     }
   }
 
-  // Surface a list failure instead of leaving the pane silently empty.
+  // Surface a list failure (or an empty result) instead of leaving the pane
+  // silently blank.
   async function reloadFolder(): Promise<void> {
     try {
       await reloadFolderInner()
+      const t = get().threads.length
+      const m = get().messages.length
+      set({ status: `${t} threads · ${m} msgs · folder ${(get().activeFolderId ?? '').slice(0, 8)}` })
     } catch (error) {
       set({
         loadingMessages: false,
