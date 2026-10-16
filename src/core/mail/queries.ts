@@ -6,6 +6,7 @@ import { countSpam, listSpam } from './spam'
 import { listThreadFlags } from './threadSettings'
 import { inferSpecialUse } from './specialUse'
 import type { FolderSummary, MessageSummary, ThreadSummary } from '@shared/mail'
+import { formatAddress } from '@shared/addresses'
 
 /** Excludes messages snoozed into the future. */
 function notSnoozed(): ReturnType<typeof or> {
@@ -359,7 +360,7 @@ export function threadParticipants(messageId: string, limit = 1500): string[] {
     const key = addr.toLowerCase()
     if (self.has(key) || seen.has(key)) return
     seen.add(key)
-    out.push(name ? `${name} <${addr}>` : addr)
+    out.push(formatAddress(name, addr))
   }
   for (const row of rows) {
     add(row.fromName, row.fromEmail)

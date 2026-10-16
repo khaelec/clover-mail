@@ -44,6 +44,8 @@ import {
 } from './MailContextMenus'
 import { FolderPane } from './FolderPane'
 import { MailToolbar } from './MailToolbar'
+import { formatAddress } from '@shared/addresses'
+import { useComposeRequest } from '../state/compose'
 
 function Splitter({
   width,
@@ -429,6 +431,13 @@ export function MailView(): ReactNode {
     /** UID of the draft being edited (so autosave/send update or delete it). */
     draftUid?: number
   }>({ open: false })
+  // Compose requests from elsewhere (address book, mailto: links).
+  const composeRequest = useComposeRequest((s) => s.request)
+  useEffect(() => {
+    if (!composeRequest) return
+    useComposeRequest.getState().clear()
+    setComposeState({ open: true, ...composeRequest })
+  }, [composeRequest])
   const [query, setQuery] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -626,9 +635,16 @@ export function MailView(): ReactNode {
     return subject?.startsWith('Re:') ? subject : `Re: ${subject ?? ''}`
   }
 
-  function senderAddress(detail: { fromName: string | null; fromEmail: string | null }): string {
+  // Where a reply goes: the Reply-To address when the sender set one (mailing
+  // lists, help desks), else From. Names are quoted so "Smith, Bob" survives.
+  function senderAddress(detail: {
+    fromName: string | null
+    fromEmail: string | null
+    replyTo?: string[]
+  }): string {
+    if (detail.replyTo && detail.replyTo.length > 0) return detail.replyTo.join(', ')
     if (!detail.fromEmail) return ''
-    return detail.fromName ? `${detail.fromName} <${detail.fromEmail}>` : detail.fromEmail
+    return formatAddress(detail.fromName, detail.fromEmail)
   }
 
   function emailOf(addr: string): string {

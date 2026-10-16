@@ -31,6 +31,14 @@ export function buildCloverApi(host: CloverHost): CloverApi {
     },
     onNavigate: (cb) => on(IpcChannels.appNavigate, cb),
     onOpenMessage: (cb) => on(IpcChannels.appOpenMessage, cb),
+    contacts: {
+      list: (scope, query) => invoke(IpcChannels.contacts.list, scope, query),
+      suggest: (query, limit) => invoke(IpcChannels.contacts.suggest, query, limit),
+      save: (input, id) => invoke(IpcChannels.contacts.save, input, id),
+      remove: (id) => invoke(IpcChannels.contacts.remove, id),
+      importFile: () => invoke(IpcChannels.contacts.importFile),
+      exportFile: () => invoke(IpcChannels.contacts.exportFile)
+    },
     apps: {
       list: () => invoke(IpcChannels.apps.list),
       create: (input) => invoke(IpcChannels.apps.create, input),

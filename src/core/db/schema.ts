@@ -246,6 +246,27 @@ export const messageLabels = sqliteTable(
   (table) => [index('ix_message_labels_label').on(table.labelId)]
 )
 
+export const contacts = sqliteTable(
+  'contacts',
+  {
+    id: text('id').primaryKey(),
+    /** Lower-cased address; one row per address. */
+    email: text('email').notNull(),
+    name: text('name'),
+    company: text('company'),
+    phone: text('phone'),
+    notes: text('notes'),
+    isSaved: integer('is_saved', { mode: 'boolean' }).notNull().default(false),
+    isHidden: integer('is_hidden', { mode: 'boolean' }).notNull().default(false),
+    sendCount: integer('send_count').notNull().default(0),
+    recvCount: integer('recv_count').notNull().default(0),
+    lastUsed: integer('last_used'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull()
+  },
+  (table) => [uniqueIndex('ux_contacts_email').on(table.email)]
+)
+
 export const savedSearches = sqliteTable('saved_searches', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -387,6 +408,7 @@ export const schema = {
   labels,
   messageLabels,
   savedSearches,
+  contacts,
   incomingSettings,
   outgoingSettings,
   folders,

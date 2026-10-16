@@ -3,12 +3,20 @@ import {
   IconCalendar,
   IconGrid,
   IconMail,
+  IconPeople,
   IconSettings,
   IconSparkles,
   IconWallpaper
 } from './icons'
 
-export type SectionId = 'mail' | 'calendar' | 'apps' | 'wallpaper' | 'copilot' | 'settings'
+export type SectionId =
+  | 'mail'
+  | 'calendar'
+  | 'contacts'
+  | 'apps'
+  | 'wallpaper'
+  | 'copilot'
+  | 'settings'
 
 interface NavItem {
   id: SectionId
@@ -19,6 +27,7 @@ interface NavItem {
 const PRIMARY: NavItem[] = [
   { id: 'mail', label: 'Mail', icon: IconMail },
   { id: 'calendar', label: 'Calendar', icon: IconCalendar },
+  { id: 'contacts', label: 'People', icon: IconPeople },
   { id: 'apps', label: 'Apps', icon: IconGrid },
   { id: 'wallpaper', label: 'Wallpaper', icon: IconWallpaper },
   { id: 'copilot', label: 'Copilot', icon: IconSparkles }

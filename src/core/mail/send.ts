@@ -8,6 +8,7 @@ import { getAccountAuth } from './auth'
 import { buildTransport } from './smtp'
 import { withImap } from './connection'
 import { storeParsedMessage } from './storeMessage'
+import { recordRecipients } from './contacts'
 import { inferSpecialUse, SPECIAL_USE_ORDER } from './specialUse'
 import type { MailboxRecord } from './sync'
 import type { ComposeInput } from '@shared/mail'
@@ -175,6 +176,9 @@ export async function deliverMessage(input: ComposeInput): Promise<void> {
   } finally {
     transport.close()
   }
+
+  // Suggest these recipients next time, before the Sent copy is even synced.
+  recordRecipients([...input.to, ...(input.cc ?? []), ...(input.bcc ?? [])])
 
   // Best-effort: file the sent copy in the account's Sent folder, and cache it
   // locally so it shows up in its conversation immediately (before the next sync).

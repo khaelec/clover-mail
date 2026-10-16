@@ -439,5 +439,29 @@ export const migrations: Migration[] = [
     sql: `
       ALTER TABLE notifications ADD COLUMN nav TEXT;
     `
+  },
+  {
+    // Address book + recipient autocomplete. New table only. Rows are either
+    // saved by the user (is_saved) or learned from mail; is_hidden keeps a
+    // deleted contact from being re-learned.
+    id: '0023_contacts',
+    sql: `
+      CREATE TABLE IF NOT EXISTS contacts (
+        id TEXT PRIMARY KEY NOT NULL,
+        email TEXT NOT NULL,
+        name TEXT,
+        company TEXT,
+        phone TEXT,
+        notes TEXT,
+        is_saved INTEGER NOT NULL DEFAULT 0,
+        is_hidden INTEGER NOT NULL DEFAULT 0,
+        send_count INTEGER NOT NULL DEFAULT 0,
+        recv_count INTEGER NOT NULL DEFAULT 0,
+        last_used INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_contacts_email ON contacts(email);
+    `
   }
 ]

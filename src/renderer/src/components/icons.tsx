@@ -59,6 +59,14 @@ export const IconSparkles = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconPeople = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5" />
+    <path d="M16 4.8a3.3 3.3 0 0 1 0 6.4M18 14.8c2 .7 3.2 2.5 3.5 5.2" />
+  </Base>
+)
+
 export const IconBell = (p: IconProps): ReactNode => (
   <Base {...p}>
     <path d="M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9z" />

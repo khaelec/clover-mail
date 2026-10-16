@@ -137,6 +137,8 @@ export interface MessageDetail extends MessageSummary {
   to: string[]
   cc: string[]
   bcc: string[]
+  /** Reply-To header: where replies should go when it differs from From. */
+  replyTo: string[]
   textPlain: string | null
   htmlRaw: string | null
   attachments: AttachmentSummary[]

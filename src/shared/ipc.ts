@@ -277,4 +277,5 @@ export interface CloverApi {
     onMaximizedChanged: (cb: (maximized: boolean) => void) => () => void
   }
   mail: MailApi
+  contacts: import('./contacts').ContactsApi
 }

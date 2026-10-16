@@ -10,6 +10,8 @@ import { useCalendar } from '../state/calendar'
 import { useLayout } from '../state/layout'
 import { IconCalendar, IconClose, IconDownload, IconFlag, IconForward, IconImportance, IconPaperclip, IconRefresh, IconReply, IconSparkles, IconTrash } from './icons'
 import type { MessageDetail } from '@shared/mail'
+import { composeFromMailto, openCompose } from '../state/compose'
+import { useToasts } from '../state/toasts'
 
 const AI_ACTIONS: { label: string; prompt: string }[] = [
   {
@@ -194,7 +196,11 @@ function MessageBody({
       const anchor = target?.closest?.('a') as HTMLAnchorElement | null
       if (!anchor) return
       const href = anchor.href
-      if (/^(https?:|mailto:)/i.test(href)) {
+      if (/^mailto:/i.test(href)) {
+        // Write it here, not in whatever app Windows has registered for mailto:.
+        event.preventDefault()
+        openCompose(composeFromMailto(href))
+      } else if (/^https?:/i.test(href)) {
         event.preventDefault()
         window.open(href, '_blank')
       }
@@ -872,6 +878,24 @@ export function Reader({
                 >
                   Snooze ›
                 </button>
+                {detail.fromEmail && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const email = detail.fromEmail as string
+                      setMenu(null)
+                      void window.clover.contacts
+                        .save({ email, name: detail.fromName })
+                        .then(() =>
+                          useToasts.getState().push({ message: `Added ${detail.fromName || email} to contacts`, kind: 'info' })
+                        )
+                        .catch((error: Error) => useToasts.getState().push({ message: error.message, kind: 'error' }))
+                    }}
+                    className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    Add sender to contacts
+                  </button>
+                )}
                 <div className="my-1 h-px bg-line" />
                 <button
                   type="button"

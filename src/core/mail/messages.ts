@@ -17,6 +17,7 @@ import { markRecentlyRemoved } from '@core/mail/recentUids'
 import { attachmentAbsolutePath, readAttachmentDataUrl, saveAttachment } from './storage'
 import { assessPhishing, classifySecurity, trustedSenders } from './security'
 import { inferSpecialUse } from './specialUse'
+import { formatAddress } from '@shared/addresses'
 import { toAttachmentSummary, toMessageSummary } from './mappers'
 import type { InlineImage, MessageDetail, MessagePhishing, MessageSecurity, MovedMessage } from '@shared/mail'
 
@@ -25,7 +26,7 @@ function parseAddresses(json: string | null): string[] {
   try {
     const parsed = JSON.parse(json) as { name: string | null; address: string | null }[]
     return parsed
-      .map((a) => (a.name ? `${a.name} <${a.address ?? ''}>` : a.address ?? ''))
+      .map((a) => (a.address ? formatAddress(a.name, a.address) : ''))
       .filter(Boolean)
   } catch {
     return []
@@ -63,6 +64,7 @@ function toDetail(
     to: parseAddresses(row.toJson),
     cc: parseAddresses(row.ccJson),
     bcc: parseAddresses(row.bccJson),
+    replyTo: parseAddresses(row.replyToJson),
     textPlain,
     htmlRaw,
     attachments: attachmentRows.map(toAttachmentSummary),

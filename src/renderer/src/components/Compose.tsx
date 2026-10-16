@@ -6,6 +6,8 @@ import { useMail } from '../state/mail'
 import { IconCheck, IconClose, IconHighlight, IconMic, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
 import { LinkDialog } from './LinkDialog'
 import { linkifyElement } from '../lib/linkify'
+import { splitAddresses } from '@shared/addresses'
+import { RecipientInput } from './RecipientInput'
 
 const SIGNATURE_ATTR = 'data-clover-signature'
 const QUOTE_ATTR = 'data-clover-quote'
@@ -31,11 +33,10 @@ interface GrammarIssue {
   suggestions: Suggestion[]
 }
 
+// Split on commas/semicolons only, so "Ann Lee <ann@x.com>" stays one recipient
+// (splitting on spaces too used to turn it into "Ann", "Lee" and "<ann@x.com>").
 function parseList(value: string): string[] {
-  return value
-    .split(/[,;\s]+/)
-    .map((v) => v.trim())
-    .filter(Boolean)
+  return splitAddresses(value)
 }
 
 function escapeHtml(value: string): string {
@@ -559,11 +560,11 @@ export function Compose({
           )}
           <div className="flex items-center gap-2 border-b border-line/70 py-1.5">
             <span className="w-10 text-[12px] text-muted">To</span>
-            <input
+            <RecipientInput
               value={to}
-              onChange={(e) => setTo(e.target.value)}
-              placeholder="name@example.com"
-              className="flex-1 bg-transparent text-[13px] text-ink outline-none"
+              onChange={setTo}
+              placeholder="Type a name or address"
+              autoFocus={!initialTo}
             />
             {!showCc && (
               <button type="button" onClick={() => setShowCc(true)} className="text-[12px] text-muted hover:text-accent">
@@ -575,11 +576,11 @@ export function Compose({
             <>
               <div className="flex items-center gap-2 border-b border-line/70 py-1.5">
                 <span className="w-10 text-[12px] text-muted">Cc</span>
-                <input value={cc} onChange={(e) => setCc(e.target.value)} className="flex-1 bg-transparent text-[13px] text-ink outline-none" />
+                <RecipientInput value={cc} onChange={setCc} />
               </div>
               <div className="flex items-center gap-2 border-b border-line/70 py-1.5">
                 <span className="w-10 text-[12px] text-muted">Bcc</span>
-                <input value={bcc} onChange={(e) => setBcc(e.target.value)} className="flex-1 bg-transparent text-[13px] text-ink outline-none" />
+                <RecipientInput value={bcc} onChange={setBcc} />
               </div>
             </>
           )}

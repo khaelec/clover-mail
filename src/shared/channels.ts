@@ -113,6 +113,14 @@ export const IpcChannels = {
     pickImportMbox: 'mail:pick-import-mbox',
     events: 'mail:events'
   },
+  contacts: {
+    list: 'contacts:list',
+    suggest: 'contacts:suggest',
+    save: 'contacts:save',
+    remove: 'contacts:remove',
+    importFile: 'contacts:import-file',
+    exportFile: 'contacts:export-file'
+  },
   apps: {
     list: 'apps:list',
     create: 'apps:create',

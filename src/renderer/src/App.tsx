@@ -4,6 +4,7 @@ import { Sidebar, type SectionId } from './components/Sidebar'
 import { MailView } from './components/MailView'
 import { AppsView } from './components/AppsView'
 import { CalendarView } from './components/CalendarView'
+import { ContactsView } from './components/ContactsView'
 import { CopilotView } from './components/CopilotView'
 import { WallpaperView } from './components/WallpaperView'
 import { WallpaperLayer } from './components/WallpaperLayer'
@@ -42,6 +43,8 @@ function renderSection(section: SectionId): ReactNode {
       return <SettingsView />
     case 'calendar':
       return <CalendarView />
+    case 'contacts':
+      return <ContactsView />
     case 'apps':
       return <AppsView />
     case 'wallpaper':
@@ -94,6 +97,7 @@ export function App(): ReactNode {
       if (
         target === 'mail' ||
         target === 'calendar' ||
+        target === 'contacts' ||
         target === 'settings' ||
         target === 'apps' ||
         target === 'copilot' ||
