@@ -435,6 +435,7 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
     folderIds = upsertFolders(accountId, list)
 
     for (const folderId of folderIds) {
+      await yieldToLoop()
       const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
       if (!folderRow) continue
       emit({

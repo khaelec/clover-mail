@@ -64,10 +64,22 @@ export function startEngine(bridge: Bridge): void {
   // that. Sync at start-up and every few minutes so mail arrives without the UI
   // asking. Events go out over the channel, so the UI refreshes itself.
   const emit = createMailEmit(() => null)
+  let syncing = false
   const syncAll = (): void => {
-    for (const account of listAccounts()) {
-      void syncAccount(account.id, emit).catch(() => undefined)
-    }
+    // Never overlap syncs — a second run on top of a long first sync doubles the
+    // IMAP work and starves the message channel.
+    if (syncing) return
+    syncing = true
+    void (async () => {
+      try {
+        for (const account of listAccounts()) {
+          await syncAccount(account.id, emit).catch(() => undefined)
+          await new Promise((resolve) => setImmediate(resolve))
+        }
+      } finally {
+        syncing = false
+      }
+    })()
   }
   setTimeout(syncAll, 3_000)
   setInterval(syncAll, 3 * 60_000)
