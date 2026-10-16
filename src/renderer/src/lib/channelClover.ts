@@ -49,8 +49,13 @@ export async function installChannelClover(onStatus: (text: string) => void): Pr
   const invoke = (channel: string, ...args: unknown[]): Promise<unknown> =>
     new Promise((resolve, reject) => {
       const id = String(++nextId)
+      // JSON turns an `undefined` array element into `null`, which breaks the
+      // engine's optional parameters (e.g. a null `limit` -> "datatype mismatch"
+      // / LIMIT 0). Trim trailing undefineds so the defaults apply.
+      const trimmed = [...args]
+      while (trimmed.length > 0 && trimmed[trimmed.length - 1] === undefined) trimmed.pop()
       pending.set(id, { resolve, reject })
-      void Nodejs.send({ eventName: 'invoke', args: [{ id, channel, args }] as never })
+      void Nodejs.send({ eventName: 'invoke', args: [{ id, channel, args: trimmed }] as never })
     })
 
   const host: CloverHost = {
