@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Production CSP. The dev server relaxes this (unsafe-eval / inline / ws)
+         via the `clover-dev-csp` plugin in electron.vite.config.ts. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: clover-media:; media-src 'self' data: blob: clover-media:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; worker-src 'self' blob:; frame-src 'self' clover-media: blob: data: https: http:"
+    />
+    <title>Clover Mail</title>
+    <script type="module" crossorigin src="./assets/index-BDB-upLs.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-RKDfMN9c.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -345,7 +345,23 @@ app.whenReady().then(async () => {
   const mailEmit = createMailEmit(() => mainWindow)
   syncAllAccounts = (): void => {
     for (const account of listAccounts()) {
-      void syncAccount(account.id, mailEmit).catch(() => undefined)
+      void (async () => {
+        // A flaky DNS lookup shouldn't surface as a sync failure — retry a
+        // couple of times before giving up until the next interval.
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            await syncAccount(account.id, mailEmit)
+            return
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            if (attempt < 2 && /ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH/i.test(message)) {
+              await new Promise((resolve) => setTimeout(resolve, 5000))
+              continue
+            }
+            return
+          }
+        }
+      })()
     }
   }
   setTimeout(syncAllAccounts, 4_000)

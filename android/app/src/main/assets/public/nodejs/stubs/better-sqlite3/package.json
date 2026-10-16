@@ -1,0 +1,7 @@
+{
+  "name": "better-sqlite3",
+  "version": "0.0.0-stub",
+  "private": true,
+  "main": "index.js",
+  "description": "Stub: Android has no better-sqlite3 prebuild; the engine uses node-sqlite3-wasm."
+}

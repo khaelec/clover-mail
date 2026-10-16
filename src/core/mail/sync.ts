@@ -281,6 +281,9 @@ async function syncOneMailbox(
     const insertedUids: number[] = []
     try {
       for await (const msg of client.fetch(range, FETCH_FIELDS, options)) {
+        // A UID Clover just deleted (e.g. Empty Trash) may still be listed by
+        // the server for a moment; re-adding it would resurrect the message.
+        if (isRecentlyRemoved(accountId, folderId, msg.uid)) continue
         upsertMessage(accountId, folderId, msg)
         insertedUids.push(msg.uid)
         count += 1
