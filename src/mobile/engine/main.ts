@@ -98,6 +98,30 @@ export function startEngine(bridge: Bridge): void {
   setTimeout(syncAll, 3_000)
   setInterval(syncAll, 3 * 60_000)
 
+  // One-off DNS diagnostic, surfaced in the bell. nodejs-mobile's resolver can
+  // fail where the phone's own apps resolve fine; this reports which path works.
+  const notify = (title: string, body: string): void =>
+    bridge.channel.post('event', { channel: 'app:notify', payload: { kind: 'system', title, body } })
+  void import('node:dns').then((dns) => {
+    dns.lookup('imap.gmail.com', (err, address) => {
+      if (!err) {
+        notify('DNS ok (system)', address)
+        return
+      }
+      try {
+        dns.setServers(['8.8.8.8', '1.1.1.1'])
+        dns.resolve4('imap.gmail.com', (err2, addresses) => {
+          notify(
+            err2 ? `DNS failed (${err.code})` : 'DNS via 8.8.8.8 ok',
+            err2 ? String(err2.code) : (addresses?.[0] ?? '')
+          )
+        })
+      } catch {
+        notify(`DNS failed (${err.code})`, '')
+      }
+    })
+  })
+
   // CI emulator only: run the on-device end-to-end check if configured.
   void runE2eIfConfigured(dataDir)
 }
