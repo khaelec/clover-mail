@@ -11,6 +11,14 @@ const bridge = require('bridge') as {
 
 console.log('CLOVER_ENGINE_BOOT')
 
+// Never let one bad operation kill the whole runtime — keep serving the UI.
+process.on('uncaughtException', (error) => {
+  console.log(`CLOVER_ENGINE_UNCAUGHT ${error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error)}`)
+})
+process.on('unhandledRejection', (reason) => {
+  console.log(`CLOVER_ENGINE_REJECTION ${reason instanceof Error ? `${reason.message}\n${reason.stack ?? ''}` : String(reason)}`)
+})
+
 let loadError: string | null = null
 try {
   const { startEngine } = require('./main') as typeof import('./main')
