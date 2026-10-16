@@ -10,6 +10,9 @@ android {
         versionCode 1
         // Set by CI (-PcloverVersion=…) from package.json; falls back for local builds.
         versionName (project.findProperty('cloverVersion') ?: "0.0.0")
+        // arm64 only: nodejs-mobile's libnode.so is ~40MB per ABI, and shipping
+        // every ABI triples the APK. Real releases can split per ABI / use an AAB.
+        ndk { abiFilters 'arm64-v8a' }
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
