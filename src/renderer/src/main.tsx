@@ -38,20 +38,18 @@ async function boot(): Promise<void> {
   // On the phone there is no preload: build window.clover over the on-device
   // engine (nodejs-mobile message channel). In Electron the preload provides it.
   if (isNative()) {
-    showStatus('engine: importing…')
     try {
       const { installChannelClover } = await import('./lib/channelClover')
-      await installChannelClover(showStatus)
-      showStatus('querying app:info…')
-      const info = await Promise.race([
+      // Progress is silent in normal use; only a failure shows the status bar.
+      await installChannelClover(() => undefined)
+      await Promise.race([
         window.clover.appInfo(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('app:info timed out (engine not replying)')), 15000)
+          setTimeout(() => reject(new Error('the engine did not respond')), 20000)
         )
       ])
-      showStatus(`engine OK — ${info?.name} ${info?.version}`)
     } catch (error) {
-      showStatus(`engine ERROR — ${error instanceof Error ? error.message : String(error)}`)
+      showStatus(`engine error: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
   root.render(

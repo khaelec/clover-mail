@@ -1,9 +1,10 @@
-// Bundles the phone engine (src/mobile/engine/index.ts + the reused src/core and
-// src/main/ipc/mail) into a single CJS file for nodejs-mobile. node_modules stay
-// external — the Capacitor Node project ships them. The three Electron imports
-// are aliased to the Electron-free shims beside this file. With
-// CLOVER_BRIDGE_STUB=1, `bridge` is aliased to a stdin/stdout stub for the local
-// test (no phone needed).
+// Bundles the phone engine (src/mobile/engine/index.ts + the reused src/core,
+// src/main/ipc/mail and its npm dependencies) into a single CJS file for
+// nodejs-mobile, so the phone loads one file instead of hundreds. Only
+// node-sqlite3-wasm (which loads a .wasm beside it) and `bridge` stay external.
+// The three Electron imports are aliased to the Electron-free shims beside this
+// file. With CLOVER_BRIDGE_STUB=1, `bridge` is aliased to a stdin/stdout stub for
+// the local test (no phone needed).
 import { build } from 'esbuild'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -18,7 +19,8 @@ const alias = {
   // No better-sqlite3 on the phone; the WASM driver is used instead.
   'better-sqlite3': resolve(root, 'src/mobile/engine/betterSqliteStub.ts')
 }
-if (process.env.CLOVER_BRIDGE_STUB === '1') {
+const stub = process.env.CLOVER_BRIDGE_STUB === '1'
+if (stub) {
   alias['bridge'] = resolve(root, 'src/mobile/engine/bridge-stub.cjs')
 }
 
@@ -33,7 +35,10 @@ await build({
   outfile,
   tsconfig: resolve(root, 'tsconfig.node.json'),
   alias,
-  packages: 'external',
+  // Bundle the engine's dependencies into one file (faster to load/extract on
+  // the phone). node-sqlite3-wasm stays external because it loads a .wasm file
+  // from its own directory; `bridge` is provided by nodejs-mobile at runtime.
+  external: stub ? ['node-sqlite3-wasm'] : ['node-sqlite3-wasm', 'bridge'],
   define: { 'process.env.CLOVER_VERSION': JSON.stringify(version) },
   logLevel: 'warning'
 })

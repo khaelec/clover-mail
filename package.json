@@ -47,11 +47,11 @@
     "mobile:open": "cap open android"
   },
   "dependencies": {
-    "@capawesome/capacitor-nodejs": "^0.1.1",
     "@capacitor-community/file-opener": "^8.0.1",
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@capacitor/filesystem": "^8.1.5",
+    "@capawesome/capacitor-nodejs": "^0.1.1",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
@@ -73,9 +73,9 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.3",
     "@tailwindcss/vite": "^4.3.3",
-    "esbuild": "^0.25.0",
     "@types/adm-zip": "^0.5.8",
     "@types/better-sqlite3": "^9.6.0",
     "@types/mailparser": "^3.9.0",
@@ -88,6 +88,7 @@
     "electron": "^44.7.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "esbuild": "^0.25.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

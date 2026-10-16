@@ -15,8 +15,11 @@ const appDir = resolve(root, 'src/mobile/app')
 rmSync(dist, { recursive: true, force: true })
 mkdirSync(nodeDir, { recursive: true })
 
-// Always install (idempotent) so added/removed deps are picked up.
+// Clean install so removed deps are pruned (the engine bundles its own deps;
+// only node-sqlite3-wasm ships beside index.js).
 console.log('installing the engine Node project deps…')
+rmSync(resolve(appDir, 'node_modules'), { recursive: true, force: true })
+rmSync(resolve(appDir, 'package-lock.json'), { force: true })
 // cwd (not --prefix) so the space in the repo path is not a shell argument.
 const install = spawnSync('npm', ['install'], { cwd: appDir, stdio: 'inherit', shell: true })
 if (install.status !== 0) process.exit(install.status ?? 1)
@@ -29,18 +32,13 @@ const bundle = spawnSync(process.execPath, [resolve(root, 'src/mobile/engine/bui
 if (bundle.status !== 0) process.exit(bundle.status ?? 1)
 
 // nodejs-mobile's Node ships limited Unicode property support (no \p{Diacritic}),
-// which imapflow uses to strip diacritics. Replace it with the equivalent
-// combining-mark ranges. This is the only \p{...} in the dependency tree.
+// which imapflow uses to strip diacritics. imapflow is bundled into index.js, so
+// patch the bundle. It's the only \p{...} in the dependency tree.
 const DIACRITIC = '[\\u0300-\\u036f\\u1ab0-\\u1aff\\u1dc0-\\u1dff\\u20d0-\\u20ff\\ufe20-\\ufe2f]'
-let patched = 0
-for (const rel of ['cjs/imap-flow.js', 'esm/imap-flow.js']) {
-  const file = resolve(nodeDir, 'node_modules/imapflow/dist', rel)
-  if (!existsSync(file)) continue
-  const src = readFileSync(file, 'utf8')
-  const next = src.replace(/\\p\{Diacritic\}/g, DIACRITIC)
-  if (next !== src) {
-    writeFileSync(file, next)
-    patched += 1
-  }
-}
-console.log(`engine Node project ready at ${nodeDir} (patched imapflow in ${patched} file(s))`)
+const bundleFile = resolve(nodeDir, 'index.js')
+const source = readFileSync(bundleFile, 'utf8')
+const patched = source.replace(/\\p\{Diacritic\}/g, DIACRITIC)
+if (patched !== source) writeFileSync(bundleFile, patched)
+console.log(
+  `engine Node project ready at ${nodeDir} (imapflow \\p{Diacritic} patched: ${patched !== source})`
+)
