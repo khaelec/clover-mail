@@ -529,6 +529,7 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
   const db = getDb()
   let folderIds: string[] = []
   let fetched = 0
+  let lostAt: string | null = null
 
   try {
     let list: MailboxRecord[]
@@ -539,6 +540,26 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
     }
     folderIds = upsertFolders(accountId, list)
 
+    // A connection that dropped while syncing a folder (server timeout, network
+    // blip, Gmail cutting the session) would fail every remaining folder with
+    // "Connection not available". Reconnect once per sync and retry that folder.
+    // If the server still won't take a connection, stop here instead of waiting
+    // out a connect timeout for every remaining folder (which held up new-mail
+    // checks for minutes); the next sync carries on.
+    let reconnected = false
+    const reconnect = async (folderName: string, reason: string): Promise<boolean> => {
+      if (reconnected) return false
+      reconnected = true
+      logLine(`sync:${accountId}`, `${folderName}: connection lost (${reason}), reconnecting`)
+      try {
+        client = await reopenSyncClient(accountId, client)
+        return true
+      } catch (error) {
+        logLine(`sync:${accountId}`, `reconnect failed: ${errText(error)}`)
+        return false
+      }
+    }
+
     for (const folderId of folderIds) {
       const folderRow = db.select().from(folders).where(eq(folders.id, folderId)).get()
       if (!folderRow) continue
@@ -548,19 +569,20 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
         folderId,
         folderName: folderRow.name
       })
+      if (!client.usable && !(await reconnect(folderRow.name, 'closed'))) {
+        lostAt = folderRow.name
+        break
+      }
       try {
-        // A connection that dropped while syncing an earlier folder (server
-        // timeout, network blip, laptop sleep) would fail every remaining folder
-        // with "Connection not available". Reconnect first, and retry a folder
-        // once if the connection died while syncing it.
-        if (!client.usable) client = await reopenSyncClient(accountId, client)
         let count: number
         try {
           count = await syncOneMailbox(client, accountId, folderId, folderRow.remotePath, emit)
         } catch (error) {
           if (client.usable) throw error
-          logLine(`sync:${accountId}`, `${folderRow.name}: connection lost (${errText(error)}), reconnecting`)
-          client = await reopenSyncClient(accountId, client)
+          if (!(await reconnect(folderRow.name, errText(error)))) {
+            lostAt = folderRow.name
+            break
+          }
           count = await syncOneMailbox(client, accountId, folderId, folderRow.remotePath, emit)
         }
         fetched += count
@@ -581,9 +603,23 @@ async function runSyncAccount(accountId: string, emit: Emit): Promise<SyncResult
           folderName: folderRow.name,
           error: message
         })
+        if (!client.usable && reconnected) {
+          lostAt = folderRow.name
+          break
+        }
       }
     }
 
+    if (lostAt) {
+      logLine(`sync:${accountId}`, `stopped at ${lostAt}: server connection lost; will retry next sync`)
+      emit({
+        type: 'sync:error',
+        accountId,
+        folderId: 'connection',
+        folderName: lostAt,
+        error: 'lost the connection to the mail server; the rest will sync next time'
+      })
+    }
   } finally {
     await client.logout().catch(() => undefined)
   }
