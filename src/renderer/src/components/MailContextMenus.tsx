@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { useMail } from '../state/mail'
 import { useToasts } from '../state/toasts'
+import { summarizeWithCopilot } from '../lib/copilot'
+import { errorText } from '../lib/errorText'
 import type { BulkActionType, FolderSummary, MessageSummary, ThreadSummary } from '@shared/mail'
 
 export interface MessageMenuState {
@@ -177,6 +179,21 @@ export function MailContextMenus({
                 >
                   Open
                 </MenuItem>
+                {(['message', 'thread'] as const).map((scope) => (
+                  <MenuItem
+                    key={scope}
+                    onClick={() => {
+                      const id = menu.message.id
+                      setMenu(null)
+                      // A message on its own falls back to summarizing just it.
+                      void summarizeWithCopilot(id, scope === 'thread').catch((error) =>
+                        useToasts.getState().push({ message: errorText(error), kind: 'error' })
+                      )
+                    }}
+                  >
+                    {scope === 'thread' ? 'Summarize its thread with Copilot' : 'Summarize with Copilot'}
+                  </MenuItem>
+                ))}
                 <MenuItem onClick={() => menuRun(menu.message.isRead ? 'markUnread' : 'markRead')}>
                   {menu.message.isRead ? 'Mark as unread' : 'Mark as read'}
                 </MenuItem>
@@ -318,6 +335,24 @@ export function MailContextMenus({
               </>
             ) : (
               <>
+                {(['latest', 'thread'] as const).map((scope) => (
+                  <MenuItem
+                    key={scope}
+                    onClick={() => {
+                      // Thread messages are oldest first; the latest is last.
+                      const list = threadMenu.thread.messages
+                      const latest = list[list.length - 1]?.id
+                      setThreadMenu(null)
+                      if (!latest) return
+                      void summarizeWithCopilot(latest, scope === 'thread').catch((error) =>
+                        useToasts.getState().push({ message: errorText(error), kind: 'error' })
+                      )
+                    }}
+                  >
+                    {scope === 'thread' ? 'Summarize whole thread with Copilot' : 'Summarize latest message with Copilot'}
+                  </MenuItem>
+                ))}
+                <MenuDivider />
                 <MenuItem
                   onClick={() => {
                     void muteThread(threadMenu.thread.threadId, !threadMenu.thread.muted)

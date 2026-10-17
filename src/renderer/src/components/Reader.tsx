@@ -13,6 +13,10 @@ import type { MessageDetail } from '@shared/mail'
 import { composeFromMailto, openCompose } from '../state/compose'
 import { useToasts } from '../state/toasts'
 import { errorText } from '../lib/errorText'
+import { summarizeWithCopilot } from '../lib/copilot'
+
+// A message popped out into its own window has no Copilot side panel.
+const isPopout = typeof window !== 'undefined' && window.location.hash.startsWith('#message=')
 import { SenderName } from './SenderCard'
 
 const AI_ACTIONS: { label: string; prompt: string }[] = [
@@ -980,6 +984,26 @@ export function Reader({
                     Add sender to contacts
                   </button>
                 )}
+                {!isPopout &&
+                  (messages.length > 1 ? (['message', 'thread'] as const) : (['message'] as const)).map((scope) => (
+                    <button
+                      key={scope}
+                      type="button"
+                      onClick={() => {
+                        setMenu(null)
+                        void summarizeWithCopilot(detail.id, scope === 'thread').catch((error) =>
+                          useToasts.getState().push({ message: errorText(error), kind: 'error' })
+                        )
+                      }}
+                      className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                    >
+                      {scope === 'thread'
+                        ? `Summarize whole thread (${messages.length}) with Copilot`
+                        : messages.length > 1
+                          ? 'Summarize this message with Copilot'
+                          : 'Summarize with Copilot'}
+                    </button>
+                  ))}
                 <button
                   type="button"
                   onClick={() => {
