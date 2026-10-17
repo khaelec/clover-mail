@@ -31,6 +31,9 @@ export function buildCloverApi(host: CloverHost): CloverApi {
     },
     onNavigate: (cb) => on(IpcChannels.appNavigate, cb),
     onOpenMessage: (cb) => on(IpcChannels.appOpenMessage, cb),
+    openMessageWindow: (messageId) => send(IpcChannels.appOpenMessageWindow, messageId),
+    mailChanged: () => send(IpcChannels.appMailChanged),
+    messageAction: (target) => send(IpcChannels.appMessageAction, target),
     contacts: {
       list: (scope, query) => invoke(IpcChannels.contacts.list, scope, query),
       suggest: (query, limit) => invoke(IpcChannels.contacts.suggest, query, limit),

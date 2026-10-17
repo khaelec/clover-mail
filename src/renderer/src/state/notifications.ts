@@ -20,12 +20,15 @@ interface NotificationsState {
 
 let counter = 0
 let subscribed = false
+// Only a window that loaded the bell may save it; a pop-out message window has
+// an empty list and would otherwise wipe the stored notifications.
+let loaded = false
 
 export const useNotifications = create<NotificationsState>((set, get) => {
   // Persist to the database (main) so the bell survives restarts. Skipped outside
   // the renderer (e.g. the store imported by a Node smoke test).
   function persist(): void {
-    if (typeof window === 'undefined' || !window.clover) return
+    if (typeof window === 'undefined' || !window.clover || !loaded) return
     void window.clover.notifications.save(get().items).catch(() => undefined)
   }
   function commit(items: AppNotification[]): void {
@@ -41,6 +44,7 @@ export const useNotifications = create<NotificationsState>((set, get) => {
       try {
         const stored = await window.clover.notifications.list()
         set({ items: stored })
+        loaded = true
       } catch {
         // first run / offline
       }

@@ -133,6 +133,7 @@ export function App(): ReactNode {
           messageId?: string
           threadId?: string
           reply?: boolean
+          action?: 'reply' | 'replyAll' | 'forward'
         }>
       ).detail
       if (!detail?.messageId) return
@@ -152,8 +153,12 @@ export function App(): ReactNode {
           const now = useMail.getState()
           if (!unified && now.activeFolderId !== found.folderId) await now.selectFolder(found.folderId)
           await useMail.getState().selectMessage(found.id)
-          // The bell's Reply action opens the message and then starts a reply.
-          if (detail.reply) window.dispatchEvent(new Event('clover:reply-now'))
+          // The bell's Reply, or a pop-out window's Reply/Forward, opens the
+          // message here and then starts writing.
+          const action = detail.action ?? (detail.reply ? 'reply' : null)
+          if (action === 'reply') window.dispatchEvent(new Event('clover:reply-now'))
+          else if (action === 'replyAll') window.dispatchEvent(new Event('clover:reply-all-now'))
+          else if (action === 'forward') window.dispatchEvent(new Event('clover:forward-now'))
         } catch (error) {
           useToasts.getState().push({
             message: `Couldn't open the message: ${(error as Error).message}`,

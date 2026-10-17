@@ -525,9 +525,17 @@ export function MailView(): ReactNode {
 
   // The bell's Reply action selects a message and then fires this.
   useEffect(() => {
-    const handler = (): void => void openReply()
-    window.addEventListener('clover:reply-now', handler)
-    return () => window.removeEventListener('clover:reply-now', handler)
+    const reply = (): void => void openReply()
+    const replyAll = (): void => void openReplyAll()
+    const forward = (): void => void openForward()
+    window.addEventListener('clover:reply-now', reply)
+    window.addEventListener('clover:reply-all-now', replyAll)
+    window.addEventListener('clover:forward-now', forward)
+    return () => {
+      window.removeEventListener('clover:reply-now', reply)
+      window.removeEventListener('clover:reply-all-now', replyAll)
+      window.removeEventListener('clover:forward-now', forward)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -842,6 +850,15 @@ export function MailView(): ReactNode {
           aria-label="Messages"
           aria-multiselectable
           tabIndex={0}
+          onDoubleClick={(e) => {
+            // Double-click opens the message in its own window (like Outlook).
+            const row = (e.target as HTMLElement).closest<HTMLElement>('[data-message-id],[data-row-key]')
+            const id = row?.dataset.messageId ?? row?.dataset.rowKey
+            if (!id || (e.target as HTMLElement).closest('button,input')) return
+            const isDrafts = folders.find((f) => f.id === activeFolderId)?.specialUse === 'drafts'
+            if (isDrafts || activeFolderId === OUTBOX_FOLDER_ID) return
+            window.clover.openMessageWindow(id)
+          }}
           className="min-h-0 flex-1 overflow-y-auto outline-none"
         >
           <BenchProfiler>

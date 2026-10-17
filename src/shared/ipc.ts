@@ -245,8 +245,24 @@ export interface CloverApi {
   onNavigate: (cb: (target: string) => void) => () => void
   /** A native new-mail notification was clicked: open that message. */
   onOpenMessage: (
-    cb: (target: { accountId: string; messageId: string; threadId?: string }) => void
+    cb: (target: {
+      accountId: string
+      messageId: string
+      threadId?: string
+      action?: 'reply' | 'replyAll' | 'forward'
+    }) => void
   ) => () => void
+  /** Open a message in its own window. */
+  openMessageWindow: (messageId: string) => void
+  /** From a pop-out window: something changed, refresh the main window's list. */
+  mailChanged: () => void
+  /** From a pop-out window: reply/forward in the main window. */
+  messageAction: (target: {
+    accountId: string
+    messageId: string
+    threadId?: string
+    action: 'reply' | 'replyAll' | 'forward'
+  }) => void
   openLicenses: () => Promise<{ opened: boolean; path: string }>
   readLicenses: () => Promise<string | null>
   readLogs: (limit?: number) => Promise<string>

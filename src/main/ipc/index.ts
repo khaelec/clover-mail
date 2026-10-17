@@ -7,6 +7,7 @@ import { AppInfoSchema, type AppInfo } from '@shared/ipc'
 import { getAllSettings, getSetting, setSetting, deleteSetting } from '@core/settings'
 import { registerMailIpc } from './mail'
 import { registerContactsIpc } from './contacts'
+import { registerMessageWindowIpc } from './messageWindow'
 import { registerAppsIpc } from './apps'
 import { registerCalendarIpc } from './calendar'
 import { registerAiIpc } from './ai'
@@ -115,6 +116,7 @@ export function registerIpc(
 
   registerMailIpc(getWindow)
   registerContactsIpc()
+  registerMessageWindowIpc(getWindow)
   registerAppsIpc()
   registerCalendarIpc()
   registerAiIpc(getWindow)

@@ -159,6 +159,7 @@ export const ThreadRow = memo(function ThreadRow({
               key={m.id}
               role="option"
               aria-selected={m.id === activeChildId}
+              data-message-id={m.id}
               onClick={() => onSelect(m.id)}
               onContextMenu={(e) => onMessageContextMenu(e, m)}
               className={
