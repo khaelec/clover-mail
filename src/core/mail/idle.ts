@@ -42,7 +42,7 @@ async function connect(handle: Handle, emit: Emit): Promise<void> {
     // Inside the try: building the client refreshes OAuth tokens, which fails
     // while the network is down (e.g. just after waking from sleep). Outside it,
     // that rejection was swallowed and IDLE for the account never came back.
-    client = await buildAccountClient(handle.accountId)
+    client = await buildAccountClient(handle.accountId, 'idle')
     if (!current()) return
     handle.client = client
     await client.connect()

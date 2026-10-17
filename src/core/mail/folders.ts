@@ -18,7 +18,7 @@ export async function createFolder(
     return
   }
 
-  const client = await buildAccountClient(accountId)
+  const client = await buildAccountClient(accountId, 'folders')
   await client.connect()
   try {
     const list = (await client.list()) as unknown as MailboxRecord[]

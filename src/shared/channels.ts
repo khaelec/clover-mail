@@ -16,6 +16,8 @@ export const IpcChannels = {
   appOpenMessageWindow: 'app:open-message-window',
   appMailChanged: 'app:mail-changed',
   appMessageAction: 'app:message-action',
+  appOpenComposeWindow: 'app:open-compose-window',
+  appTakeComposeWindow: 'app:take-compose-window',
   appOpenLicenses: 'app:open-licenses',
   appReadLicenses: 'app:read-licenses',
   appReadLogs: 'app:read-logs',

@@ -134,6 +134,14 @@ export const IconRestore = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconPopOut = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <path d="M14 4h6v6" />
+    <path d="M20 4 11 13" />
+    <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+  </Base>
+)
+
 export const IconClose = (p: IconProps): ReactNode => (
   <Base strokeWidth={1.6} {...p}>
     <path d="M6 6l12 12M18 6 6 18" />

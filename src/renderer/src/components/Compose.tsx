@@ -6,7 +6,7 @@ import { SETTINGS_KEYS } from '@shared/theme'
 import { useMail } from '../state/mail'
 import { useComposeSession } from '../state/compose'
 import { useToasts } from '../state/toasts'
-import { IconCheck, IconClose, IconHighlight, IconMic, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
+import { IconCheck, IconClose, IconHighlight, IconMic, IconPaperclip, IconPopOut, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
 import { LinkDialog } from './LinkDialog'
 import { linkifyElement } from '../lib/linkify'
 import { splitAddresses } from '@shared/addresses'
@@ -81,6 +81,8 @@ export function Compose({
   accountId,
   accountEmail,
   onClose,
+  popout,
+  initialFromEmail,
   initialTo,
   initialCc,
   initialBcc,
@@ -97,6 +99,9 @@ export function Compose({
   accountId: string
   accountEmail?: string
   onClose: () => void
+  /** Running in its own window: closing it closes the window. */
+  popout?: boolean
+  initialFromEmail?: string
   initialTo?: string
   initialCc?: string
   initialBcc?: string
@@ -177,6 +182,9 @@ export function Compose({
   const pendingRef = useRef<{ input: ComposeInput; seconds: number } | null>(null)
   pendingRef.current = pending
   const sentRef = useRef(false)
+  // Moved to its own window: this one no longer saves anything.
+  const handedOffRef = useRef(false)
+  const dropRef = useRef<Promise<void>>(Promise.resolve())
   const draftUidRef = useRef<number | null>(initialDraftUid ?? null)
   const draftRef = useRef<() => DraftData>(() => ({ to: [], subject: '' }))
   draftRef.current = () => ({
@@ -204,7 +212,9 @@ export function Compose({
     })
   )
   function saveDraftNow(): Promise<void> {
-    if (!dirtyRef.current || sentRef.current || discardedRef.current) return saveChainRef.current
+    if (!dirtyRef.current || sentRef.current || discardedRef.current || handedOffRef.current) {
+      return saveChainRef.current
+    }
     const draft = draftRef.current()
     const key = JSON.stringify(draft)
     if (key === lastSavedRef.current) return saveChainRef.current
@@ -248,7 +258,7 @@ export function Compose({
 
   /** Remove the server draft once any save still in flight has finished. */
   function dropDraft(): void {
-    void saveChainRef.current.then(async () => {
+    dropRef.current = saveChainRef.current.then(async () => {
       const uid = draftUidRef.current
       draftUidRef.current = null
       if (uid) await window.clover.mail.deleteDraft(accountId, uid).catch(() => undefined)
@@ -262,7 +272,8 @@ export function Compose({
   // editor element is still attached when this cleanup runs.
   useLayoutEffect(() => {
     return () => {
-      if (sentRef.current || discardedRef.current) return
+      // A compose window saves when it closes (closeWindow), not on unmount.
+      if (sentRef.current || discardedRef.current || handedOffRef.current || popout) return
       const html = editorRef.current?.innerHTML
       const draft = draftRef.current()
       const stillOpen = useComposeSession.getState().state.open
@@ -311,7 +322,7 @@ export function Compose({
           // Remove its draft (after any save still in flight) and reflect that
           // in the Drafts folder.
           dropDraft()
-          onClose()
+          closeRef.current()
         } catch (err) {
           setError((err as Error).message)
           setBusy(false)
@@ -353,8 +364,9 @@ export function Compose({
       ]
       setFromOptions(options)
       // Only use the saved default if the address still exists on this account.
-      const valid = defaultFrom && options.some((o) => o.email === defaultFrom)
-      setFromEmail(valid && defaultFrom ? defaultFrom : accountEmail ?? '')
+      const wanted = initialFromEmail || defaultFrom
+      const valid = wanted && options.some((o) => o.email === wanted)
+      setFromEmail(valid && wanted ? wanted : accountEmail ?? '')
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, accountEmail])
@@ -542,8 +554,16 @@ export function Compose({
       return
     }
     sentRef.current = true
-    void window.clover.mail.scheduleSend(buildInput(), laterUntil(kind)).then(() => dropDraft())
-    onClose()
+    dropRef.current = window.clover.mail
+      .scheduleSend(buildInput(), laterUntil(kind))
+      .then(() => {
+        dropDraft()
+        return dropRef.current
+      })
+      .catch((err: Error) => {
+        useToasts.getState().push({ message: `Couldn't schedule the message: ${err.message}`, kind: 'error' })
+      })
+    closeRef.current()
   }
 
   function addFiles(files: FileList | File[]): void {
@@ -617,6 +637,95 @@ export function Compose({
     setDictating(true)
   }
 
+  /** Move this message into its own window, keeping the same draft. */
+  async function popOut(): Promise<void> {
+    if (pendingRef.current || handedOffRef.current) return
+    handedOffRef.current = true
+    // Let a save in flight finish so the new window updates that draft.
+    await saveChainRef.current
+    window.clover.openComposeWindow({
+      accountId,
+      accountEmail,
+      fromEmail: fromEmail || undefined,
+      to,
+      cc,
+      bcc,
+      subject,
+      html: editorRef.current?.innerHTML ?? '',
+      attachments: attachmentsRef.current,
+      inReplyTo,
+      references,
+      draftUid: draftUidRef.current ?? undefined,
+      dirty: dirtyRef.current
+    })
+    onClose()
+  }
+
+  // In a compose window: closing (X, Escape, the window's own close button)
+  // saves to Drafts first, and keeps the window open if that save fails.
+  const closingRef = useRef(false)
+  const failedOnceRef = useRef(false)
+  async function closeWindow(): Promise<void> {
+    if (closingRef.current) return
+    const active = pendingRef.current
+    if (active && !sentRef.current) {
+      // Closed during the undo countdown: send it now (as the main window does).
+      sentRef.current = true
+      try {
+        await send(active.input)
+        dropDraft()
+      } catch (err) {
+        sentRef.current = false
+        setPending(null)
+        setError((err as Error).message)
+        return
+      }
+    }
+    const edited = dirtyRef.current && !sentRef.current && !discardedRef.current
+    await saveDraftNow()
+    await dropRef.current
+    if (edited && !lastSavedRef.current && !failedOnceRef.current) {
+      failedOnceRef.current = true
+      useToasts.getState().push({
+        message: "Couldn't save your draft to the server. Close again to discard it.",
+        kind: 'error'
+      })
+      return
+    }
+    closingRef.current = true
+    if (edited) refreshDrafts()
+    window.clover.mailChanged()
+    window.close()
+  }
+  const closeWindowRef = useRef(closeWindow)
+  closeWindowRef.current = closeWindow
+  const closeRef = useRef(onClose)
+  closeRef.current = popout ? () => void closeWindowRef.current() : onClose
+
+  useEffect(() => {
+    if (!popout) return
+    const beforeUnload = (e: BeforeUnloadEvent): void => {
+      if (closingRef.current) return
+      // Hold the window open until the draft is saved; closeWindow closes it.
+      e.preventDefault()
+      e.returnValue = false
+      void closeWindowRef.current()
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && !e.defaultPrevented) void closeWindowRef.current()
+    }
+    window.addEventListener('beforeunload', beforeUnload)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [popout])
+
+  useEffect(() => {
+    if (popout) document.title = subject.trim() || 'New message'
+  }, [popout, subject])
+
   async function submit(): Promise<void> {
     if (!to.trim()) {
       setError('Add at least one recipient.')
@@ -628,23 +737,48 @@ export function Compose({
 
   return (
     <div
-      className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
+      className={
+        popout
+          ? 'flex h-full w-full bg-surface'
+          : 'absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm'
+      }
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault()
         addFiles(e.dataTransfer.files)
       }}
     >
-      <div className="animate-fade-in flex h-[74vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+      <div
+        className={
+          popout
+            ? 'flex h-full w-full flex-col overflow-hidden bg-surface'
+            : 'animate-fade-in flex h-[74vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl'
+        }
+      >
         <header className="flex items-center justify-between border-b border-line px-5 py-3">
           <h2 className="text-[14px] font-semibold text-ink">New message</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
-          >
-            <IconClose />
-          </button>
+          <div className="flex items-center gap-1">
+            {!popout && !pending && (
+              <button
+                type="button"
+                title="Open in its own window"
+                aria-label="Open in its own window"
+                onClick={() => void popOut()}
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
+              >
+                <IconPopOut className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              title="Close (saves to Drafts)"
+              aria-label="Close"
+              onClick={() => closeRef.current()}
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
+            >
+              <IconClose />
+            </button>
+          </div>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col px-5 py-3">
@@ -933,7 +1067,7 @@ export function Compose({
             onClick={() => {
               discardedRef.current = true
               dropDraft()
-              onClose()
+              closeRef.current()
             }}
             className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-muted hover:text-rose-500"
           >

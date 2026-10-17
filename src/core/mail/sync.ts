@@ -373,7 +373,7 @@ async function syncOneMailbox(
 
 /** Connect a fresh client for a full sync, closing it if the login fails. */
 async function openSyncClient(accountId: string): Promise<ImapFlow> {
-  const client = await buildAccountClient(accountId)
+  const client = await buildAccountClient(accountId, 'sync')
   try {
     await client.connect()
   } catch (error) {

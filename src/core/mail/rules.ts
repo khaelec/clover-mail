@@ -217,7 +217,7 @@ export async function applyRules(accountId: string): Promise<ApplyRulesResult> {
   let matched = 0
   let moved = 0
 
-  const client = await buildAccountClient(accountId)
+  const client = await buildAccountClient(accountId, 'rules')
   await client.connect()
   try {
     for (const folder of folderRows) {

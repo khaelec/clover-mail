@@ -23,7 +23,7 @@ export function withImap<T>(
 
   const attempt = async (): Promise<T> => {
     if (!entry.client || !entry.client.usable) {
-      const client = await buildAccountClient(accountId)
+      const client = await buildAccountClient(accountId, 'pool')
       try {
         await client.connect()
       } catch (error) {

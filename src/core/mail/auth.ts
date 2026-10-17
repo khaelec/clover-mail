@@ -37,10 +37,11 @@ export async function getAccountAuth(accountId: string): Promise<ResolvedAuth | 
   return { user: account.incoming.username, pass }
 }
 
-export async function buildAccountClient(accountId: string): Promise<ImapFlow> {
+/** `purpose` (idle, sync, …) labels the connection in the log. */
+export async function buildAccountClient(accountId: string, purpose = 'imap'): Promise<ImapFlow> {
   const account = getAccountById(accountId)
   if (!account) throw new Error('Account not found')
   const auth = await getAccountAuth(accountId)
   if (!auth) throw new Error('No credentials for account')
-  return buildImapClient(account.incoming, auth)
+  return buildImapClient(account.incoming, auth, {}, `${purpose} ${account.email}`)
 }

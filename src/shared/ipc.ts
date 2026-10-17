@@ -237,6 +237,23 @@ export interface DictationApi {
   onEvent: (cb: (event: DictationEvent) => void) => () => void
 }
 
+/** A message being written, handed to its own window. */
+export interface ComposeWindowPayload {
+  accountId: string
+  accountEmail?: string
+  fromEmail?: string
+  to?: string
+  cc?: string
+  bcc?: string
+  subject?: string
+  html?: string
+  attachments?: { name: string; path: string }[]
+  inReplyTo?: string
+  references?: string
+  draftUid?: number
+  dirty?: boolean
+}
+
 export interface CloverApi {
   appInfo: () => Promise<AppInfo>
   getFilePath: (file: unknown) => string
@@ -263,6 +280,10 @@ export interface CloverApi {
     threadId?: string
     action: 'reply' | 'replyAll' | 'forward'
   }) => void
+  /** Move a message being written into its own window. */
+  openComposeWindow: (payload: ComposeWindowPayload) => void
+  /** In a compose window: fetch (once) the message it was opened with. */
+  takeComposeWindow: (token: string) => Promise<ComposeWindowPayload | null>
   openLicenses: () => Promise<{ opened: boolean; path: string }>
   readLicenses: () => Promise<string | null>
   readLogs: (limit?: number) => Promise<string>
