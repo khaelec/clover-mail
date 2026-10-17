@@ -1,6 +1,6 @@
 import { simpleParser } from 'mailparser'
 import { randomUUID } from 'node:crypto'
-import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { ImapFlow } from 'imapflow'
@@ -18,6 +18,7 @@ import { attachmentAbsolutePath, readAttachmentDataUrl, saveAttachment } from '.
 import { assessPhishing, classifySecurity, trustedSenders } from './security'
 import { inferSpecialUse } from './specialUse'
 import { formatAddress } from '@shared/addresses'
+import { listUnsubscribeJson, parseListUnsubscribe } from './unsubscribe'
 import { toAttachmentSummary, toMessageSummary } from './mappers'
 import type { InlineImage, MessageDetail, MessagePhishing, MessageSecurity, MovedMessage } from '@shared/mail'
 
@@ -54,7 +55,8 @@ function toDetail(
   attachmentRows: (typeof attachments.$inferSelect)[],
   inlineImages: InlineImage[],
   security: MessageSecurity,
-  phishing: MessagePhishing
+  phishing: MessagePhishing,
+  unsubscribeJson: string | null = null
 ): MessageDetail {
   return {
     ...toMessageSummary(row),
@@ -69,6 +71,7 @@ function toDetail(
     htmlRaw,
     attachments: attachmentRows.map(toAttachmentSummary),
     inlineImages,
+    unsubscribe: parseListUnsubscribe(unsubscribeJson),
     spamReasons: parseReasons(row.spamReasons),
     security,
     phishing
@@ -90,14 +93,15 @@ async function fetchAndStoreBody(messageId: string): Promise<void> {
     const parsed = await simpleParser(fetched.source)
     const textPlain = typeof parsed.text === 'string' ? parsed.text : null
     const htmlRaw = typeof parsed.html === 'string' ? parsed.html : null
+    const listUnsubscribe = listUnsubscribeJson(parsed)
     const snippet = (textPlain ?? '').replace(/\s+/g, ' ').trim().slice(0, 240) || null
     const hasAttachments = parsed.attachments.length > 0
 
     db.insert(messageBodies)
-      .values({ messageId, textPlain, htmlRaw, fetchedAt: Date.now() })
+      .values({ messageId, textPlain, htmlRaw, listUnsubscribe, fetchedAt: Date.now() })
       .onConflictDoUpdate({
         target: messageBodies.messageId,
-        set: { textPlain, htmlRaw, fetchedAt: Date.now() }
+        set: { textPlain, htmlRaw, listUnsubscribe, fetchedAt: Date.now() }
       })
       .run()
 
@@ -230,8 +234,36 @@ async function loadDetail(messageId: string, fetchBody: boolean): Promise<Messag
     attachmentRows,
     inlineImages,
     security,
-    phishing
+    phishing,
+    body?.listUnsubscribe ?? null
   )
+}
+
+/** Save the message as it arrived (an .eml file), fetched from the server. */
+export async function saveMessageSource(messageId: string): Promise<{ saved: boolean; path?: string }> {
+  const db = getDb()
+  const row = db.select().from(messages).where(eq(messages.id, messageId)).get()
+  if (!row) throw new Error('Message not found')
+  const folderRow = db.select().from(folders).where(eq(folders.id, row.folderId)).get()
+  if (protocolFor(row.accountId) !== 'imap' || row.uid < 0 || !folderRow) {
+    throw new Error("The original of this message isn't kept, so it can't be saved as a file")
+  }
+  let source: Buffer | null = null
+  await withImap(
+    row.accountId,
+    async (client) => {
+      await client.mailboxOpen(folderRow.remotePath, { readOnly: true })
+      const fetched = await client.fetchOne(String(row.uid), { source: true }, { uid: true })
+      source = fetched && fetched.source ? fetched.source : null
+    },
+    { retryOnDrop: true }
+  )
+  if (!source) throw new Error("Couldn't download this message from the server")
+  const name = (row.subject || 'message').replace(/[\\/:*?"<>|\x00-\x1f]+/g, ' ').trim().slice(0, 80) || 'message'
+  const result = await platform().showSaveDialog(`${name}.eml`)
+  if (result.canceled || !result.filePath) return { saved: false }
+  writeFileSync(result.filePath, source)
+  return { saved: true, path: result.filePath }
 }
 
 /** All cached messages in the conversation that contains `messageId`, oldest first. */

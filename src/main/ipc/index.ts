@@ -8,6 +8,7 @@ import { getAllSettings, getSetting, setSetting, deleteSetting } from '@core/set
 import { registerMailIpc } from './mail'
 import { registerContactsIpc } from './contacts'
 import { registerMessageWindowIpc } from './messageWindow'
+import { registerPrintIpc } from './print'
 import { registerAppsIpc } from './apps'
 import { registerCalendarIpc } from './calendar'
 import { registerAiIpc } from './ai'
@@ -117,6 +118,7 @@ export function registerIpc(
   registerMailIpc(getWindow)
   registerContactsIpc()
   registerMessageWindowIpc(getWindow)
+  registerPrintIpc()
   registerAppsIpc()
   registerCalendarIpc()
   registerAiIpc(getWindow)

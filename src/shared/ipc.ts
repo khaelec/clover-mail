@@ -15,7 +15,8 @@ import type {
   MessageSummary,
   Rule,
   RuleInput,
-  SyncResult
+  SyncResult,
+  UnsubscribeResult
 } from './mail'
 import type { CreateAppInput, CustomApp } from './apps'
 import type {
@@ -112,6 +113,9 @@ export interface MailApi {
   saveDraft: (accountId: string, draft: import('./mail').DraftData, existingUid?: number | null) => Promise<number | null>
   deleteDraft: (accountId: string, uid: number) => Promise<void>
   downloadAttachment: (attachmentId: string) => Promise<{ saved: boolean; path?: string }>
+  /** Save the original message as an .eml file (asks where). */
+  saveSource: (messageId: string) => Promise<{ saved: boolean; path?: string }>
+  unsubscribe: (messageId: string) => Promise<UnsubscribeResult>
   getAttachmentPath: (attachmentId: string) => Promise<string | null>
   openAttachment: (attachmentId: string) => Promise<{ opened: boolean; error?: string }>
   readAttachmentText: (attachmentId: string) => Promise<string | null>
@@ -280,6 +284,8 @@ export interface CloverApi {
     threadId?: string
     action: 'reply' | 'replyAll' | 'forward'
   }) => void
+  /** Print a self-contained page (scripts off, no network). Resolves false if cancelled. */
+  printHtml: (html: string) => Promise<boolean>
   /** Move a message being written into its own window. */
   openComposeWindow: (payload: ComposeWindowPayload) => void
   /** In a compose window: fetch (once) the message it was opened with. */

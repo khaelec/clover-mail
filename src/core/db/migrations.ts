@@ -488,5 +488,13 @@ export const migrations: Migration[] = [
         PRIMARY KEY (group_id, contact_id)
       );
     `
+  },
+  {
+    // A message's List-Unsubscribe header, for the Unsubscribe button. Adds a
+    // column only.
+    id: '0026_list_unsubscribe',
+    sql: `
+      ALTER TABLE message_bodies ADD COLUMN list_unsubscribe TEXT;
+    `
   }
 ]

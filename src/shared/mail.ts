@@ -130,6 +130,20 @@ export interface MessagePhishing {
   reasons: string[]
 }
 
+/** How a mailing list says to unsubscribe (List-Unsubscribe, RFC 2369/8058). */
+export interface ListUnsubscribe {
+  http?: string
+  mailto?: string
+  /** The sender accepts a one-click POST (RFC 8058). */
+  oneClick: boolean
+}
+
+/** done: one-click accepted; sent: unsubscribe email sent; open: open `url` in the browser. */
+export interface UnsubscribeResult {
+  status: 'done' | 'sent' | 'open'
+  url?: string
+}
+
 export interface MessageDetail extends MessageSummary {
   messageId: string | null
   inReplyTo: string | null
@@ -143,6 +157,7 @@ export interface MessageDetail extends MessageSummary {
   htmlRaw: string | null
   attachments: AttachmentSummary[]
   inlineImages: InlineImage[]
+  unsubscribe: ListUnsubscribe | null
   spamReasons: string[]
   security: MessageSecurity
   phishing: MessagePhishing

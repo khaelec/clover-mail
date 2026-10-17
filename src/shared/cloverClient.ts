@@ -35,6 +35,7 @@ export function buildCloverApi(host: CloverHost): CloverApi {
     mailChanged: () => send(IpcChannels.appMailChanged),
     messageAction: (target) => send(IpcChannels.appMessageAction, target),
     openComposeWindow: (payload) => send(IpcChannels.appOpenComposeWindow, payload),
+    printHtml: (html) => invoke(IpcChannels.appPrintHtml, html),
     takeComposeWindow: (token) => invoke(IpcChannels.appTakeComposeWindow, token),
     contacts: {
       list: (scope, query) => invoke(IpcChannels.contacts.list, scope, query),
@@ -195,6 +196,8 @@ export function buildCloverApi(host: CloverHost): CloverApi {
       deleteDraft: (accountId, uid) => invoke(IpcChannels.mail.deleteDraft, accountId, uid),
       downloadAttachment: (attachmentId) =>
         invoke(IpcChannels.mail.downloadAttachment, attachmentId),
+      saveSource: (messageId) => invoke(IpcChannels.mail.saveSource, messageId),
+      unsubscribe: (messageId) => invoke(IpcChannels.mail.unsubscribe, messageId),
       getAttachmentPath: (attachmentId) => invoke(IpcChannels.mail.attachmentPath, attachmentId),
       openAttachment: (attachmentId) => invoke(IpcChannels.mail.openAttachment, attachmentId),
       readAttachmentText: (attachmentId) =>

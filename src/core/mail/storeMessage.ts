@@ -6,6 +6,7 @@ import { attachments, folders, messageBodies, messages } from '@core/db/schema'
 import { indexMessage, removeFromIndex } from './search'
 import { applyAssessment } from './spam'
 import { saveAttachment } from './storage'
+import { listUnsubscribeJson } from './unsubscribe'
 
 function addressJson(value: ParsedMail['to']): string | null {
   if (!value) return null
@@ -131,11 +132,12 @@ export function storeParsedMessage(
     .onConflictDoNothing()
     .run()
 
+  const listUnsubscribe = listUnsubscribeJson(parsed)
   db.insert(messageBodies)
-    .values({ messageId: id, textPlain, htmlRaw, fetchedAt: Date.now() })
+    .values({ messageId: id, textPlain, htmlRaw, listUnsubscribe, fetchedAt: Date.now() })
     .onConflictDoUpdate({
       target: messageBodies.messageId,
-      set: { textPlain, htmlRaw, fetchedAt: Date.now() }
+      set: { textPlain, htmlRaw, listUnsubscribe, fetchedAt: Date.now() }
     })
     .run()
 

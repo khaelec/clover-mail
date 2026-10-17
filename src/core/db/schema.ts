@@ -136,6 +136,7 @@ export const messageBodies = sqliteTable('message_bodies', {
     .references(() => messages.id, { onDelete: 'cascade' }),
   textPlain: text('text_plain'),
   htmlRaw: text('html_raw'),
+  listUnsubscribe: text('list_unsubscribe'),
   fetchedAt: integer('fetched_at').notNull()
 })
 

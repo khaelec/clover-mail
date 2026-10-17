@@ -12,6 +12,7 @@ import { IconCalendar, IconClose, IconDownload, IconFlag, IconForward, IconImpor
 import type { MessageDetail } from '@shared/mail'
 import { composeFromMailto, openCompose } from '../state/compose'
 import { useToasts } from '../state/toasts'
+import { errorText } from '../lib/errorText'
 import { SenderName } from './SenderCard'
 
 const AI_ACTIONS: { label: string; prompt: string }[] = [
@@ -90,6 +91,49 @@ const CSP_BLOCKED =
   "default-src 'none'; img-src data:; media-src data:; font-src data:; style-src 'unsafe-inline'"
 const CSP_ALLOWED =
   "default-src 'none'; img-src data: http: https:; media-src data: http: https:; font-src data: http: https:; style-src 'unsafe-inline'"
+
+function escapeText(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/** A printable page for one message: its header, body and attachment names. */
+function buildPrintPage(detail: MessageDetail, allowRemote: boolean): string {
+  let body: string
+  if (detail.htmlRaw) {
+    const sanitized = sanitizeWithInlineImages(detail.htmlRaw, detail.inlineImages)
+    body = allowRemote ? sanitized : blockRemoteImages(sanitized).html
+  } else {
+    body = `<pre>${escapeText(detail.textPlain ?? '')}</pre>`
+  }
+  const row = (label: string, value: string): string =>
+    value ? `<tr><th>${label}</th><td>${escapeText(value)}</td></tr>` : ''
+  const from = detail.fromName
+    ? `${detail.fromName}${detail.fromEmail ? ` <${detail.fromEmail}>` : ''}`
+    : detail.fromEmail ?? ''
+  const files = detail.attachments.filter((a) => !a.isInline).map((a) => a.filename ?? 'attachment')
+  const date = detail.dateUtc
+    ? new Date(detail.dateUtc).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })
+    : ''
+  const css = [
+    "body{font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;line-height:1.5;color:#111;margin:24px}",
+    'h1{font-size:18px;margin:0 0 12px}',
+    'table.hdr{border-collapse:collapse;margin-bottom:16px;font-size:12px}',
+    'table.hdr th{text-align:left;color:#555;font-weight:600;padding:2px 12px 2px 0;vertical-align:top}',
+    'hr{border:0;border-top:1px solid #ccc;margin:12px 0 16px}',
+    'img{max-width:100%;height:auto}',
+    'pre{white-space:pre-wrap;font-family:inherit}'
+  ].join('')
+  const csp = allowRemote ? CSP_ALLOWED : CSP_BLOCKED
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><title>${escapeText(
+    detail.subject || 'Message'
+  )}</title><style>${css}</style></head><body><h1>${escapeText(detail.subject || '(no subject)')}</h1><table class="hdr">${row(
+    'From',
+    from
+  )}${row('To', detail.to.join(', '))}${row('Cc', detail.cc.join(', '))}${row('Date', date)}${row(
+    'Attachments',
+    files.join(', ')
+  )}</table><hr>${body}</body></html>`
+}
 
 function hasRemoteUrl(value: string | null): boolean {
   return !!value && /https?:\/\//i.test(value)
@@ -425,6 +469,29 @@ export function Reader({
   const sender = detail?.fromEmail?.toLowerCase() ?? ''
   const shouldBlock = blockEnabled && !allowRemote && !trusted.includes(sender)
 
+  // Messages unsubscribed from here (hides their Unsubscribe bar).
+  const [unsubscribed, setUnsubscribed] = useState<Set<string>>(new Set())
+  async function runUnsubscribe(message: MessageDetail): Promise<void> {
+    const who = message.fromName || message.fromEmail || 'this sender'
+    if (!window.confirm(`Unsubscribe from ${who}?`)) return
+    const toast = useToasts.getState().push
+    try {
+      const result = await window.clover.mail.unsubscribe(message.id)
+      if (result.status === 'open' && result.url) {
+        window.open(result.url, '_blank')
+        toast({ message: `Finish unsubscribing on ${who}'s page in your browser`, kind: 'info' })
+      } else {
+        toast({
+          message: result.status === 'done' ? `Unsubscribed from ${who}` : `Unsubscribe request emailed to ${who}`,
+          kind: 'info'
+        })
+      }
+      setUnsubscribed((prev) => new Set(prev).add(message.id))
+    } catch (error) {
+      toast({ message: errorText(error), kind: 'error' })
+    }
+  }
+
   // The whole conversation, newest first (so the latest message is at the top and
   // you scroll down through history), with the focused message kept fresh.
   const messages = useMemo(() => {
@@ -685,6 +752,20 @@ export function Reader({
               </div>
             )}
 
+            {message.unsubscribe && !message.isSpam && !message.phishing.suspicious && !unsubscribed.has(message.id) && (
+              <div className="flex items-center gap-2 border-b border-line px-6 py-1.5 text-[12px] text-muted">
+                <span>From a mailing list</span>
+                <span aria-hidden="true">·</span>
+                <button
+                  type="button"
+                  onClick={() => void runUnsubscribe(message)}
+                  className="font-medium text-accent hover:underline"
+                >
+                  Unsubscribe
+                </button>
+              </div>
+            )}
+
             {message.phishing.suspicious && (
               <div className="flex items-start gap-3 border-b border-line bg-rose-500/10 px-6 py-2 text-[12px] text-rose-600">
                 <span className="mt-0.5 shrink-0 font-semibold">Suspicious message</span>
@@ -892,13 +973,40 @@ export function Reader({
                         .then(() =>
                           useToasts.getState().push({ message: `Added ${detail.fromName || email} to contacts`, kind: 'info' })
                         )
-                        .catch((error: Error) => useToasts.getState().push({ message: error.message, kind: 'error' }))
+                        .catch((error: Error) => useToasts.getState().push({ message: errorText(error), kind: 'error' }))
                     }}
                     className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
                   >
                     Add sender to contacts
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenu(null)
+                    void window.clover.printHtml(buildPrintPage(detail, !shouldBlock)).catch((error: Error) =>
+                      useToasts.getState().push({ message: `Couldn't print: ${errorText(error)}`, kind: 'error' })
+                    )
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  Print…
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenu(null)
+                    void window.clover.mail
+                      .saveSource(detail.id)
+                      .then((r) => {
+                        if (r.saved) useToasts.getState().push({ message: 'Message saved', kind: 'info' })
+                      })
+                      .catch((error: Error) => useToasts.getState().push({ message: errorText(error), kind: 'error' }))
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-[13px] hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  Save as file (.eml)…
+                </button>
                 <div className="my-1 h-px bg-line" />
                 <button
                   type="button"

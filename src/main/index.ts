@@ -4,7 +4,6 @@ import {
   powerMonitor,
   shell,
   BrowserWindow,
-  Menu,
   net,
   Notification,
   protocol,
@@ -20,6 +19,7 @@ import { registerIpc } from '@main/ipc'
 import { setStorageRoot } from '@core/mail/storage'
 import { initMediaAllow, isMediaPathAllowed } from '@main/mediaAllow'
 import { initLogging, logError } from '@core/log'
+import { attachEditMenu } from '@main/editMenu'
 import { installResilientDns } from '@core/net/dns'
 import { setAppsRoot } from '@main/apps'
 import { restartAllIdle, stopAllIdle } from '@core/mail/idle'
@@ -214,36 +214,7 @@ function createWindow(): void {
     webPreferences.backgroundThrottling = false
   })
 
-  mainWindow.webContents.on('context-menu', (_event, params) => {
-    const template: Electron.MenuItemConstructorOptions[] = []
-    if (params.misspelledWord) {
-      for (const suggestion of params.dictionarySuggestions.slice(0, 5)) {
-        template.push({
-          label: suggestion,
-          click: () => mainWindow?.webContents.replaceMisspelling(suggestion)
-        })
-      }
-      if (template.length > 0) template.push({ type: 'separator' })
-      template.push({
-        label: `Add “${params.misspelledWord}” to dictionary`,
-        click: () =>
-          mainWindow?.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
-      })
-      template.push({ type: 'separator' })
-    }
-    if (params.isEditable) {
-      template.push(
-        { role: 'cut', enabled: params.editFlags.canCut },
-        { role: 'copy', enabled: params.editFlags.canCopy },
-        { role: 'paste', enabled: params.editFlags.canPaste },
-        { type: 'separator' },
-        { role: 'selectAll' }
-      )
-    } else if (params.selectionText) {
-      template.push({ role: 'copy' })
-    }
-    if (template.length > 0) Menu.buildFromTemplate(template).popup()
-  })
+  attachEditMenu(mainWindow)
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])

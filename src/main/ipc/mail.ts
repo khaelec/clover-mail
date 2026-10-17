@@ -17,7 +17,8 @@ import { testImap } from '@core/mail/imap'
 import { testSmtp } from '@core/mail/smtp'
 import { syncAccount as runSyncAccount, syncFolder as runSyncFolder, type Emit } from '@core/mail/sync'
 import { listFolders, listImportant, listJunk, listMessages, listThreads, listUnifiedMessages, listUnifiedThreads, importantCount, spamCount, hasOlderMessages, messageStatuses, threadParticipants } from '@core/mail/queries'
-import { deleteMessage, downloadAttachment, getAttachmentPath, getConversation, getMessageDetail, locateMessage, moveMessage, openAttachment, readAttachmentText, setFlags } from '@core/mail/messages'
+import { deleteMessage, downloadAttachment, getAttachmentPath, getConversation, getMessageDetail, locateMessage, moveMessage, openAttachment, readAttachmentText, saveMessageSource, setFlags } from '@core/mail/messages'
+import { unsubscribe } from '@core/mail/unsubscribe'
 import { listOutbox, retryOutbox, cancelOutbox, sendNow } from '@core/mail/outbox'
 import { searchMessages, searchServer } from '@core/mail/search'
 import { addSnippet, deleteSnippet, listSnippets } from '@core/mail/snippets'
@@ -246,6 +247,8 @@ export function registerMailIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IpcChannels.mail.deleteDraft, (_e, accountId: string, uid: number) =>
     deleteDraft(accountId, uid)
   )
+  ipcMain.handle(IpcChannels.mail.saveSource, (_e, messageId: string) => saveMessageSource(messageId))
+  ipcMain.handle(IpcChannels.mail.unsubscribe, (_e, messageId: string) => unsubscribe(messageId))
   ipcMain.handle(IpcChannels.mail.downloadAttachment, (_e, attachmentId: string) =>
     downloadAttachment(attachmentId)
   )
