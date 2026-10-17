@@ -50,3 +50,35 @@ export function composeFromMailto(href: string): ComposeRequest {
   }
   return out
 }
+
+/** The message being written in the Mail view. */
+export interface ComposeState {
+  open: boolean
+  to?: string
+  cc?: string
+  bcc?: string
+  subject?: string
+  body?: string
+  /** Editor HTML to restore exactly (a reopened draft, or after switching views). */
+  html?: string
+  quote?: string
+  attachments?: { name: string; path: string }[]
+  inReplyTo?: string
+  references?: string
+  /** UID of the draft being edited (so autosave/send update or delete it). */
+  draftUid?: number
+  /** It had unsaved edits when it was hidden. */
+  dirty?: boolean
+}
+
+/**
+ * Lives outside the Mail view so a message being written survives switching to
+ * Calendar or People and back (the view unmounts; the message doesn't).
+ */
+export const useComposeSession = create<{
+  state: ComposeState
+  set: (state: ComposeState) => void
+}>((set) => ({
+  state: { open: false },
+  set: (state) => set({ state })
+}))

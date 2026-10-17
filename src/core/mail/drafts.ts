@@ -41,7 +41,8 @@ export async function saveDraft(
   existingUid?: number | null
 ): Promise<number | null> {
   const folder = draftsFolder(accountId)
-  if (!folder) return null
+  // Fail loudly: callers tell the user whether their draft was kept.
+  if (!folder) throw new Error('This account has no Drafts folder yet')
   const raw = Buffer.from(buildRaw(draft), 'utf8')
   let uid: number | null = null
   await withImap(accountId, async (client) => {

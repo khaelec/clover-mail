@@ -45,7 +45,7 @@ import {
 import { FolderPane } from './FolderPane'
 import { MailToolbar } from './MailToolbar'
 import { formatAddress } from '@shared/addresses'
-import { useComposeRequest } from '../state/compose'
+import { useComposeRequest, useComposeSession } from '../state/compose'
 
 function Splitter({
   width,
@@ -418,19 +418,8 @@ export function MailView(): ReactNode {
       setMenu(null)
     })
   }
-  const [composeState, setComposeState] = useState<{
-    open: boolean
-    to?: string
-    cc?: string
-    subject?: string
-    body?: string
-    quote?: string
-    attachments?: { name: string; path: string }[]
-    inReplyTo?: string
-    references?: string
-    /** UID of the draft being edited (so autosave/send update or delete it). */
-    draftUid?: number
-  }>({ open: false })
+  const composeState = useComposeSession((s) => s.state)
+  const setComposeState = useComposeSession((s) => s.set)
   // Compose requests from elsewhere (address book, mailto: links).
   const composeRequest = useComposeRequest((s) => s.request)
   useEffect(() => {
@@ -580,8 +569,11 @@ export function MailView(): ReactNode {
           open: true,
           to: detail.to.join(', '),
           cc: detail.cc.join(', '),
+          bcc: detail.bcc.join(', '),
           subject: detail.subject ?? '',
           body: detail.textPlain ?? '',
+          // Keep the draft's formatting when it has any (sanitized in Compose).
+          html: detail.htmlRaw ?? undefined,
           draftUid: detail.uid
         })
       })()
@@ -1000,6 +992,9 @@ export function MailView(): ReactNode {
           accountEmail={activeAccount?.email}
           initialTo={composeState.to}
           initialCc={composeState.cc}
+          initialBcc={composeState.bcc}
+          initialHtml={composeState.html}
+          initialDirty={composeState.dirty}
           initialSubject={composeState.subject}
           initialBody={composeState.body}
           initialDraftUid={composeState.draftUid}

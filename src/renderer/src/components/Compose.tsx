@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import DOMPurify from 'dompurify'
 import type { Lint, LocalLinter, Suggestion } from 'harper.js'
 import type { ComposeInput, DraftData, Snippet } from '@shared/mail'
 import { SETTINGS_KEYS } from '@shared/theme'
 import { useMail } from '../state/mail'
+import { useComposeSession } from '../state/compose'
+import { useToasts } from '../state/toasts'
 import { IconCheck, IconClose, IconHighlight, IconMic, IconPaperclip, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
 import { LinkDialog } from './LinkDialog'
 import { linkifyElement } from '../lib/linkify'
@@ -10,6 +13,10 @@ import { splitAddresses } from '@shared/addresses'
 import { RecipientInput } from './RecipientInput'
 
 const SIGNATURE_ATTR = 'data-clover-signature'
+
+// The save started when a composer was hidden (switching views); a restored
+// composer waits for it and reuses its draft UID.
+let pendingFlush: Promise<number | null> = Promise.resolve(null)
 const QUOTE_ATTR = 'data-clover-quote'
 
 let harperLinter: LocalLinter | null = null
@@ -76,6 +83,9 @@ export function Compose({
   onClose,
   initialTo,
   initialCc,
+  initialBcc,
+  initialHtml,
+  initialDirty,
   initialSubject,
   initialBody,
   initialDraftUid,
@@ -89,6 +99,11 @@ export function Compose({
   onClose: () => void
   initialTo?: string
   initialCc?: string
+  initialBcc?: string
+  /** Editor HTML to restore as-is (a reopened draft, or after switching views). */
+  initialHtml?: string
+  /** Restoring a message that already had unsaved edits. */
+  initialDirty?: boolean
   initialSubject?: string
   initialBody?: string
   /** Editing an existing draft: its UID, so autosave/send update or remove it. */
@@ -101,14 +116,16 @@ export function Compose({
   const send = useMail((s) => s.send)
   const [to, setTo] = useState(initialTo ?? '')
   const [cc, setCc] = useState(initialCc ?? '')
-  const [bcc, setBcc] = useState('')
+  const [bcc, setBcc] = useState(initialBcc ?? '')
   // Show the Cc/Bcc rows up front when a reply already has Cc recipients,
   // otherwise reply-all looks like it only selected one person.
-  const [showCc, setShowCc] = useState(Boolean(initialCc))
+  const [showCc, setShowCc] = useState(Boolean(initialCc || initialBcc))
   const [subject, setSubject] = useState(initialSubject ?? '')
   const [attachments, setAttachments] = useState<{ name: string; path: string }[]>(
     initialAttachments ?? []
   )
+  const attachmentsRef = useRef(attachments)
+  attachmentsRef.current = attachments
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
@@ -173,24 +190,114 @@ export function Compose({
     fromName: fromOptions.find((o) => o.email === fromEmail)?.name ?? undefined
   })
 
+  // Drafts: saved only once you've actually edited something (an untouched new
+  // message holds just the signature), only when it changed since the last save,
+  // and one save at a time so a slow save can't leave a duplicate behind.
+  const dirtyRef = useRef(Boolean(initialDirty))
+  const discardedRef = useRef(false)
+  const lastSavedRef = useRef('')
+  const saveChainRef = useRef<Promise<void>>(
+    // A message restored after switching views may still be finishing the save
+    // that ran when it was hidden; adopt that draft instead of making another.
+    pendingFlush.then((uid) => {
+      if (uid && initialHtml !== undefined && draftUidRef.current === null) draftUidRef.current = uid
+    })
+  )
+  function saveDraftNow(): Promise<void> {
+    if (!dirtyRef.current || sentRef.current || discardedRef.current) return saveChainRef.current
+    const draft = draftRef.current()
+    const key = JSON.stringify(draft)
+    if (key === lastSavedRef.current) return saveChainRef.current
+    lastSavedRef.current = key
+    saveChainRef.current = saveChainRef.current.then(async () => {
+      if (sentRef.current || discardedRef.current) return
+      try {
+        const uid = await window.clover.mail.saveDraft(accountId, draft, draftUidRef.current)
+        if (uid) draftUidRef.current = uid
+      } catch {
+        lastSavedRef.current = '' // try again next time
+      }
+    })
+    return saveChainRef.current
+  }
+
+  // Anything the user changes marks the message as edited.
+  const firstRender = useRef(true)
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    dirtyRef.current = true
+  }, [to, cc, bcc, subject, attachments])
+
   // Autosave the draft to the server Drafts folder while composing.
   useEffect(() => {
     const interval = setInterval(() => {
-      if (sentRef.current || pending) return
-      const draft = draftRef.current()
-      const text = editorRef.current?.innerText ?? ''
-      if (!draft.to.length && !draft.subject.trim() && !text.trim()) return
-      void (async () => {
-        try {
-          const uid = await window.clover.mail.saveDraft(accountId, draft, draftUidRef.current)
-          if (uid) draftUidRef.current = uid
-        } catch {
-          // ignore autosave failures
-        }
-      })()
+      if (pending) return
+      void saveDraftNow()
     }, 7000)
     return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, pending])
+
+  function refreshDrafts(): void {
+    const draftsFolder = useMail.getState().folders.find((f) => f.specialUse === 'drafts')
+    if (draftsFolder) void window.clover.mail.syncFolder(draftsFolder.id).catch(() => undefined)
+  }
+
+  /** Remove the server draft once any save still in flight has finished. */
+  function dropDraft(): void {
+    void saveChainRef.current.then(async () => {
+      const uid = draftUidRef.current
+      draftUidRef.current = null
+      if (uid) await window.clover.mail.deleteDraft(accountId, uid).catch(() => undefined)
+      refreshDrafts()
+    })
+  }
+
+  // Leaving the composer never loses work. Closing it (X, Escape) saves what
+  // you wrote to Drafts; switching to Calendar/People keeps it open and brings
+  // it back, exactly as it was, when you return to Mail. Layout effect: the
+  // editor element is still attached when this cleanup runs.
+  useLayoutEffect(() => {
+    return () => {
+      if (sentRef.current || discardedRef.current) return
+      const html = editorRef.current?.innerHTML
+      const draft = draftRef.current()
+      const stillOpen = useComposeSession.getState().state.open
+      const edited = dirtyRef.current
+      const flush = saveDraftNow().then(() => draftUidRef.current)
+      pendingFlush = flush
+      if (stillOpen) {
+        const session = useComposeSession.getState().state
+        useComposeSession.getState().set({
+          ...session,
+          to: draft.to.join(', '),
+          cc: (draft.cc ?? []).join(', '),
+          bcc: (draft.bcc ?? []).join(', '),
+          subject: draft.subject,
+          html: html ?? session.html,
+          quote: undefined,
+          body: undefined,
+          attachments: attachmentsRef.current,
+          draftUid: draftUidRef.current ?? session.draftUid,
+          dirty: edited
+        })
+      } else if (edited) {
+        void flush.then(() => {
+          refreshDrafts()
+          // lastSavedRef is cleared when a save fails.
+          useToasts.getState().push(
+            lastSavedRef.current
+              ? { message: 'Saved to Drafts', kind: 'info' }
+              : { message: "Couldn't save your draft to the server", kind: 'error' }
+          )
+        })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!pending) return
@@ -201,13 +308,9 @@ export function Compose({
         setBusy(true)
         try {
           await send(pending.input)
-          if (draftUidRef.current) {
-            await window.clover.mail.deleteDraft(accountId, draftUidRef.current).catch(() => undefined)
-            draftUidRef.current = null
-          }
-          // Reflect the removed draft in the Drafts folder.
-          const draftsFolder = useMail.getState().folders.find((f) => f.specialUse === 'drafts')
-          if (draftsFolder) void window.clover.mail.syncFolder(draftsFolder.id).catch(() => undefined)
+          // Remove its draft (after any save still in flight) and reflect that
+          // in the Drafts folder.
+          dropDraft()
           onClose()
         } catch (err) {
           setError((err as Error).message)
@@ -328,13 +431,15 @@ export function Compose({
     await checkWriting()
   }
 
-  const initialHtml = useMemo(() => {
+  const startHtml = useMemo(() => {
+    // Draft HTML can come from other mail apps: strip anything active from it.
+    if (initialHtml !== undefined) return DOMPurify.sanitize(initialHtml)
     const body = initialBody
       ? escapeHtml(initialBody).replace(/&gt;/g, '>').replace(/\n/g, '<br>')
       : ''
     if (initialQuote) return `${body || '<div><br></div>'}${initialQuote}`
     return body
-  }, [initialBody, initialQuote])
+  }, [initialBody, initialQuote, initialHtml])
 
   // Reflect the quote's collapsed/expanded state on the editable quote block.
   useEffect(() => {
@@ -436,7 +541,8 @@ export function Compose({
       setError('Add at least one recipient.')
       return
     }
-    void window.clover.mail.scheduleSend(buildInput(), laterUntil(kind))
+    sentRef.current = true
+    void window.clover.mail.scheduleSend(buildInput(), laterUntil(kind)).then(() => dropDraft())
     onClose()
   }
 
@@ -733,6 +839,9 @@ export function Compose({
             ref={editorRef}
             contentEditable
             suppressContentEditableWarning
+            onInput={() => {
+              dirtyRef.current = true
+            }}
             onPaste={(e) => {
               const files = e.clipboardData.files
               if (files && files.length > 0) {
@@ -745,7 +854,7 @@ export function Compose({
               if (editor) linkifyElement(editor)
             }}
             className="compose-editor mt-2 min-h-0 flex-1 overflow-y-auto bg-transparent text-[13.5px] leading-relaxed text-ink outline-none"
-            dangerouslySetInnerHTML={{ __html: initialHtml }}
+            dangerouslySetInnerHTML={{ __html: startHtml }}
           />
 
           {dictating && (
@@ -817,6 +926,19 @@ export function Compose({
           >
             <IconPaperclip className="h-4 w-4" />
             Attach
+          </button>
+          <button
+            type="button"
+            title="Delete this message and its draft"
+            onClick={() => {
+              discardedRef.current = true
+              dropDraft()
+              onClose()
+            }}
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-muted hover:text-rose-500"
+          >
+            <IconTrash className="h-4 w-4" />
+            Discard
           </button>
           {micSupported && dictationOn && (
             <button
