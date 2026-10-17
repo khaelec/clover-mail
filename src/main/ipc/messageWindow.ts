@@ -69,13 +69,24 @@ function openMessageWindow(messageId: string, getMain: () => BrowserWindow | nul
   })
 }
 
+// A saved draft opened in a window: opening it again focuses that window.
+const draftWindows = new Map<string, BrowserWindow>()
+
 function openComposeWindow(payload: ComposeWindowPayload, getMain: () => BrowserWindow | null): void {
+  const draftKey = payload.draftUid ? `${payload.accountId}:${payload.draftUid}` : null
+  const existing = draftKey ? draftWindows.get(draftKey) : undefined
+  if (existing && !existing.isDestroyed()) {
+    revealWindow(existing)
+    return
+  }
   const token = randomUUID()
   composePayloads.set(token, payload)
   const win = createPopout(`compose=${token}`, { width: 820, height: 760 }, getMain)
   composeWindows.add(win)
+  if (draftKey) draftWindows.set(draftKey, win)
   win.on('closed', () => {
     composeWindows.delete(win)
+    if (draftKey && draftWindows.get(draftKey) === win) draftWindows.delete(draftKey)
     composePayloads.delete(token)
     // Sent or saved there: show it in the main window's folders and Outbox.
     refreshMain(getMain)

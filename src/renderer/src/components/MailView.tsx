@@ -45,7 +45,7 @@ import {
 import { FolderPane } from './FolderPane'
 import { MailToolbar } from './MailToolbar'
 import { formatAddress } from '@shared/addresses'
-import { useComposeRequest, useComposeSession } from '../state/compose'
+import { useComposeRequest, useComposeSession, type ComposeState } from '../state/compose'
 
 function Splitter({
   width,
@@ -250,6 +250,21 @@ function buildForwardQuote(detail: MessageDetail): string {
   ).replace(/\n/g, '<br>')
   const body = escapeForHtml(detail.textPlain ?? '').replace(/\n/g, '<br>')
   return `<div data-clover-quote="1"><p>${header}</p><blockquote>${body}</blockquote></div>`
+}
+
+/** Compose fields for editing a saved draft. */
+function draftCompose(detail: MessageDetail): ComposeState {
+  return {
+    open: true,
+    to: detail.to.join(', '),
+    cc: detail.cc.join(', '),
+    bcc: detail.bcc.join(', '),
+    subject: detail.subject ?? '',
+    body: detail.textPlain ?? '',
+    // Keep the draft's formatting when it has any (sanitized in Compose).
+    html: detail.htmlRaw ?? undefined,
+    draftUid: detail.uid ?? undefined
+  }
 }
 
 export function MailView(): ReactNode {
@@ -565,25 +580,18 @@ export function MailView(): ReactNode {
 
   // Stable callbacks so memoized rows skip re-rendering when unrelated state
   // (selection, sync status, …) changes.
+  // A draft double-clicked into its own window; its single-click open is skipped.
+  const poppedDraftRef = useRef<string | null>(null)
   const handleSelectMessage = useCallback((messageId: string): void => {
     const store = useMail.getState()
     const folder = store.folders.find((f) => f.id === store.activeFolderId)
     // A draft opens in the compose window (to edit and send), not the reader.
     if ((folder?.specialUse ?? '') === 'drafts') {
+      poppedDraftRef.current = null
       void (async () => {
         const detail = await window.clover.mail.getMessage(messageId).catch(() => null)
-        if (!detail) return
-        setComposeState({
-          open: true,
-          to: detail.to.join(', '),
-          cc: detail.cc.join(', '),
-          bcc: detail.bcc.join(', '),
-          subject: detail.subject ?? '',
-          body: detail.textPlain ?? '',
-          // Keep the draft's formatting when it has any (sanitized in Compose).
-          html: detail.htmlRaw ?? undefined,
-          draftUid: detail.uid
-        })
+        if (!detail || poppedDraftRef.current === messageId) return
+        setComposeState(draftCompose(detail))
       })()
       return
     }
@@ -856,7 +864,26 @@ export function MailView(): ReactNode {
             const id = row?.dataset.messageId ?? row?.dataset.rowKey
             if (!id || (e.target as HTMLElement).closest('button,input')) return
             const isDrafts = folders.find((f) => f.id === activeFolderId)?.specialUse === 'drafts'
-            if (isDrafts || activeFolderId === OUTBOX_FOLDER_ID) return
+            if (activeFolderId === OUTBOX_FOLDER_ID) return
+            if (isDrafts) {
+              // A draft opens in its own compose window instead.
+              poppedDraftRef.current = id
+              void (async () => {
+                const detail = await window.clover.mail.getMessage(id).catch(() => null)
+                if (!detail) return
+                // The first click may already have opened it here; move it out.
+                const here = useComposeSession.getState().state
+                if (here.open && here.draftUid === detail.uid && !here.dirty) setComposeState({ open: false })
+                const { open, ...fields } = draftCompose(detail)
+                void open
+                window.clover.openComposeWindow({
+                  ...fields,
+                  accountId: detail.accountId,
+                  accountEmail: useMail.getState().accounts.find((a) => a.id === detail.accountId)?.email
+                })
+              })()
+              return
+            }
             window.clover.openMessageWindow(id)
           }}
           className="min-h-0 flex-1 overflow-y-auto outline-none"
