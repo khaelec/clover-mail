@@ -20,6 +20,18 @@ interface NotificationsState {
 
 let counter = 0
 let subscribed = false
+// One status lookup at a time; a request made meanwhile runs once afterwards.
+let reconciling = false
+let reconcileAgain = false
+
+/** The messages a mail alert is about. */
+function messagesOf(item: AppNotification): string[] {
+  if (item.messageIds?.length) return item.messageIds
+  return item.messageId ? [item.messageId] : []
+}
+function covers(item: AppNotification, messageId: string): boolean {
+  return messagesOf(item).includes(messageId)
+}
 // Only a window that loaded the bell may save it; a pop-out message window has
 // an empty list and would otherwise wipe the stored notifications.
 let loaded = false
@@ -60,7 +72,7 @@ export const useNotifications = create<NotificationsState>((set, get) => {
       const items = get().items
       // One bell item per mail message: overlapping syncs (or IDLE racing the
       // periodic sync) can emit mail:new for the same message more than once.
-      if (n.messageId && items.some((i) => i.messageId === n.messageId)) return
+      if (n.messageId && items.some((i) => covers(i, n.messageId as string))) return
 
       // Collapse repeated system alerts (the same sync error every few minutes).
       if (n.kind === 'system') {
@@ -108,46 +120,64 @@ export const useNotifications = create<NotificationsState>((set, get) => {
       commit(get().items.map((i) => (i.id === id ? { ...i, read: true } : i))),
     // Reading a message clears the matching mail notification so the bell stops
     // showing an unread count for mail the user has already seen.
-    markMessageRead: (messageId) =>
-      commit(get().items.map((i) => (i.messageId === messageId ? { ...i, read: true } : i))),
-    markThreadRead: (threadId) =>
-      commit(
-        get().items.map((i) => (i.threadId === threadId && !i.read ? { ...i, read: true } : i))
-      ),
+    markMessageRead: (messageId) => {
+      const items = get().items
+      if (!items.some((i) => !i.read && covers(i, messageId))) return
+      commit(items.map((i) => (covers(i, messageId) ? { ...i, read: true } : i)))
+    },
+    markThreadRead: (threadId) => {
+      const items = get().items
+      if (!items.some((i) => i.threadId === threadId && !i.read)) return
+      commit(items.map((i) => (i.threadId === threadId && !i.read ? { ...i, read: true } : i)))
+    },
     markAppRead: (appId) =>
       commit(get().items.map((i) => (i.appId === appId ? { ...i, read: true } : i))),
 
     reconcileMail: async () => {
-      const ids = get()
-        .items.filter((i) => i.kind === 'mail' && i.messageId)
-        .map((i) => i.messageId as string)
+      if (reconciling) {
+        reconcileAgain = true
+        return
+      }
+      const ids = [
+        ...new Set(get().items.filter((i) => i.kind === 'mail').flatMap(messagesOf))
+      ]
       if (ids.length === 0) return
+      reconciling = true
       let status: Record<string, { exists: boolean; isRead: boolean }>
       try {
         status = await window.clover.mail.notificationStatus(ids)
       } catch {
         return
+      } finally {
+        reconciling = false
       }
       let changed = false
       const next: AppNotification[] = []
       for (const item of get().items) {
-        if (item.kind !== 'mail' || !item.messageId) {
+        const covered = item.kind === 'mail' ? messagesOf(item) : []
+        const known = covered.map((id) => status[id]).filter(Boolean)
+        // Only judge items whose messages were all looked up (not ones added
+        // while the lookup ran).
+        if (covered.length === 0 || known.length < covered.length) {
           next.push(item)
           continue
         }
-        const s = status[item.messageId]
-        if (s && !s.exists) {
-          changed = true // deleted on the server -> drop it
+        if (known.every((s) => !s.exists)) {
+          changed = true // deleted (on the server or here) -> drop it
           continue
         }
-        if (s && s.isRead && !item.read) {
-          changed = true
+        if (!item.read && known.every((s) => !s.exists || s.isRead)) {
+          changed = true // all of it has been read, here or on another device
           next.push({ ...item, read: true })
           continue
         }
         next.push(item)
       }
       if (changed) commit(next)
+      if (reconcileAgain) {
+        reconcileAgain = false
+        void get().reconcileMail()
+      }
     },
 
     remove: (id) => commit(get().items.filter((i) => i.id !== id)),

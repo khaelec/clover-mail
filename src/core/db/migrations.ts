@@ -496,5 +496,13 @@ export const migrations: Migration[] = [
     sql: `
       ALTER TABLE message_bodies ADD COLUMN list_unsubscribe TEXT;
     `
+  },
+  {
+    // The messages a grouped new-mail alert covers, so reading them clears it.
+    // Adds a column only.
+    id: '0027_notification_message_ids',
+    sql: `
+      ALTER TABLE notifications ADD COLUMN message_ids TEXT;
+    `
   }
 ]

@@ -7,6 +7,8 @@ export interface NotificationInput {
   body?: string
   accountId?: string
   messageId?: string
+  /** Every message a grouped mail alert ("and 3 more") covers. */
+  messageIds?: string[]
   threadId?: string
   appId?: string
   appName?: string

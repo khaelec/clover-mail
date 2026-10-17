@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray, like, lt, or, type SQL } from 'drizzle-orm'
+import { and, eq, gte, inArray, like, lt, or, type SQL } from 'drizzle-orm'
 import { getDb, getRawDb } from '@core/db'
 import { folders, labels, messageBodies, messageLabels, messages } from '@core/db/schema'
 import { protocolFor } from './accounts'
@@ -6,6 +6,7 @@ import { withImap } from './connection'
 import { upsertMessage } from './sync'
 import { toMessageSummary } from './mappers'
 import type { MessageSummary } from '@shared/mail'
+import { parseSearch, type ParsedSearch } from '@shared/search'
 
 /** Upsert the search-index row for one message from its current DB state. */
 export function indexMessage(messageId: string): void {
@@ -50,102 +51,14 @@ function buildFtsQuery(input: string): string {
   return tokens.map((token) => `"${token}"*`).join(' AND ')
 }
 
-export interface ParsedSearch {
-  text: string
-  from?: string
-  to?: string
-  subject?: string
-  hasAttachment?: boolean
-  isUnread?: boolean
-  isRead?: boolean
-  isFlagged?: boolean
-  isImportant?: boolean
-  inFolder?: string
-  label?: string
-  before?: number
-  after?: number
-}
+export { parseSearch, type ParsedSearch } from '@shared/search'
 
-function parseDate(value: string): number | undefined {
-  const t = Date.parse(value)
-  return Number.isNaN(t) ? undefined : t
-}
-
-/** Parse Gmail-style operators (from:, to:, subject:, has:attachment, is:unread, in:, label:, before:, after:) plus free text. */
-export function parseSearch(input: string): ParsedSearch {
-  const result: ParsedSearch = { text: '' }
-  const tokens: string[] = []
-  const re = /(\w+):("([^"]*)"|\S+)|"([^"]*)"|(\S+)/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(input)) !== null) {
-    const key = m[1]?.toLowerCase()
-    const val = (m[3] ?? m[2] ?? m[4] ?? m[5] ?? '').replace(/^"|"$/g, '')
-    if (m[1] && val !== '') {
-      switch (key) {
-        case 'from':
-          result.from = val
-          break
-        case 'to':
-          result.to = val
-          break
-        case 'subject':
-          result.subject = val
-          break
-        case 'body':
-        case 'text':
-          tokens.push(val)
-          break
-        case 'has':
-          if (val === 'attachment' || val === 'attachments') result.hasAttachment = true
-          break
-        case 'is':
-          if (val === 'unread') result.isUnread = true
-          else if (val === 'read') result.isRead = true
-          else if (val === 'flagged' || val === 'starred') result.isFlagged = true
-          else if (val === 'important') result.isImportant = true
-          break
-        case 'in':
-          result.inFolder = val
-          break
-        case 'label':
-          result.label = val
-          break
-        case 'before':
-          result.before = parseDate(val)
-          break
-        case 'after':
-          result.after = parseDate(val)
-          break
-        default:
-          tokens.push(m[0])
-      }
-    } else {
-      const word = m[4] ?? m[5]
-      if (word) tokens.push(word)
-    }
-  }
-  result.text = tokens.join(' ')
-  return result
-}
-
-export function searchMessages(query: string, accountId?: string): MessageSummary[] {
-  const parsed = parseSearch(query)
+/**
+ * SQL for every operator except free text. Null when the search can't match
+ * anything (an unknown folder or label).
+ */
+function filterConditions(parsed: ParsedSearch): SQL[] | null {
   const conditions: SQL[] = []
-  if (accountId) conditions.push(eq(messages.accountId, accountId))
-
-  if (parsed.text.trim()) {
-    const fts = buildFtsQuery(parsed.text)
-    const ids = fts
-      ? (
-          getRawDb()
-            .prepare('SELECT message_id FROM messages_fts WHERE messages_fts MATCH ? LIMIT 300')
-            .all(fts) as { message_id: string }[]
-        ).map((hit) => hit.message_id)
-      : []
-    if (ids.length === 0) return []
-    conditions.push(inArray(messages.id, ids))
-  }
-
   if (parsed.from)
     conditions.push(
       or(
@@ -164,7 +77,7 @@ export function searchMessages(query: string, accountId?: string): MessageSummar
   if (parsed.isFlagged) conditions.push(eq(messages.isFlagged, true))
   if (parsed.isImportant) conditions.push(eq(messages.isImportant, true))
   if (parsed.before) conditions.push(lt(messages.dateUtc, parsed.before))
-  if (parsed.after) conditions.push(gt(messages.dateUtc, parsed.after))
+  if (parsed.after) conditions.push(gte(messages.dateUtc, parsed.after))
 
   const db = getDb()
   if (parsed.inFolder) {
@@ -174,7 +87,7 @@ export function searchMessages(query: string, accountId?: string): MessageSummar
       .where(like(folders.name, `%${parsed.inFolder}%`))
       .all()
     const folderIds = matching.map((f) => f.id)
-    if (folderIds.length === 0) return []
+    if (folderIds.length === 0) return null
     conditions.push(inArray(messages.folderId, folderIds))
   }
   if (parsed.label) {
@@ -184,19 +97,44 @@ export function searchMessages(query: string, accountId?: string): MessageSummar
       .from(labels)
       .all()
       .find((l) => l.name.toLowerCase() === needle)
-    if (!labelRow) return []
+    if (!labelRow) return null
     const msgIds = db
       .select()
       .from(messageLabels)
       .where(eq(messageLabels.labelId, labelRow.id))
       .all()
       .map((r) => r.messageId)
-    if (msgIds.length === 0) return []
+    if (msgIds.length === 0) return null
     conditions.push(inArray(messages.id, msgIds))
   }
 
+  return conditions
+}
+
+export function searchMessages(query: string, accountId?: string): MessageSummary[] {
+  const parsed = parseSearch(query)
+  const conditions: SQL[] = []
+  if (accountId) conditions.push(eq(messages.accountId, accountId))
+
+  if (parsed.text.trim()) {
+    const fts = buildFtsQuery(parsed.text)
+    const ids = fts
+      ? (
+          getRawDb()
+            .prepare('SELECT message_id FROM messages_fts WHERE messages_fts MATCH ? LIMIT 2000')
+            .all(fts) as { message_id: string }[]
+        ).map((hit) => hit.message_id)
+      : []
+    if (ids.length === 0) return []
+    conditions.push(inArray(messages.id, ids))
+  }
+
+  const filters = filterConditions(parsed)
+  if (!filters) return []
+  conditions.push(...filters)
+
   if (conditions.length === 0) return []
-  return db
+  return getDb()
     .select()
     .from(messages)
     .where(and(...conditions))
@@ -212,15 +150,28 @@ export function searchMessages(query: string, accountId?: string): MessageSummar
 export async function searchServer(accountId: string, query: string): Promise<MessageSummary[]> {
   if (protocolFor(accountId) !== 'imap') return []
   const parsed = parseSearch(query)
-  const clauses: Record<string, string>[] = []
-  if (parsed.text) clauses.push({ body: parsed.text })
-  if (parsed.subject) clauses.push({ subject: parsed.subject })
-  if (parsed.from) clauses.push({ from: parsed.from })
-  if (parsed.to) clauses.push({ to: parsed.to })
-  if (clauses.length === 0) return []
-  const criteria = clauses.length === 1 ? clauses[0] : { or: clauses }
+  // All parts must match (imapflow ANDs the keys of one criteria object). Free
+  // text uses TEXT, which covers headers too, like the local search.
+  const criteria: Record<string, unknown> = {}
+  if (parsed.text) criteria.text = parsed.text
+  if (parsed.subject) criteria.subject = parsed.subject
+  if (parsed.from) criteria.from = parsed.from
+  if (parsed.to) criteria.to = parsed.to
+  // Only worth asking the server when there's something to look for.
+  if (Object.keys(criteria).length === 0) return []
+  if (parsed.isUnread) criteria.seen = false
+  if (parsed.isRead) criteria.seen = true
+  if (parsed.isFlagged) criteria.flagged = true
+  if (parsed.after) criteria.since = new Date(parsed.after)
+  if (parsed.before) criteria.before = new Date(parsed.before)
   const db = getDb()
-  const folderRows = db.select().from(folders).where(eq(folders.accountId, accountId)).all()
+  const needle = parsed.inFolder?.toLowerCase()
+  const folderRows = db
+    .select()
+    .from(folders)
+    .where(eq(folders.accountId, accountId))
+    .all()
+    .filter((f) => !needle || f.name.toLowerCase().includes(needle))
   const ids = new Set<string>()
 
   await withImap(accountId, async (client) => {
@@ -247,10 +198,14 @@ export async function searchServer(accountId: string, query: string): Promise<Me
   })
 
   if (ids.size === 0) return []
+  // The server can't check everything (attachments, labels, exact dates), so
+  // apply the same filters as the local search to what it found.
+  const filters = filterConditions(parsed)
+  if (!filters) return []
   return db
     .select()
     .from(messages)
-    .where(inArray(messages.id, [...ids]))
+    .where(and(inArray(messages.id, [...ids]), ...filters))
     .all()
     .sort((a, b) => (b.dateUtc ?? 0) - (a.dateUtc ?? 0))
     .map(toMessageSummary)

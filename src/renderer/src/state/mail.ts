@@ -216,6 +216,10 @@ export const useMail = create<MailState>((set, get) => {
   }
 
   async function reloadFolders(): Promise<void> {
+    // Counts refresh after every read/unread/move/delete (here, in a pop-out
+    // window, by a sync or on another device), so this is when the bell catches
+    // up: alerts for mail that's now read or gone clear themselves.
+    void useNotifications.getState().reconcileMail()
     const accountId = get().activeAccountId
     if (!accountId) return
     const [folders, spamCount, importantCount] = await Promise.all([
@@ -293,7 +297,6 @@ export const useMail = create<MailState>((set, get) => {
           set({ syncing: false, status: null })
           lastSyncError = null
           setAccountSync(event.accountId, { status: 'synced', at: Date.now() })
-          void useNotifications.getState().reconcileMail()
           void reloadFolders()
           void reloadFolder()
         } else if (event.type === 'mail:new') {
@@ -304,6 +307,7 @@ export const useMail = create<MailState>((set, get) => {
             body: event.body ?? '',
             accountId: event.accountId,
             messageId: event.messageId,
+            messageIds: event.messageIds,
             threadId: event.threadId
           })
           void reloadFolders()
@@ -312,7 +316,6 @@ export const useMail = create<MailState>((set, get) => {
             if (get().status === 'New mail received') set({ status: null })
           }, 4000)
         } else if (event.type === 'mail:refresh') {
-          void useNotifications.getState().reconcileMail()
           void reloadFolders()
           void reloadFolder()
           void get().loadOutbox()

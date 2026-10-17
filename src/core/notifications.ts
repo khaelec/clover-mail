@@ -5,6 +5,16 @@ import type { StoredNotification } from '@shared/notifications'
 
 const MAX = 50
 
+function parseIds(json: string | null): string[] | undefined {
+  if (!json) return undefined
+  try {
+    const ids = JSON.parse(json)
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** The persisted bell items, newest first. */
 export function listNotifications(): StoredNotification[] {
   return getDb()
@@ -27,7 +37,8 @@ export function listNotifications(): StoredNotification[] {
       appName: row.appName ?? undefined,
       appNotifId: row.appNotifId ?? undefined,
       count: row.count,
-      nav: row.nav ?? undefined
+      nav: row.nav ?? undefined,
+      messageIds: parseIds(row.messageIds)
     }))
 }
 
@@ -52,7 +63,8 @@ export function saveNotifications(items: StoredNotification[]): void {
           appName: n.appName ?? null,
           appNotifId: n.appNotifId ?? null,
           count: n.count ?? 1,
-          nav: n.nav ?? null
+          nav: n.nav ?? null,
+          messageIds: n.messageIds?.length ? JSON.stringify(n.messageIds) : null
         })
         .run()
     }

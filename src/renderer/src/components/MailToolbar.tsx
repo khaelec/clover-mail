@@ -1,7 +1,8 @@
-import type { RefObject, ReactNode } from 'react'
+import { useState, type RefObject, type ReactNode } from 'react'
 import { useMail } from '../state/mail'
 import { useLayout } from '../state/layout'
-import { IconFilter, IconGrid, IconLayout, IconSearch, IconThreads, IconUnread } from './icons'
+import { IconFilter, IconGrid, IconLayout, IconSearch, IconSliders, IconThreads, IconUnread } from './icons'
+import { SearchFilters } from './SearchFilters'
 import { SyncButton } from './MailList'
 
 export function MailToolbar({
@@ -23,9 +24,10 @@ export function MailToolbar({
   const layout = useLayout((s) => s.settings)
   const setLayout = useLayout((s) => s.set)
   const saveLayout = useLayout((s) => s.save)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   return (
-    <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
+    <div className="relative flex items-center gap-2 border-b border-line px-3 py-2.5">
       <IconSearch className="h-4 w-4 text-muted" />
       <input
         ref={searchRef}
@@ -35,6 +37,22 @@ export function MailToolbar({
         placeholder="Search (try from:, is:unread, has:attachment)"
         className="w-full bg-transparent text-[13px] text-ink placeholder:text-muted focus:outline-none"
       />
+      <button
+        type="button"
+        title="Search filters"
+        aria-label="Search filters"
+        aria-expanded={filtersOpen}
+        onClick={() => setFiltersOpen((o) => !o)}
+        className={
+          'grid h-7 w-7 shrink-0 place-items-center rounded-md ' +
+          (filtersOpen ? 'text-accent' : 'text-muted hover:text-accent')
+        }
+      >
+        <IconSliders className="h-4 w-4" />
+      </button>
+      {filtersOpen && (
+        <SearchFilters query={query} onSearch={setQuery} onClose={() => setFiltersOpen(false)} />
+      )}
       <button
         type="button"
         title={threaded ? 'Group by conversation' : 'Show individual messages'}

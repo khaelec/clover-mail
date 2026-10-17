@@ -243,6 +243,8 @@ export interface MailEvent {
   title?: string
   body?: string
   messageId?: string
+  /** mail:new: all the new messages the alert covers (messageId is the newest). */
+  messageIds?: string[]
   threadId?: string
 }
 

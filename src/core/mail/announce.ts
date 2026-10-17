@@ -43,6 +43,7 @@ export function announceNewInboxMessages(
     type: 'mail:new',
     accountId,
     messageId: newest.id,
+    messageIds: candidates.slice(0, 50).map((row) => row.id),
     threadId: newest.threadId ?? undefined,
     title: newest.fromName || newest.fromEmail || 'New mail',
     body: candidates.length > 1 ? `and ${candidates.length - 1} more` : newest.subject ?? ''

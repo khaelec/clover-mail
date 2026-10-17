@@ -171,7 +171,8 @@ export const notifications = sqliteTable('notifications', {
   appName: text('app_name'),
   appNotifId: text('app_notif_id'),
   count: integer('count').notNull().default(1),
-  nav: text('nav')
+  nav: text('nav'),
+  messageIds: text('message_ids')
 })
 
 export const spamSenders = sqliteTable(
