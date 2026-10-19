@@ -134,6 +134,14 @@ export const IconRestore = (p: IconProps): ReactNode => (
   </Base>
 )
 
+export const IconImage = (p: IconProps): ReactNode => (
+  <Base {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2.5" />
+    <circle cx="9" cy="10" r="1.8" />
+    <path d="m21 16-5-5-9 9" />
+  </Base>
+)
+
 export const IconPopOut = (p: IconProps): ReactNode => (
   <Base {...p}>
     <path d="M14 4h6v6" />

@@ -105,8 +105,8 @@ interface InlineAttachment {
   contentType: string
 }
 
-/** Turn data: images embedded in the HTML (e.g. a picture signature) into inline CID parts. */
-function extractInlineImages(html: string | undefined): {
+/** Turn data: images embedded in the HTML (pasted pictures, a picture signature) into inline CID parts. */
+export function extractInlineImages(html: string | undefined): {
   html: string | undefined
   inline: InlineAttachment[]
 } {

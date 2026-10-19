@@ -2,6 +2,7 @@ import { Notification, type BrowserWindow } from 'electron'
 import { IpcChannels } from '@shared/channels'
 import { getSetting } from '@core/settings'
 import type { MailEvent } from '@shared/mail'
+import { SETTINGS_KEYS, type NotificationSound } from '@shared/theme'
 
 export type Emit = (event: MailEvent) => void
 
@@ -22,15 +23,28 @@ export function revealWindow(win: BrowserWindow | null): void {
 /** Forwards mail events to the renderer and shows a native notification for new mail. */
 export function createMailEmit(getWindow: () => BrowserWindow | null): Emit {
   return (event) => {
-    getWindow()?.webContents.send(IpcChannels.mail.events, event)
-    if (event.type === 'mail:new') {
+    if (event.type !== 'mail:new') {
+      getWindow()?.webContents.send(IpcChannels.mail.events, event)
+      return
+    }
+    // Do Not Disturb, or an account set to "no alerts": the bell still gets it,
+    // but no popup and no sound.
+    const muted = getSetting(SETTINGS_KEYS.notificationMutedAccounts)
+    const quiet =
+      getSetting('notifications.dnd') === true ||
+      (Array.isArray(muted) && muted.includes(event.accountId))
+    const sound = (getSetting(SETTINGS_KEYS.notificationSound) as NotificationSound | undefined) ?? 'chime'
+    getWindow()?.webContents.send(IpcChannels.mail.events, { ...event, chime: !quiet && sound === 'chime' })
+    if (quiet) return
+    {
       try {
-        // Do Not Disturb: still delivered to the bell above, no OS popup.
-        if (getSetting('notifications.dnd') === true) return
         if (!Notification.isSupported()) return
         const notification = new Notification({
           title: event.title ? `New mail from ${event.title}` : 'New mail',
-          body: event.body ?? ''
+          body: event.body ?? '',
+          // Windows plays its own sound unless silent; the chime is played by
+          // the app window instead.
+          silent: sound !== 'system'
         })
         const target = event.messageId
           ? { accountId: event.accountId, messageId: event.messageId, threadId: event.threadId }

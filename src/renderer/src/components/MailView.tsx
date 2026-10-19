@@ -261,8 +261,14 @@ function draftCompose(detail: MessageDetail): ComposeState {
     bcc: detail.bcc.join(', '),
     subject: detail.subject ?? '',
     body: detail.textPlain ?? '',
-    // Keep the draft's formatting when it has any (sanitized in Compose).
-    html: detail.htmlRaw ?? undefined,
+    // Keep the draft's formatting when it has any (sanitized in Compose), with
+    // its pictures (cid: parts) put back inline so they show and save again.
+    html: detail.htmlRaw
+      ? detail.inlineImages.reduce(
+          (html, image) => html.split(`cid:${image.contentId}`).join(image.dataUrl),
+          detail.htmlRaw
+        )
+      : undefined,
     draftUid: detail.uid ?? undefined
   }
 }

@@ -6,7 +6,7 @@ import { SETTINGS_KEYS } from '@shared/theme'
 import { useMail } from '../state/mail'
 import { useComposeSession } from '../state/compose'
 import { useToasts } from '../state/toasts'
-import { IconCheck, IconClose, IconHighlight, IconMic, IconPaperclip, IconPopOut, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
+import { IconCheck, IconClose, IconHighlight, IconImage, IconMic, IconPaperclip, IconPopOut, IconRefresh, IconSend, IconSignature, IconTrash } from './icons'
 import { LinkDialog } from './LinkDialog'
 import { linkifyElement } from '../lib/linkify'
 import { splitAddresses } from '@shared/addresses'
@@ -566,6 +566,66 @@ export function Compose({
     closeRef.current()
   }
 
+  // Pictures go into the message itself (inline); sending and drafts turn them
+  // into proper inline parts. Very large photos are scaled down to a sensible
+  // email size first.
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const MAX_IMAGE_BYTES = 15 * 1024 * 1024
+  async function imageDataUrl(file: File): Promise<string> {
+    const original = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(file)
+    })
+    if (file.type === 'image/gif' || file.type === 'image/svg+xml') return original
+    const img = new Image()
+    img.src = original
+    await img.decode().catch(() => undefined)
+    const MAX_WIDTH = 1600
+    if (!img.naturalWidth || img.naturalWidth <= MAX_WIDTH) return original
+    const canvas = document.createElement('canvas')
+    canvas.width = MAX_WIDTH
+    canvas.height = Math.round((img.naturalHeight * MAX_WIDTH) / img.naturalWidth)
+    canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height)
+    return file.type === 'image/png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.85)
+  }
+  async function insertImages(files: File[], at?: { x: number; y: number }): Promise<void> {
+    const editor = editorRef.current
+    if (!editor || files.length === 0) return
+    // Where the picture goes: the drop point, else the caret, else the end.
+    let range: Range | null = at ? document.caretRangeFromPoint(at.x, at.y) : null
+    const sel = window.getSelection()
+    if (!range && sel && sel.rangeCount > 0 && editor.contains(sel.getRangeAt(0).startContainer)) {
+      range = sel.getRangeAt(0).cloneRange()
+    }
+    if (!range || !editor.contains(range.startContainer)) {
+      range = document.createRange()
+      range.selectNodeContents(editor)
+      // Above the signature/quote when there is one, like typed text.
+      const marker = editor.querySelector(`[${SIGNATURE_ATTR}], [${QUOTE_ATTR}]`)
+      if (marker) range.setStartBefore(marker)
+      range.collapse(!marker ? false : true)
+    }
+    for (const file of files) {
+      if (file.size > MAX_IMAGE_BYTES) {
+        setError(`${file.name} is too large to put in the message; attach it instead.`)
+        continue
+      }
+      const url = await imageDataUrl(file).catch(() => null)
+      if (!url) continue
+      editor.focus()
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+      const alt = escapeHtml(file.name).replace(/"/g, '&quot;')
+      document.execCommand('insertHTML', false, `<img src="${url}" alt="${alt}" style="max-width:100%">`)
+      const after = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null
+      if (after) range = after.cloneRange()
+    }
+    dirtyRef.current = true
+  }
+  const isImage = (f: File): boolean => f.type.startsWith('image/')
+
   function addFiles(files: FileList | File[]): void {
     const list = Array.from(files)
     if (list.length === 0) return
@@ -752,7 +812,14 @@ export function Compose({
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault()
-        addFiles(e.dataTransfer.files)
+        const files = Array.from(e.dataTransfer.files)
+        // Pictures dropped on the message text go in where they're dropped;
+        // anything else (or dropped elsewhere) is attached.
+        const onBody = editorRef.current?.contains(e.target as Node) ?? false
+        const pictures = onBody ? files.filter(isImage) : []
+        if (pictures.length) void insertImages(pictures, { x: e.clientX, y: e.clientY })
+        const rest = files.filter((f) => !pictures.includes(f))
+        if (rest.length) addFiles(rest)
       }}
     >
       <div
@@ -984,10 +1051,14 @@ export function Compose({
               dirtyRef.current = true
             }}
             onPaste={(e) => {
-              const files = e.clipboardData.files
-              if (files && files.length > 0) {
+              const files = Array.from(e.clipboardData.files ?? [])
+              if (files.length > 0) {
                 e.preventDefault()
-                addFiles(files)
+                // A pasted screenshot or picture goes into the message; other
+                // files are attached.
+                void insertImages(files.filter(isImage))
+                const others = files.filter((f) => !isImage(f))
+                if (others.length) addFiles(others)
               }
             }}
             onBlur={() => {
@@ -1060,6 +1131,27 @@ export function Compose({
               e.target.value = ''
             }}
           />
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              void insertImages(Array.from(e.target.files ?? []))
+              e.target.value = ''
+            }}
+          />
+          <button
+            type="button"
+            title="Put a picture in the message"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => imageInputRef.current?.click()}
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-muted hover:text-ink"
+          >
+            <IconImage className="h-4 w-4" />
+            Picture
+          </button>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}

@@ -245,6 +245,8 @@ export interface MailEvent {
   messageId?: string
   /** mail:new: all the new messages the alert covers (messageId is the newest). */
   messageIds?: string[]
+  /** mail:new: play Clover's chime (set by the main process from the settings). */
+  chime?: boolean
   threadId?: string
 }
 

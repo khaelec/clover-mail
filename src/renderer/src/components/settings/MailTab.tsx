@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { SETTINGS_KEYS } from '@shared/theme'
 import { useSettings } from './context'
 import { Card, Field } from './ui'
+import { NotificationsCard } from './NotificationsCard'
 import { IconSignature } from '../icons'
 import { linkifyElement } from '../../lib/linkify'
 
@@ -47,6 +48,7 @@ export function MailTab(): ReactNode {
 
   return (
     <>
+      <NotificationsCard accounts={accounts} />
       <Card title="Dictation">
         <button
           type="button"

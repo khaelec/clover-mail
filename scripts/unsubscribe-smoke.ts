@@ -14,7 +14,8 @@ import { closeDatabase, getDb, initDatabase } from '../src/core/db'
 import { accounts, folders } from '../src/core/db/schema'
 import { storeParsedMessage } from '../src/core/mail/storeMessage'
 import { getMessageDetail } from '../src/core/mail/messages'
-import { unsubscribe } from '../src/core/mail/unsubscribe'
+import { listUnsubscribeFromHeaders, unsubscribe } from '../src/core/mail/unsubscribe'
+import { buildDraftMessage } from '../src/core/mail/drafts'
 
 setPlatform({
   showSaveDialog: async () => ({ canceled: true }),
@@ -81,9 +82,34 @@ async function main(): Promise<void> {
   const plain = await store(3, '')
   assert((await getMessageDetail(plain))?.unsubscribe === null, 'plain message shows unsubscribe')
 
+  // Older mail: the header-only fetch (folded, any case) finds the same link.
+  const fromHeaders = JSON.parse(
+    listUnsubscribeFromHeaders(
+      'list-unsubscribe: <mailto:x@shop.test>,\r\n <https://shop.test/u/9>\r\nList-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n\r\n'
+    )
+  )
+  assert(fromHeaders.http === 'https://shop.test/u/9' && fromHeaders.oneClick === true, `headers parse ${JSON.stringify(fromHeaders)}`)
+  assert(listUnsubscribeFromHeaders('\r\n') === '', 'no header should store "checked, none"')
+
+  // Drafts: a pasted picture and a non-ASCII subject make a proper MIME message.
+  const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=='
+  const raw = await buildDraftMessage({
+    to: ['ann@x.test'],
+    bcc: ['boss@x.test'],
+    subject: 'Café plans ☕',
+    text: 'see pic',
+    html: `<p>see pic</p><img src="data:image/png;base64,${pixel.repeat(200)}">`
+  })
+  const draft = await simpleParser(raw, { keepCidLinks: true })
+  assert(draft.subject === 'Café plans ☕', `draft subject ${draft.subject}`)
+  assert(draft.attachments.length === 1 && draft.attachments[0].cid, 'picture not an inline part')
+  assert(typeof draft.html === 'string' && draft.html.includes(`cid:${draft.attachments[0].cid}`), 'html does not point at the picture')
+  assert(raw.toString('utf8').split('\r\n').every((l) => l.length <= 998), 'a line is over 998 characters')
+  assert(/^Bcc: boss@x.test/m.test(raw.toString('utf8')), 'draft lost its Bcc')
+
   server.close()
   closeDatabase()
-  console.log('OK unsubscribe: one-click POST, web page fallback, plain mail has none')
+  console.log('OK unsubscribe + drafts: one-click POST, web page fallback, header backfill, draft MIME with inline picture')
 }
 
 main().catch((err) => {

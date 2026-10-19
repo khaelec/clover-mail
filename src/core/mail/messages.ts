@@ -18,7 +18,7 @@ import { attachmentAbsolutePath, readAttachmentDataUrl, saveAttachment } from '.
 import { assessPhishing, classifySecurity, trustedSenders } from './security'
 import { inferSpecialUse } from './specialUse'
 import { formatAddress } from '@shared/addresses'
-import { listUnsubscribeJson, parseListUnsubscribe } from './unsubscribe'
+import { listUnsubscribeFromHeaders, listUnsubscribeJson, parseListUnsubscribe } from './unsubscribe'
 import { toAttachmentSummary, toMessageSummary } from './mappers'
 import type { InlineImage, MessageDetail, MessagePhishing, MessageSecurity, MovedMessage } from '@shared/mail'
 
@@ -170,6 +170,13 @@ async function loadDetail(messageId: string, fetchBody: boolean): Promise<Messag
     body = db.select().from(messageBodies).where(eq(messageBodies.messageId, messageId)).get()
   }
 
+  // Bodies cached before 0.4.91 never recorded List-Unsubscribe: fetch just
+  // that header once, so older newsletters get the Unsubscribe bar too.
+  if (fetchBody && body && body.listUnsubscribe === null && row.uid >= 0 && protocolFor(row.accountId) === 'imap') {
+    const found = await backfillListUnsubscribe(row)
+    if (found !== null) body = { ...body, listUnsubscribe: found }
+  }
+
   let attachmentRows = db
     .select()
     .from(attachments)
@@ -264,6 +271,33 @@ export async function saveMessageSource(messageId: string): Promise<{ saved: boo
   if (result.canceled || !result.filePath) return { saved: false }
   writeFileSync(result.filePath, source)
   return { saved: true, path: result.filePath }
+}
+
+/** Fetch a message's List-Unsubscribe headers and store them. Null when it couldn't. */
+async function backfillListUnsubscribe(row: typeof messages.$inferSelect): Promise<string | null> {
+  const db = getDb()
+  const folderRow = db.select().from(folders).where(eq(folders.id, row.folderId)).get()
+  if (!folderRow) return null
+  try {
+    let raw: string | null = null
+    const fetchIt = withImap(row.accountId, async (client) => {
+      await client.mailboxOpen(folderRow.remotePath, { readOnly: true })
+      const msg = await client.fetchOne(
+        String(row.uid),
+        { headers: ['list-unsubscribe', 'list-unsubscribe-post'] },
+        { uid: true }
+      )
+      raw = msg && msg.headers ? msg.headers.toString('utf8') : null
+    })
+    // Never hold up opening the message for long; try again next time.
+    await Promise.race([fetchIt, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))])
+    if (raw === null) return null
+    const found = listUnsubscribeFromHeaders(raw)
+    db.update(messageBodies).set({ listUnsubscribe: found }).where(eq(messageBodies.messageId, row.id)).run()
+    return found
+  } catch {
+    return null
+  }
 }
 
 /** All cached messages in the conversation that contains `messageId`, oldest first. */

@@ -14,22 +14,35 @@ function headerLine(parsed: ParsedMail, key: string): string | null {
 
 /**
  * The List-Unsubscribe header (RFC 2369) as stored JSON, with whether the
- * sender supports one-click unsubscribe (RFC 8058). Null when there's none.
+ * sender supports one-click unsubscribe (RFC 8058). '' means the message was
+ * checked and has none (null in the database means not checked yet).
  */
-export function listUnsubscribeJson(parsed: ParsedMail): string | null {
-  const value = headerLine(parsed, 'list-unsubscribe')
-  if (!value) return null
+function toJson(value: string | null, post: string | null): string {
+  if (!value) return ''
   const targets = [...value.matchAll(/<([^>]+)>/g)].map((m) => m[1].trim())
   const http = targets.find((t) => /^https:\/\//i.test(t)) ?? targets.find((t) => /^http:\/\//i.test(t))
   const mailto = targets.find((t) => /^mailto:/i.test(t))
-  if (!http && !mailto) return null
-  const post = headerLine(parsed, 'list-unsubscribe-post') ?? ''
+  if (!http && !mailto) return ''
   const info: ListUnsubscribe = {
     ...(http ? { http } : {}),
     ...(mailto ? { mailto } : {}),
-    oneClick: Boolean(http) && /List-Unsubscribe=One-Click/i.test(post)
+    oneClick: Boolean(http) && /List-Unsubscribe=One-Click/i.test(post ?? '')
   }
   return JSON.stringify(info)
+}
+
+export function listUnsubscribeJson(parsed: ParsedMail): string {
+  return toJson(headerLine(parsed, 'list-unsubscribe'), headerLine(parsed, 'list-unsubscribe-post'))
+}
+
+/** Same, from a raw header block (a headers-only fetch for mail cached earlier). */
+export function listUnsubscribeFromHeaders(raw: string): string {
+  const unfolded = raw.replace(/\r?\n[ \t]+/g, ' ')
+  const get = (key: string): string | null => {
+    const m = new RegExp(`^${key}:[ \\t]*(.*)$`, 'im').exec(unfolded)
+    return m ? m[1].trim() : null
+  }
+  return toJson(get('List-Unsubscribe'), get('List-Unsubscribe-Post'))
 }
 
 export function parseListUnsubscribe(json: string | null | undefined): ListUnsubscribe | null {

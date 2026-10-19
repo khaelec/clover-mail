@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { IMPORTANT_FOLDER_ID, JUNK_FOLDER_ID, OUTBOX_FOLDER_ID, UNIFIED_FOLDER_ID } from '@shared/mail'
 import { SETTINGS_KEYS } from '@shared/theme'
 import { useNotifications } from './notifications'
+import { playChime } from '../lib/chime'
 import { useToasts } from './toasts'
 import { benchInstallStore } from '../bench'
 import type {
@@ -301,6 +302,7 @@ export const useMail = create<MailState>((set, get) => {
           void reloadFolder()
         } else if (event.type === 'mail:new') {
           set({ status: 'New mail received' })
+          if (event.chime) playChime()
           useNotifications.getState().add({
             kind: 'mail',
             title: event.title ? `New mail from ${event.title}` : 'New mail',

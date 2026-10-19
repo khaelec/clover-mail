@@ -22,5 +22,11 @@ export const SETTINGS_KEYS = {
   trustedSenders: 'privacy.trustedSenders',
   threadedView: 'mail.threaded',
   calendarReminderMinutes: 'calendar.reminderMinutes',
-  dictationEnabled: 'compose.dictation'
+  dictationEnabled: 'compose.dictation',
+  /** 'chime' (Clover's own), 'system' (the Windows notification sound) or 'off'. */
+  notificationSound: 'notifications.sound',
+  /** Account ids whose new mail shows no desktop alert (still in the bell). */
+  notificationMutedAccounts: 'notifications.mutedAccounts'
 } as const
+
+export type NotificationSound = 'chime' | 'system' | 'off'
