@@ -1,24 +1,21 @@
 # Clover Mail — planned features
 
-Remaining work toward an Outlook-level mail client. Last updated with 0.4.92
-(2026-10-17). Each section is in priority order. When an item ships, move it to
+Remaining work toward an Outlook-level mail client. Last updated with 0.4.95
+(2026-10-19). Each section is in priority order. When an item ships, move it to
 the CHANGELOG and delete it here.
 
 ## Next up
 
-1. **Keyboard shortcuts in pop-out windows.** Check that the pop-out message and
-   compose windows handle the usual keys (Ctrl+R reply, Ctrl+Enter send,
-   Delete, Ctrl+P print, Escape close), and wire up any that don't.
-2. **Find why Gmail drops connections.** 0.4.89 logs the server's reason
+1. **Find why Gmail drops connections.** 0.4.89 logs the server's reason
    (`[imap] … server ended the session (…)` in
    `%APPDATA%\clover-mail\logs\main.log`). Read those lines after the next
    "Connection not available" sync error, then fix the cause instead of only
    recovering from it.
-3. **Images in compose.** Paste or drag an image into the message body,
+2. **Images in compose.** Paste or drag an image into the message body,
    inline (cid:). Today you can only attach files.
-4. **Notification sound** (optional, with a setting) and a per-account
+3. **Notification sound** (optional, with a setting) and a per-account
    "notify me" switch.
-5. **Unsubscribe on older mail.** The link only appears for messages first
+4. **Unsubscribe on older mail.** The link only appears for messages first
    opened on 0.4.91 or later. Fill it in for already-cached messages, either
    one batch at a time or the next time each one is opened.
 

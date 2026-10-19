@@ -742,6 +742,13 @@ export function Compose({
           ? 'flex h-full w-full bg-surface'
           : 'absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm'
       }
+      onKeyDown={(e) => {
+        // Ctrl+Enter sends (Outlook, Gmail), from any field of the composer.
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !pending && !busy) {
+          e.preventDefault()
+          void submit()
+        }
+      }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault()

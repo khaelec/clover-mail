@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useMail } from '../state/mail'
 import { Reader } from './Reader'
 import { Toaster } from './Toaster'
+import { resolveShortcut } from '../lib/shortcuts'
 
 type Action = 'reply' | 'replyAll' | 'forward'
 
@@ -57,6 +58,31 @@ export function MessageWindow({ messageId }: { messageId: string }): ReactNode {
       action
     })
   }
+
+  // The main window's reading shortcuts: r / Shift+R / f, e (archive),
+  // # (delete), s (star), u (unread), Esc (close).
+  const keyRef = useRef<(e: KeyboardEvent) => void>(() => undefined)
+  keyRef.current = (e: KeyboardEvent): void => {
+    const target = e.target as HTMLElement | null
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+    const id = resolveShortcut(e)
+    const store = useMail.getState()
+    const d = store.detail
+    if (id === 'escape') window.close()
+    if (!d) return
+    if (id === 'reply' || id === 'replyAll' || id === 'forward') act(id)
+    else if (id === 'archive') void store.bulkIds([d.id], 'archive')
+    else if (id === 'delete') void store.bulkIds([d.id], 'trash')
+    else if (id === 'star') void store.toggleFlag(d)
+    else if (id === 'unread' && d.isRead) void store.toggleRead(d)
+    else return
+    e.preventDefault()
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => keyRef.current(e)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   if (loaded && !detail) {
     return (

@@ -485,8 +485,13 @@ export const useMail = create<MailState>((set, get) => {
         messages: patchMessage(get().messages, message.id, patch),
         searchResults: get().searchResults
           ? patchMessage(get().searchResults as MessageSummary[], message.id, patch)
-          : null
+          : null,
+        // The open message too, or its flag button never changes and a second
+        // click flags it again instead of unflagging.
+        detail:
+          get().detail?.id === message.id ? { ...(get().detail as MessageDetail), ...patch } : get().detail
       })
+      void reloadFolder()
     },
 
     toggleImportant: async (message) => {

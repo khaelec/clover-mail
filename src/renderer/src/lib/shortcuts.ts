@@ -15,6 +15,7 @@ export type ShortcutId =
   | 'star'
   | 'unread'
   | 'escape'
+  | 'send'
 
 export type ShortcutGroup = 'Navigation' | 'Actions' | 'Compose'
 
@@ -44,7 +45,9 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'delete', display: '#', label: 'Delete to Trash', group: 'Actions', matches: (e) => isKey(e, '#') },
   { id: 'star', display: 's', label: 'Star / unstar', group: 'Actions', matches: (e) => isKey(e, 's') },
   { id: 'unread', display: 'u', label: 'Mark unread', group: 'Actions', matches: (e) => isKey(e, 'u') },
-  { id: 'escape', display: 'Esc', label: 'Close reader or compose', group: 'Actions', matches: (e) => e.key === 'Escape' }
+  { id: 'escape', display: 'Esc', label: 'Close reader or compose', group: 'Actions', matches: (e) => e.key === 'Escape' },
+  // Listed for the cheat sheet; the composer handles it (it's typed in the editor).
+  { id: 'send', display: 'Ctrl + Enter', label: 'Send', group: 'Compose', matches: () => false }
 ]
 
 /** Resolve a key event to a shortcut id, or null if it isn't one. */
