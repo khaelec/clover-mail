@@ -8,7 +8,7 @@ import type { Plugin } from 'vite'
 // HMR, which the production CSP forbids. Only enabled while serving, so the
 // shipped index.html keeps the strict policy.
 const DEV_CSP =
-  "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: clover-media: http: https:; media-src 'self' data: blob: clover-media: http: https:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; worker-src 'self' blob:; frame-src 'self' clover-media: blob: data: https: http:"
+  "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: clover-media: http: https:; media-src 'self' data: blob: clover-media: http: https:; font-src 'self' data: http: https:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; worker-src 'self' blob:; frame-src 'self' clover-media: blob: data: https: http:"
 
 function devCspPlugin(): Plugin {
   return {

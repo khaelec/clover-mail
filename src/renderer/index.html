@@ -4,10 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Production CSP. The dev server relaxes this (unsafe-eval / inline / ws)
-         via the `clover-dev-csp` plugin in electron.vite.config.ts. -->
+         via the `clover-dev-csp` plugin in electron.vite.config.ts.
+         Message bodies render in srcdoc frames, which inherit this policy on
+         top of their own, so img/media/font must allow http(s) here or web
+         images in mail can never load. Whether they load is decided by the
+         frame's own policy (Reader.tsx CSP_BLOCKED / CSP_ALLOWED). -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: clover-media:; media-src 'self' data: blob: clover-media:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; worker-src 'self' blob:; frame-src 'self' clover-media: blob: data: https: http:"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: clover-media: http: https:; media-src 'self' data: blob: clover-media: http: https:; font-src 'self' data: http: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; worker-src 'self' blob:; frame-src 'self' clover-media: blob: data: https: http:"
     />
     <title>Clover Mail</title>
   </head>

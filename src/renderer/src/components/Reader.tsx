@@ -70,7 +70,33 @@ function sanitizeWithInlineImages(
   for (const image of inlineImages) {
     out = out.split(`cid:${image.contentId}`).join(image.dataUrl)
   }
-  return out
+  return absolutizeUrls(out)
+}
+
+/**
+ * Protocol-relative addresses ("//cdn.example.com/a.png") would resolve against
+ * the app's own file:// page and never load; they also slipped past the remote
+ * image check, so no "Load images" bar appeared. Make them https.
+ */
+function absolutizeUrls(html: string): string {
+  if (!html.includes('//')) return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const fix = (value: string): string => value.replace(/(^|[\s,(])\/\/(?=[\w.-]+\.[a-z]{2,})/gi, '$1https://')
+  doc.querySelectorAll('[src], [srcset], [background], [poster], [href]').forEach((el) => {
+    for (const attr of ['src', 'srcset', 'background', 'poster', 'href']) {
+      const value = el.getAttribute(attr)
+      if (value && value.includes('//')) el.setAttribute(attr, fix(value.trim()))
+    }
+  })
+  doc.querySelectorAll('[style]').forEach((el) => {
+    const style = el.getAttribute('style') ?? ''
+    if (style.includes('//')) el.setAttribute('style', style.replace(/url\(\s*(['"]?)\/\//gi, 'url($1https://'))
+  })
+  doc.querySelectorAll('style').forEach((el) => {
+    const css = el.textContent ?? ''
+    if (css.includes('//')) el.textContent = css.replace(/url\(\s*(['"]?)\/\//gi, 'url($1https://')
+  })
+  return doc.body.innerHTML
 }
 
 function securityLabel(kind: string): string {
