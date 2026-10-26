@@ -17,6 +17,8 @@ import { registerUpdateIpc } from './update'
 import { registerBackupIpc } from './backup'
 import { registerDictationIpc } from './dictation'
 import { setTrayUnread } from '@main/tray'
+import { applyZoomToAll } from '@main/zoom'
+import { SETTINGS_KEYS } from '@shared/theme'
 import { readRecentLogs } from '@core/log'
 import { listNotifications, saveNotifications } from '@core/notifications'
 import type { StoredNotification } from '@shared/notifications'
@@ -42,6 +44,7 @@ export function registerIpc(
   ipcMain.handle(IpcChannels.settingsGet, (_event, key: string) => getSetting(key))
   ipcMain.handle(IpcChannels.settingsSet, (_event, key: string, value: unknown) => {
     setSetting(key, value)
+    if (key === SETTINGS_KEYS.uiZoom) applyZoomToAll()
   })
   ipcMain.handle(IpcChannels.settingsDelete, (_event, key: string) => {
     deleteSetting(key)

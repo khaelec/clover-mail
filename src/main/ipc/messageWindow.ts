@@ -6,6 +6,7 @@ import { IpcChannels } from '@shared/channels'
 import type { ComposeWindowPayload } from '@shared/ipc'
 import { revealWindow } from '@main/mail/events'
 import { attachEditMenu } from '@main/editMenu'
+import { attachZoom } from '@main/zoom'
 
 type MessageAction = 'reply' | 'replyAll' | 'forward'
 
@@ -49,6 +50,7 @@ function createPopout(
   win.on('ready-to-show', () => win.show())
   // Spelling suggestions, cut/copy/paste — same as the main window.
   attachEditMenu(win)
+  attachZoom(win)
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     void win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#${hash}`)
   } else {

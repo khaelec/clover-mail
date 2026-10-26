@@ -1,13 +1,66 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { SETTINGS_KEYS, ZOOM_LEVELS, clampZoom } from '@shared/theme'
 import { useSettings } from './context'
 import { ACCENT_COLORS, Card, MODE_META, THEME_ACCENTS, THEME_MODES } from './ui'
 import { IconCheck } from '../icons'
+
+function ZoomCard(): ReactNode {
+  const [zoom, setZoom] = useState(1)
+  useEffect(() => {
+    // Ctrl+= / Ctrl+- change it outside this card; a zoom change resizes the
+    // viewport, so re-read on resize (and focus, for other windows).
+    const load = (): void =>
+      void window.clover.settings
+        .get(SETTINGS_KEYS.uiZoom)
+        .then((value) => setZoom(clampZoom(Number(value ?? 1))))
+    load()
+    window.addEventListener('focus', load)
+    window.addEventListener('resize', load)
+    return () => {
+      window.removeEventListener('focus', load)
+      window.removeEventListener('resize', load)
+    }
+  }, [])
+  function pick(value: number): void {
+    setZoom(value)
+    void window.clover.settings.set(SETTINGS_KEYS.uiZoom, value)
+  }
+  return (
+    <Card title="Text size">
+      <div className="flex flex-wrap gap-2">
+        {ZOOM_LEVELS.map((level) => {
+          const active = Math.abs(zoom - level) < 0.001
+          return (
+            <button
+              key={level}
+              type="button"
+              onClick={() => pick(level)}
+              className={
+                'rounded-lg border px-3 py-1.5 text-[12px] tabular-nums transition-all ' +
+                (active
+                  ? 'border-accent bg-accent/8 text-accent'
+                  : 'border-line text-muted hover:border-accent/40 hover:text-ink')
+              }
+            >
+              {Math.round(level * 100)}%
+            </button>
+          )
+        })}
+      </div>
+      <p className="mt-3 text-[12px] text-muted">
+        Scales the whole app, including pop-out windows. Shortcuts: Ctrl+= bigger, Ctrl+−
+        smaller, Ctrl+0 reset, or Ctrl+scroll.
+      </p>
+    </Card>
+  )
+}
 
 export function AppearanceTab(): ReactNode {
   const { mode, setMode, accent, setAccent, customAccent, setCustomAccent, importTheme } =
     useSettings()
   return (
     <>
+      <ZoomCard />
       <Card title="Theme">
         <div className="grid grid-cols-3 gap-2">
           {THEME_MODES.map((m) => {

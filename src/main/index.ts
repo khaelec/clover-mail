@@ -20,6 +20,7 @@ import { setStorageRoot } from '@core/mail/storage'
 import { initMediaAllow, isMediaPathAllowed } from '@main/mediaAllow'
 import { initLogging, logError } from '@core/log'
 import { attachEditMenu } from '@main/editMenu'
+import { attachZoom } from '@main/zoom'
 import { installResilientDns } from '@core/net/dns'
 import { setAppsRoot } from '@main/apps'
 import { restartAllIdle, stopAllIdle } from '@core/mail/idle'
@@ -215,6 +216,7 @@ function createWindow(): void {
   })
 
   attachEditMenu(mainWindow)
+  attachZoom(mainWindow)
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])

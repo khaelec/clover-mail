@@ -26,7 +26,16 @@ export const SETTINGS_KEYS = {
   /** 'chime' (Clover's own), 'system' (the Windows notification sound) or 'off'. */
   notificationSound: 'notifications.sound',
   /** Account ids whose new mail shows no desktop alert (still in the bell). */
-  notificationMutedAccounts: 'notifications.mutedAccounts'
+  notificationMutedAccounts: 'notifications.mutedAccounts',
+  /** App-wide zoom factor (1 = 100%); see ZOOM_LEVELS. */
+  uiZoom: 'ui.zoom'
 } as const
+
+export const ZOOM_LEVELS = [0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6] as const
+
+export function clampZoom(value: number): number {
+  if (!Number.isFinite(value)) return 1
+  return Math.min(ZOOM_LEVELS[ZOOM_LEVELS.length - 1], Math.max(ZOOM_LEVELS[0], value))
+}
 
 export type NotificationSound = 'chime' | 'system' | 'off'
