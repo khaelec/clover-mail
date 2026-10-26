@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ANSI = /\u001b\[[0-9;?]*[A-Za-z]/g
@@ -15,6 +15,13 @@ function candidatePaths(): string[] {
     paths.push(join(LOCALAPPDATA, 'opencode', 'bin', 'opencode.exe'))
   }
   return paths
+}
+
+let defaultWorkspace = ''
+
+/** Where opencode runs when no workspace is set: <userData>/opencode, made on first use. */
+export function setOpencodeDefaultWorkspace(dir: string): void {
+  defaultWorkspace = dir
 }
 
 let cachedExe: string | null = null
@@ -166,16 +173,21 @@ export function streamOpencode(
     if (options.workspace && !existsSync(options.workspace)) {
       reject(
         new Error(
-          `The opencode workspace folder "${options.workspace}" doesn't exist. Create it, or change it in Settings → AI.`
+          `The opencode workspace folder "${options.workspace}" doesn't exist. Create it, or clear it in Settings → AI to use Clover Mail's own folder.`
         )
       )
       return
+    }
+    let workspace = options.workspace
+    if (!workspace && defaultWorkspace) {
+      mkdirSync(defaultWorkspace, { recursive: true })
+      workspace = defaultWorkspace
     }
     const args = ['run']
     if (options.model && options.model !== 'default') args.push('-m', options.model)
     args.push(options.prompt)
 
-    const child = spawnOpencode(args, options.workspace, options.exePath)
+    const child = spawnOpencode(args, workspace, options.exePath)
     const onAbort = (): void => {
       child.kill()
     }

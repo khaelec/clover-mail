@@ -21,6 +21,7 @@ import { initMediaAllow, isMediaPathAllowed } from '@main/mediaAllow'
 import { initLogging, logError } from '@core/log'
 import { attachEditMenu } from '@main/editMenu'
 import { attachZoom } from '@main/zoom'
+import { setOpencodeDefaultWorkspace } from '@main/ai/opencode'
 import { installResilientDns } from '@core/net/dns'
 import { setAppsRoot } from '@main/apps'
 import { restartAllIdle, stopAllIdle } from '@core/mail/idle'
@@ -284,6 +285,7 @@ app.whenReady().then(async () => {
   seedDatabaseIfFirstRun(app.getPath('userData'))
   initDatabase(app.getPath('userData'))
   setStorageRoot(app.getPath('userData'))
+  setOpencodeDefaultWorkspace(join(app.getPath('userData'), 'opencode'))
   initMediaAllow(app.getPath('userData'))
   initLogging(app.getPath('userData'))
 

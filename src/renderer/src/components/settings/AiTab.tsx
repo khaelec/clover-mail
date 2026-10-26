@@ -63,11 +63,11 @@ export function AiTab(): ReactNode {
               <span className={'h-1.5 w-1.5 rounded-full ' + (aiStatus?.opencodeAvailable ? 'bg-emerald-500' : 'bg-muted/50')} />
             </div>
             <Field
-              label="Workspace folder"
+              label="Workspace folder (optional)"
               value={ai?.opencodeWorkspace ?? ''}
               onChange={(v) => void patchAi({ opencodeWorkspace: v })}
-              placeholder="C:\\path\\to\\project"
-              hint="Folder where the opencode CLI runs when you use the opencode provider."
+              placeholder="Clover Mail's own folder"
+              hint="Folder where the opencode CLI runs. Leave blank to use a folder Clover Mail manages for you."
             />
             <Field
               label="Model"
@@ -124,7 +124,7 @@ export function AiTab(): ReactNode {
               </div>
             )}
             <p className="mt-1 text-[11px] text-muted">
-              Runs the opencode CLI in this folder when you use the opencode provider.
+              Clover Mail runs the opencode CLI in the background — you don't need to open it.
             </p>
           </div>
         </div>
