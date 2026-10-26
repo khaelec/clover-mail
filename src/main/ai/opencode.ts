@@ -17,18 +17,13 @@ function candidatePaths(): string[] {
   return paths
 }
 
-let cachedExe: string | null | undefined = undefined
+let cachedExe: string | null = null
 
+/** Re-checked on every call so installing or updating opencode while the app runs works. */
 function resolveExecutable(): string | null {
-  if (cachedExe !== undefined) return cachedExe
-  for (const candidate of candidatePaths()) {
-    if (existsSync(candidate)) {
-      cachedExe = candidate
-      return candidate
-    }
-  }
-  cachedExe = null
-  return null
+  if (cachedExe && existsSync(cachedExe)) return cachedExe
+  cachedExe = candidatePaths().find((candidate) => existsSync(candidate)) ?? null
+  return cachedExe
 }
 
 function executableFor(exePath?: string): string | null {
@@ -165,6 +160,17 @@ export function streamOpencode(
   signal: AbortSignal
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    // A missing cwd makes spawn fail with "spawn <exe> ENOENT", which reads as if
+    // opencode itself were missing. Say what's actually wrong. (No fallback folder:
+    // opencode can edit files wherever it runs.)
+    if (options.workspace && !existsSync(options.workspace)) {
+      reject(
+        new Error(
+          `The opencode workspace folder "${options.workspace}" doesn't exist. Create it, or change it in Settings → AI.`
+        )
+      )
+      return
+    }
     const args = ['run']
     if (options.model && options.model !== 'default') args.push('-m', options.model)
     args.push(options.prompt)
