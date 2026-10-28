@@ -10,6 +10,7 @@ import { fetchPop3 } from './pop3'
 import { indexMessage } from './search'
 import { reconcileMailbox, type ReconcileStatus } from './reconcile'
 import { announceNewInboxMessages } from './announce'
+import { isNewUid } from './uidRange'
 import { isRecentlyRemoved } from '@core/mail/recentUids'
 import { logError, logLine } from '@core/log'
 import { clearSentPlaceholder } from './storeMessage'
@@ -280,8 +281,15 @@ async function syncOneMailbox(
 
     let count = 0
     const insertedUids: number[] = []
+    // An incremental `uidNext:*` range still returns the mailbox's newest
+    // message even when uidNext is past it (RFC 3501 §2.3.1.1). Re-inserting
+    // that cached message every sync re-announced the same unread mail — a new
+    // Windows toast and chime each time — until it was read. Only accept UIDs
+    // at or past the boundary the fetch actually asked for.
+    const incrementalFrom = reset || folderRow.uidNext === null ? null : folderRow.uidNext
     try {
       for await (const msg of client.fetch(range, FETCH_FIELDS, options)) {
+        if (!isNewUid(msg.uid, incrementalFrom)) continue
         // A UID Clover just deleted (e.g. Empty Trash) may still be listed by
         // the server for a moment; re-adding it would resurrect the message.
         if (isRecentlyRemoved(accountId, folderId, msg.uid)) continue

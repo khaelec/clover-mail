@@ -12,6 +12,33 @@ export type Emit = (event: MailEvent) => void
 const live = new Set<Notification>()
 const MAX_LIVE = 30
 
+// Overlapping syncs (IDLE racing the periodic sync, a folder refresh racing
+// both) can emit mail:new for the same message twice. The bell store already
+// de-duplicates items, but the native toast and chime fired once per event, so
+// the user heard the same mail again. Remember what was announced recently and
+// stay silent for a repeat.
+const ANNOUNCED_TTL_MS = 10 * 60_000
+const MAX_ANNOUNCED = 500
+const announced = new Map<string, number>()
+
+function wasAnnounced(ids: string[], now: number): boolean {
+  if (ids.length === 0) return false
+  return ids.every((id) => now - (announced.get(id) ?? 0) < ANNOUNCED_TTL_MS)
+}
+
+function rememberAnnounced(ids: string[], now: number): void {
+  for (const id of ids) {
+    // Re-insert so the cap drops the oldest entry, not this one.
+    announced.delete(id)
+    announced.set(id, now)
+  }
+  while (announced.size > MAX_ANNOUNCED) {
+    const oldest = announced.keys().next().value
+    if (oldest === undefined) break
+    announced.delete(oldest)
+  }
+}
+
 /** Bring the main window to the front, restoring it from the tray or taskbar. */
 export function revealWindow(win: BrowserWindow | null): void {
   if (!win || win.isDestroyed()) return
@@ -34,8 +61,19 @@ export function createMailEmit(getWindow: () => BrowserWindow | null): Emit {
       getSetting('notifications.dnd') === true ||
       (Array.isArray(muted) && muted.includes(event.accountId))
     const sound = (getSetting(SETTINGS_KEYS.notificationSound) as NotificationSound | undefined) ?? 'chime'
-    getWindow()?.webContents.send(IpcChannels.mail.events, { ...event, chime: !quiet && sound === 'chime' })
-    if (quiet) return
+    const ids = event.messageIds?.length
+      ? event.messageIds
+      : event.messageId
+        ? [event.messageId]
+        : []
+    const now = Date.now()
+    const duplicate = wasAnnounced(ids, now)
+    rememberAnnounced(ids, now)
+    getWindow()?.webContents.send(IpcChannels.mail.events, {
+      ...event,
+      chime: !quiet && !duplicate && sound === 'chime'
+    })
+    if (quiet || duplicate) return
     {
       try {
         if (!Notification.isSupported()) return

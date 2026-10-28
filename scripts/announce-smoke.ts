@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { closeDatabase, getDb, initDatabase } from '../src/core/db'
 import { accounts, folders, messages } from '../src/core/db/schema'
 import { announceNewInboxMessages } from '../src/core/mail/announce'
+import { isNewUid } from '../src/core/mail/uidRange'
 import { markRecentlyRestored } from '../src/core/mail/recentUids'
 import { setThreadMuted } from '../src/core/mail/threadSettings'
 import { useNotifications } from '../src/renderer/src/state/notifications'
@@ -83,6 +84,12 @@ function run(): void {
   store.add({ kind: 'mail', title: 'New mail from A', body: 'x', messageId: 'm1' })
   useNotifications.getState().add({ kind: 'mail', title: 'New mail from A', body: 'x', messageId: 'm1' })
   out.storeDedupe = useNotifications.getState().items.length === 1
+
+  // G) `uidNext:*` returns the newest message even when uidNext is past it, so
+  // an incremental sync must ignore UIDs below the boundary (the repeat-toast
+  // bug); a full/backfill pass (null) accepts everything.
+  out.uidBoundary =
+    !isNewUid(99, 100) && isNewUid(100, 100) && isNewUid(101, 100) && isNewUid(1, null)
 
   closeDatabase()
   console.log(JSON.stringify(out, null, 2))

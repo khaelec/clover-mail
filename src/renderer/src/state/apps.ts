@@ -26,6 +26,13 @@ interface AppsState {
   markAppNotified: (id: string) => void
 }
 
+// A title dropping to no count means the messages were read inside the app
+// (Messenger/WhatsApp remove their "(3)" prefix). Clear the app's bell items
+// too, after a short delay so a title reset during navigation doesn't wipe
+// alerts the user hasn't seen.
+const READ_CLEAR_DELAY_MS = 2000
+const readClearTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
 export const useApps = create<AppsState>((set, get) => ({
   apps: [],
   activeAppId: null,
@@ -63,6 +70,11 @@ export const useApps = create<AppsState>((set, get) => ({
     await window.clover.apps.remove(id)
     await get().load()
     if (get().activeAppId === id) set({ activeAppId: get().apps[0]?.id ?? null })
+    const pendingClear = readClearTimers.get(id)
+    if (pendingClear) {
+      clearTimeout(pendingClear)
+      readClearTimers.delete(id)
+    }
     const appUnread = { ...get().appUnread }
     delete appUnread[id]
     set({ appUnread, appUnreadTotal: Object.values(appUnread).reduce((a, b) => a + b, 0) })
@@ -78,6 +90,24 @@ export const useApps = create<AppsState>((set, get) => ({
 
   setAppUnread: (id, name, count) => {
     const prev = get().appUnread[id] ?? 0
+    const pendingClear = readClearTimers.get(id)
+    if (pendingClear) {
+      clearTimeout(pendingClear)
+      readClearTimers.delete(id)
+    }
+    if (count === 0 && prev > 0) {
+      const fellAt = Date.now()
+      readClearTimers.set(
+        id,
+        setTimeout(() => {
+          readClearTimers.delete(id)
+          if ((get().appUnread[id] ?? 0) !== 0) return
+          // A notification that arrived after the count fell is still unread.
+          if ((get().appNotifiedAt[id] ?? 0) > fellAt) return
+          useNotifications.getState().markAppRead(id)
+        }, READ_CLEAR_DELAY_MS)
+      )
+    }
     const next = { ...get().appUnread, [id]: count }
     // If the app posts real notifications (captured via the preload), those are
     // richer than a title count — use the count only for the badge, and only fall
